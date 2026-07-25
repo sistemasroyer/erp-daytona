@@ -238,8 +238,7 @@
 
         // Intentar cargar cajas activas
         try {
-          const resCaja = await cajaApi.sesionActiva();
-          const apertura = resCaja.data;
+          const apertura = await cajaApi.miAperturaActiva();
           if (apertura) {
             const opt = document.createElement('option');
             opt.value = apertura.id;

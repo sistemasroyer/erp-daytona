@@ -103,12 +103,26 @@ export const ordenesApi = {
 };
 
 export const cajaApi = {
-  cajas: () => api.get('/caja'),
-  sesionActiva: () => api.get('/caja/sesion-activa'),
+  cajas: () => api.get('/caja/cajas'),
+  aperturaActiva: (idCaja) => api.get(`/caja/cajas/${idCaja}/apertura-activa`),
+  aperturas: (idCaja, p) => api.get(`/caja/cajas/${idCaja}/aperturas`, p),
   abrir: (d) => api.post('/caja/abrir', d),
-  cerrar: (id, d) => api.patch(`/caja/${id}/cerrar`, d),
-  movimiento: (d) => api.post('/caja/movimiento', d),
-  movimientos: (idApertura) => api.get(`/caja/${idApertura}/movimientos`),
+  cerrar: (idApertura, d) => api.patch(`/caja/aperturas/${idApertura}/cerrar`, d),
+  resumen: (idApertura) => api.get(`/caja/aperturas/${idApertura}/resumen`),
+  movimiento: (idApertura, d) => api.post(`/caja/aperturas/${idApertura}/movimientos`, d),
+  // No existe un endpoint único "mi sesión activa": se listan las cajas visibles para el
+  // usuario (ya filtradas por punto de venta en el backend) y se busca cuál tiene apertura abierta.
+  async miAperturaActiva() {
+    const resCajas = await this.cajas();
+    const cajas = Array.isArray(resCajas.data) ? resCajas.data : resCajas.data?.data || [];
+    for (const c of cajas) {
+      try {
+        const res = await this.aperturaActiva(c.id);
+        if (res.data) return res.data;
+      } catch (_) { /* sin acceso o sin apertura para esta caja */ }
+    }
+    return null;
+  },
 };
 
 export const reportesApi = {

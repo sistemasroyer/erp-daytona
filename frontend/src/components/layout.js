@@ -4,64 +4,83 @@
  * The sidebar highlights the active item matching the given key.
  */
 
+// `perm` = permiso "modulo:accion" requerido para ver el ítem (null = visible para cualquier
+// usuario autenticado). Debe coincidir con el permiso que protege el endpoint principal de esa
+// pantalla — ver PermisosGuard/@Permisos() en el backend de cada módulo.
 const MENU = [
   {
     header: null,
     items: [
-      { key: 'dashboard', label: 'Dashboard', icon: 'bi-speedometer2', href: '/src/pages/dashboard.html' },
+      { key: 'dashboard', label: 'Dashboard', icon: 'bi-speedometer2', href: '/src/pages/dashboard.html', perm: null },
     ],
   },
   {
     header: 'Ventas',
     items: [
-      { key: 'ventas', label: 'Ventas', icon: 'bi-receipt', href: '/src/pages/ventas/index.html' },
-      { key: 'clientes', label: 'Clientes', icon: 'bi-people', href: '/src/pages/clientes/index.html' },
-      { key: 'caja', label: 'Caja', icon: 'bi-cash-register', href: '/src/pages/caja/index.html' },
+      { key: 'ventas', label: 'Ventas', icon: 'bi-receipt', href: '/src/pages/ventas/index.html', perm: 'ventas:ver' },
+      { key: 'clientes', label: 'Clientes', icon: 'bi-people', href: '/src/pages/clientes/index.html', perm: 'clientes:ver' },
+      { key: 'caja', label: 'Caja', icon: 'bi-cash-register', href: '/src/pages/caja/index.html', perm: 'caja:ver' },
     ],
   },
   {
     header: 'Compras',
     items: [
-      { key: 'compras', label: 'Compras', icon: 'bi-cart', href: '/src/pages/compras/index.html' },
-      { key: 'ordenes', label: 'Ordenes de Compra', icon: 'bi-file-earmark-text', href: '/src/pages/ordenes-compra/index.html' },
-      { key: 'proveedores', label: 'Proveedores', icon: 'bi-truck', href: '/src/pages/proveedores/index.html' },
+      { key: 'compras', label: 'Compras', icon: 'bi-cart', href: '/src/pages/compras/index.html', perm: 'compras:ver' },
+      { key: 'ordenes', label: 'Ordenes de Compra', icon: 'bi-file-earmark-text', href: '/src/pages/ordenes-compra/index.html', perm: 'ordenes_compra:ver' },
+      { key: 'proveedores', label: 'Proveedores', icon: 'bi-truck', href: '/src/pages/proveedores/index.html', perm: 'proveedores:ver' },
     ],
   },
   {
     header: 'Inventario',
     items: [
-      { key: 'productos', label: 'Productos', icon: 'bi-box-seam', href: '/src/pages/productos/index.html' },
-      { key: 'inventario', label: 'Inventario', icon: 'bi-archive', href: '/src/pages/inventario/index.html' },
-      { key: 'kardex', label: 'Kardex', icon: 'bi-journal-text', href: '/src/pages/inventario/kardex.html' },
+      { key: 'productos', label: 'Productos', icon: 'bi-box-seam', href: '/src/pages/productos/index.html', perm: 'productos:ver' },
+      { key: 'inventario', label: 'Inventario', icon: 'bi-archive', href: '/src/pages/inventario/index.html', perm: 'inventario:ver' },
+      { key: 'kardex', label: 'Kardex', icon: 'bi-journal-text', href: '/src/pages/inventario/kardex.html', perm: 'inventario:ver' },
     ],
   },
   {
     header: 'Reportes',
     items: [
-      { key: 'reportes', label: 'Reportes', icon: 'bi-bar-chart', href: '/src/pages/reportes/index.html' },
+      { key: 'reportes', label: 'Reportes', icon: 'bi-bar-chart', href: '/src/pages/reportes/index.html', perm: 'reportes:ver' },
     ],
   },
   {
     header: 'Administracion',
     items: [
-      { key: 'rrhh', label: 'RRHH', icon: 'bi-person-badge', href: '/src/pages/rrhh/index.html' },
-      { key: 'usuarios', label: 'Usuarios', icon: 'bi-person-gear', href: '/src/pages/usuarios/index.html' },
-      { key: 'roles', label: 'Roles', icon: 'bi-shield-check', href: '/src/pages/roles/index.html' },
+      { key: 'rrhh', label: 'RRHH', icon: 'bi-person-badge', href: '/src/pages/rrhh/index.html', perm: 'rrhh:ver' },
+      { key: 'usuarios', label: 'Usuarios', icon: 'bi-person-gear', href: '/src/pages/usuarios/index.html', perm: 'usuarios:ver' },
+      { key: 'roles', label: 'Roles', icon: 'bi-shield-check', href: '/src/pages/roles/index.html', perm: 'roles:ver' },
     ],
   },
   {
     header: 'Configuracion',
     items: [
-      { key: 'config-margenes', label: 'Margenes de Precio', icon: 'bi-percent', href: '/src/pages/configuracion/margenes.html' },
-      { key: 'config-categorias', label: 'Categorias', icon: 'bi-tags', href: '/src/pages/configuracion/categorias.html' },
-      { key: 'config-marcas', label: 'Marcas', icon: 'bi-bookmark', href: '/src/pages/configuracion/marcas.html' },
-      { key: 'config-unidades', label: 'Unidades de Medida', icon: 'bi-rulers', href: '/src/pages/configuracion/unidades-medida.html' },
-      { key: 'config-almacenes', label: 'Almacenes', icon: 'bi-building', href: '/src/pages/configuracion/almacenes.html' },
-      { key: 'config-tipos-cambio', label: 'Tipos de Cambio', icon: 'bi-currency-exchange', href: '/src/pages/configuracion/tipos-cambio.html' },
-      { key: 'config-series', label: 'Series / Correlativos', icon: 'bi-list-ol', href: '/src/pages/configuracion/series.html' },
+      { key: 'config-margenes', label: 'Margenes de Precio', icon: 'bi-percent', href: '/src/pages/configuracion/margenes.html', perm: 'configuracion:ver' },
+      { key: 'config-categorias', label: 'Categorias', icon: 'bi-tags', href: '/src/pages/configuracion/categorias.html', perm: 'productos:ver' },
+      { key: 'config-marcas', label: 'Marcas', icon: 'bi-bookmark', href: '/src/pages/configuracion/marcas.html', perm: 'productos:ver' },
+      { key: 'config-unidades', label: 'Unidades de Medida', icon: 'bi-rulers', href: '/src/pages/configuracion/unidades-medida.html', perm: 'productos:ver' },
+      { key: 'config-almacenes', label: 'Almacenes', icon: 'bi-building', href: '/src/pages/configuracion/almacenes.html', perm: 'inventario:ver' },
+      { key: 'config-tipos-cambio', label: 'Tipos de Cambio', icon: 'bi-currency-exchange', href: '/src/pages/configuracion/tipos-cambio.html', perm: 'configuracion:ver' },
+      { key: 'config-series', label: 'Series / Correlativos', icon: 'bi-list-ol', href: '/src/pages/configuracion/series.html', perm: 'configuracion:ver' },
     ],
   },
 ];
+
+function tienePermiso(user, perm) {
+  if (!perm) return true;
+  if (!user) return false;
+  if (user.esSuperadmin) return true;
+  const permisos = user.permisos || [];
+  return permisos.includes('*') || permisos.includes(perm);
+}
+
+function usuarioActual() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch (_) {
+    return null;
+  }
+}
 
 function renderNavItemHTML(item, activeKey) {
   const isActive = item.key === activeKey;
@@ -72,15 +91,19 @@ function renderNavItemHTML(item, activeKey) {
 }
 
 function buildSidebarHTML(activeKey) {
+  const user = usuarioActual();
   let html = '<nav class="p-2 pt-3"><div class="nav flex-column gap-1">';
   MENU.forEach(function(group, idx) {
+    const itemsVisibles = group.items.filter(function(item) { return tienePermiso(user, item.perm); });
+    if (itemsVisibles.length === 0) return;
+
     if (!group.header) {
-      group.items.forEach(function(item) { html += renderNavItemHTML(item, activeKey); });
+      itemsVisibles.forEach(function(item) { html += renderNavItemHTML(item, activeKey); });
       return;
     }
 
     const groupId = 'nav-group-' + idx;
-    const hasActive = group.items.some(function(item) { return item.key === activeKey; });
+    const hasActive = itemsVisibles.some(function(item) { return item.key === activeKey; });
     const stored = localStorage.getItem('sidebar-group-' + idx);
     const expanded = stored !== null ? stored === 'open' : hasActive;
 
@@ -91,7 +114,7 @@ function buildSidebarHTML(activeKey) {
       '</button>' +
       '<div class="nav-group-items d-flex flex-column gap-1' + (expanded ? '' : ' d-none') + '" id="' + groupId + '">';
 
-    group.items.forEach(function(item) { html += renderNavItemHTML(item, activeKey); });
+    itemsVisibles.forEach(function(item) { html += renderNavItemHTML(item, activeKey); });
 
     html += '</div>';
   });
@@ -186,16 +209,14 @@ export function initLayout(activeKey) {
   }
 
   // User info
-  try {
-    var raw = localStorage.getItem('user');
-    if (raw) {
-      var user = JSON.parse(raw);
-      var nameEl = document.getElementById('nav-user-name');
-      var roleEl = document.getElementById('nav-user-role');
-      if (nameEl) nameEl.textContent = ((user.nombre || '') + ' ' + (user.apellido || '')).trim() || 'Usuario';
-      if (roleEl) roleEl.textContent = (user.roles && user.roles[0] && user.roles[0].nombre) || user.email || '';
-    }
-  } catch (_) {}
+  var user = usuarioActual();
+  if (user) {
+    var nameEl = document.getElementById('nav-user-name');
+    var roleEl = document.getElementById('nav-user-role');
+    if (nameEl) nameEl.textContent = ((user.nombre || '') + ' ' + (user.apellido || '')).trim() || 'Usuario';
+    // user.roles es un array de nombres (string[]), no de objetos — ver auth.service.ts
+    if (roleEl) roleEl.textContent = (user.roles && user.roles[0]) || user.email || '';
+  }
 
   // Logout
   var btnLogout = document.getElementById('btn-logout');

@@ -176,7 +176,7 @@ async function main() {
     'ventas:ver', 'ventas:crear',
     'clientes:ver', 'clientes:crear', 'clientes:editar',
     'productos:ver', 'inventario:ver',
-    'caja:ver', 'caja:crear',
+    'caja:ver', 'caja:crear', 'caja:editar',
     'reportes:ver',
   ];
 

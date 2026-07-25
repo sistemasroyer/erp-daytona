@@ -180,18 +180,18 @@
     document.getElementById('btn-logout').addEventListener('click', () => logout());
 
     let apertura = null;
+    let saldoSistemaActual = 0;
 
     async function cargarEstado() {
       try {
-        const res = await cajaApi.sesionActiva();
-        apertura = res.data;
+        apertura = await cajaApi.miAperturaActiva();
         if (apertura) {
           mostrarCajaActiva();
           cargarMovimientos();
         } else {
           mostrarSinCaja();
         }
-      } catch (_) { mostrarSinCaja(); }
+      } catch (err) { toastError(err); mostrarSinCaja(); }
     }
 
     function mostrarSinCaja() {
@@ -210,13 +210,12 @@
     async function cargarMovimientos() {
       if (!apertura) return;
       try {
-        const res = await cajaApi.movimientos(apertura.id);
-        const movs = Array.isArray(res.data) ? res.data : res.data?.movimientos || [];
+        const res = await cajaApi.resumen(apertura.id);
+        const data = res.data || res;
+        const movs = data.movimientos || [];
 
-        const ingresos = movs.filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + Number(m.monto), 0);
-        const egresos = movs.filter((m) => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto), 0);
-        const saldo = Number(apertura.monto_apertura) + ingresos - egresos;
-        document.getElementById('ca-saldo-sistema').textContent = formatMoneda(saldo);
+        saldoSistemaActual = data.resumen?.saldo_actual ?? Number(apertura.monto_apertura);
+        document.getElementById('ca-saldo-sistema').textContent = formatMoneda(saldoSistemaActual);
 
         const tbody = document.getElementById('tabla-movs');
         tbody.innerHTML = movs.length ? movs.map((m) => `
@@ -228,7 +227,7 @@
               ${m.tipo === 'ingreso' ? '+' : '-'}${formatMoneda(m.monto)}
             </td>
           </tr>`).join('') : '<tr><td colspan="4" class="text-center text-muted py-3">Sin movimientos</td></tr>';
-      } catch (_) {}
+      } catch (err) { toastError(err); }
     }
 
     // Abrir caja
@@ -265,8 +264,7 @@
 
     document.getElementById('ci-monto').addEventListener('input', (e) => {
       const contado = parseFloat(e.target.value) || 0;
-      const sistema = parseFloat(document.getElementById('ca-saldo-sistema').textContent.replace(/[^0-9.-]/g, '')) || 0;
-      const diff = contado - sistema;
+      const diff = contado - saldoSistemaActual;
       const el = document.getElementById('ci-diferencia');
       el.textContent = `Diferencia: ${diff >= 0 ? '+' : ''}${formatMoneda(diff)}`;
       el.className = `text-center fw-bold fs-5 mt-2 ${diff >= 0 ? 'text-success' : 'text-danger'}`;
@@ -301,8 +299,7 @@
       const monto = parseFloat(document.getElementById('mov-monto').value);
       if (!concepto || !monto) { toast('Complete concepto y monto', 'warning'); return; }
       try {
-        await cajaApi.movimiento({
-          id_caja_apertura: apertura.id,
+        await cajaApi.movimiento(apertura.id, {
           tipo: document.getElementById('mov-tipo').value,
           concepto,
           monto,
