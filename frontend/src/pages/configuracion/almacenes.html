@@ -1,0 +1,141 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Almacenes — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-building me-2 text-primary"></i>Almacenes</h5>
+      <button class="btn btn-primary btn-sm" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Nuevo Almacen</button>
+    </div>
+
+    <div class="row g-3" id="cards-almacenes">
+      <div class="col-12 text-center py-5 text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span>Cargando...
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="modalAlmacen" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nuevo Almacen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="alm-id">
+          <div class="mb-3">
+            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="alm-nombre" placeholder="Ej: Almacen Principal, Deposito Sur...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripcion</label>
+            <textarea class="form-control" id="alm-descripcion" rows="2" placeholder="Ubicacion, responsable, etc."></textarea>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="alm-principal">
+            <label class="form-check-label">Es el almacen principal</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-guardar">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { almacenesApi } from '/src/api/modules.js';
+    import { requireAuth } from '/src/auth/auth.js';
+
+    requireAuth();
+    initLayout('config-almacenes');
+
+    const modal = new bootstrap.Modal('#modalAlmacen');
+
+    async function cargar() {
+      const res = await almacenesApi.listar();
+      const items = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const container = document.getElementById('cards-almacenes');
+      if (!items.length) {
+        container.innerHTML = '<div class="col-12 text-center py-5 text-muted">Sin almacenes registrados</div>';
+        return;
+      }
+      container.innerHTML = items.map(a => `
+        <div class="col-md-4 col-lg-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-building me-2 text-primary"></i>${a.nombre}</h6>
+                ${a.es_principal ? '<span class="badge bg-success">Principal</span>' : ''}
+              </div>
+              ${a.descripcion ? '<p class="text-muted small mb-2">' + a.descripcion + '</p>' : ''}
+              <span class="badge ${a.estado ? 'bg-success' : 'bg-danger'}">${a.estado ? 'Activo' : 'Inactivo'}</span>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary w-100 btn-edit"
+                      data-id="${a.id}" data-nombre="${a.nombre}"
+                      data-desc="${a.descripcion || ''}" data-principal="${a.es_principal}">
+                <i class="bi bi-pencil me-1"></i>Editar
+              </button>
+            </div>
+          </div>
+        </div>`).join('');
+
+      container.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('alm-id').value = btn.dataset.id;
+          document.getElementById('alm-nombre').value = btn.dataset.nombre;
+          document.getElementById('alm-descripcion').value = btn.dataset.desc;
+          document.getElementById('alm-principal').checked = btn.dataset.principal === 'true';
+          document.getElementById('modal-titulo').textContent = 'Editar Almacen';
+          modal.show();
+        });
+      });
+    }
+
+    document.getElementById('btn-nuevo').addEventListener('click', () => {
+      document.getElementById('alm-id').value = '';
+      document.getElementById('alm-nombre').value = '';
+      document.getElementById('alm-descripcion').value = '';
+      document.getElementById('alm-principal').checked = false;
+      document.getElementById('modal-titulo').textContent = 'Nuevo Almacen';
+      modal.show();
+    });
+
+    document.getElementById('btn-guardar').addEventListener('click', async () => {
+      const id = document.getElementById('alm-id').value;
+      const nombre = document.getElementById('alm-nombre').value.trim();
+      if (!nombre) { alert('El nombre es requerido'); return; }
+      try {
+        const data = {
+          nombre,
+          descripcion: document.getElementById('alm-descripcion').value.trim() || undefined,
+          es_principal: document.getElementById('alm-principal').checked,
+        };
+        if (id) await almacenesApi.actualizar(id, data);
+        else await almacenesApi.crear(data);
+        modal.hide();
+        cargar();
+      } catch (e) {
+        alert(e.message || 'Error al guardar');
+      }
+    });
+
+    cargar();
+  </script>
+</body>
+</html>
+

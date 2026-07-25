@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment variables (contienen secretos: passwords, JWT secrets)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Archivos generados/subidos en runtime (certificados, PDFs, XMLs de SUNAT)
+backend/storage/certs/*
+backend/storage/pdfs/*
+backend/storage/xmls/*
+!backend/storage/**/.gitkeep
+
+# Claude Code (config local de la sesión, puede contener datos sensibles)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript build info
+*.tsbuildinfo

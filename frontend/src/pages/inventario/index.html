@@ -1,0 +1,309 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventario — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-archive me-2 text-primary"></i>Inventario</h5>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-warning btn-sm" id="btn-ajuste"><i class="bi bi-sliders me-1"></i>Ajuste</button>
+        <button class="btn btn-outline-info btn-sm" id="btn-transferencia"><i class="bi bi-arrow-left-right me-1"></i>Transferencia</button>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2">
+          <div class="col-sm-5">
+            <input type="text" class="form-control form-control-sm" id="f-search" placeholder="Buscar producto...">
+          </div>
+          <div class="col-sm-3">
+            <select class="form-select form-select-sm" id="f-almacen">
+              <option value="">Todos los almacenes</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <select class="form-select form-select-sm" id="f-alerta">
+              <option value="">Todos</option>
+              <option value="critico">Stock crítico</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <button class="btn btn-primary btn-sm w-100" id="btn-buscar"><i class="bi bi-search me-1"></i>Buscar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Almacén</th>
+                <th class="text-end">Stock</th>
+                <th class="text-end">Mín.</th>
+                <th class="text-end">Máx.</th>
+                <th class="text-center">Unidad</th>
+                <th class="text-end">Costo Prom.</th>
+                <th class="text-end">Valor Stock</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-inv">
+              <tr><td colspan="11" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="text-muted small" id="info-res">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ajuste -->
+  <div class="modal fade" id="modal-ajuste" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Ajuste de Inventario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Producto <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="aj-producto-search" placeholder="Buscar producto...">
+            <input type="hidden" id="aj-id-producto">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Almacén <span class="text-danger">*</span></label>
+            <select class="form-select" id="aj-almacen"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo ajuste <span class="text-danger">*</span></label>
+            <select class="form-select" id="aj-tipo">
+              <option value="entrada">Entrada</option>
+              <option value="salida">Salida</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Cantidad <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="aj-cantidad" min="0.001" step="0.001">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Motivo <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="aj-motivo" placeholder="Ej: Inventario físico, merma, etc.">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-warning" id="btn-guardar-ajuste">Aplicar Ajuste</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal transferencia -->
+  <div class="modal fade" id="modal-transfer" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Transferencia entre Almacenes</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Producto <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="tr-producto-search" placeholder="Buscar producto...">
+            <input type="hidden" id="tr-id-producto">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label">Almacén origen <span class="text-danger">*</span></label>
+              <select class="form-select" id="tr-origen"></select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Almacén destino <span class="text-danger">*</span></label>
+              <select class="form-select" id="tr-destino"></select>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Cantidad <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="tr-cantidad" min="0.001" step="0.001">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Motivo</label>
+            <input type="text" class="form-control" id="tr-motivo">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-info text-white" id="btn-guardar-transfer">Transferir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { inventarioApi, almacenesApi, productosApi } from '/src/api/modules.js';
+    import { formatMoneda } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('inventario');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let almacenes = [];
+
+    async function init() {
+      try {
+        const res = await almacenesApi.listar();
+        almacenes = Array.isArray(res.data) ? res.data : res.data?.almacenes || [];
+        const selFiltro = document.getElementById('f-almacen');
+        const selAj = document.getElementById('aj-almacen');
+        const selTrO = document.getElementById('tr-origen');
+        const selTrD = document.getElementById('tr-destino');
+        almacenes.forEach((a) => {
+          [selFiltro, selAj, selTrO, selTrD].forEach((sel) => {
+            if (sel) sel.add(new Option(a.nombre, a.id));
+          });
+        });
+      } catch (err) { toastError(err); }
+      cargar();
+    }
+
+    async function cargar() {
+      const tbody = document.getElementById('tabla-inv');
+      tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await inventarioApi.listar({
+          search: document.getElementById('f-search').value || undefined,
+          id_almacen: document.getElementById('f-almacen').value || undefined,
+        });
+        let items = Array.isArray(res.data) ? res.data : res.data?.inventario || res.data || [];
+
+        if (document.getElementById('f-alerta').value === 'critico') {
+          items = items.filter((i) => Number(i.stock_actual) <= Number(i.producto?.stock_minimo || 0));
+        }
+
+        document.getElementById('info-res').textContent = `${items.length} registros`;
+
+        tbody.innerHTML = items.length ? items.map((i) => {
+          const stock = Number(i.stock_actual);
+          const min = Number(i.producto?.stock_minimo || 0);
+          const costo = Number(i.producto?.costo_promedio || 0);
+          const clase = stock <= 0 ? 'stock-critico' : stock <= min ? 'stock-bajo' : 'stock-ok';
+          return `
+          <tr>
+            <td class="small fw-semibold">${i.producto?.codigo || '-'}</td>
+            <td>${i.producto?.nombre || '-'}</td>
+            <td class="small text-muted">${i.producto?.categoria?.nombre || '-'}</td>
+            <td class="small">${i.almacen?.nombre || '-'}</td>
+            <td class="text-end ${clase}">${stock.toFixed(4)}</td>
+            <td class="text-end text-muted small">${min.toFixed(2)}</td>
+            <td class="text-end text-muted small">${Number(i.producto?.stock_maximo || 0).toFixed(2)}</td>
+            <td class="text-center small">${i.producto?.unidad_medida?.simbolo || '-'}</td>
+            <td class="text-end">${formatMoneda(costo)}</td>
+            <td class="text-end fw-semibold">${formatMoneda(stock * costo)}</td>
+            <td class="text-center">
+              <a href="/src/pages/inventario/kardex.html?id=${i.id_producto}" class="btn btn-sm btn-outline-secondary" title="Ver Kardex">
+                <i class="bi bi-clock-history"></i>
+              </a>
+            </td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="11" class="text-center text-muted py-4">Sin registros</td></tr>';
+      } catch (err) { toastError(err); }
+    }
+
+    // Ajuste
+    document.getElementById('btn-ajuste').addEventListener('click', () => {
+      document.getElementById('aj-producto-search').value = '';
+      document.getElementById('aj-id-producto').value = '';
+      new bootstrap.Modal(document.getElementById('modal-ajuste')).show();
+    });
+
+    let timerAj = null;
+    document.getElementById('aj-producto-search').addEventListener('input', (e) => {
+      clearTimeout(timerAj);
+      timerAj = setTimeout(async () => {
+        if (e.target.value.length < 2) return;
+        try {
+          const res = await productosApi.listar({ search: e.target.value, limit: 5 });
+          const p = (res.data?.productos || res.data || []);
+          if (p.length === 1) {
+            document.getElementById('aj-id-producto').value = p[0].id;
+            document.getElementById('aj-producto-search').value = p[0].nombre;
+          }
+        } catch (_) {}
+      }, 400);
+    });
+
+    document.getElementById('btn-guardar-ajuste').addEventListener('click', async () => {
+      const dto = {
+        id_producto: document.getElementById('aj-id-producto').value,
+        id_almacen: document.getElementById('aj-almacen').value,
+        tipo: document.getElementById('aj-tipo').value,
+        cantidad: parseFloat(document.getElementById('aj-cantidad').value),
+        motivo: document.getElementById('aj-motivo').value.trim(),
+      };
+      if (!dto.id_producto || !dto.cantidad || !dto.motivo) {
+        toast('Complete todos los campos requeridos', 'warning'); return;
+      }
+      try {
+        await inventarioApi.ajustar(dto);
+        toast('Ajuste aplicado correctamente');
+        bootstrap.Modal.getInstance(document.getElementById('modal-ajuste')).hide();
+        cargar();
+      } catch (err) { toastError(err); }
+    });
+
+    // Transferencia
+    document.getElementById('btn-transferencia').addEventListener('click', () => {
+      document.getElementById('tr-producto-search').value = '';
+      document.getElementById('tr-id-producto').value = '';
+      new bootstrap.Modal(document.getElementById('modal-transfer')).show();
+    });
+
+    document.getElementById('btn-guardar-transfer').addEventListener('click', async () => {
+      const dto = {
+        id_producto: document.getElementById('tr-id-producto').value,
+        id_almacen_origen: document.getElementById('tr-origen').value,
+        id_almacen_destino: document.getElementById('tr-destino').value,
+        cantidad: parseFloat(document.getElementById('tr-cantidad').value),
+        motivo: document.getElementById('tr-motivo').value.trim() || 'Transferencia',
+      };
+      if (!dto.id_producto || !dto.cantidad) { toast('Complete todos los campos', 'warning'); return; }
+      try {
+        await inventarioApi.transferir(dto);
+        toast('Transferencia realizada');
+        bootstrap.Modal.getInstance(document.getElementById('modal-transfer')).hide();
+        cargar();
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-buscar').addEventListener('click', cargar);
+    document.getElementById('f-search').addEventListener('keypress', (e) => { if (e.key === 'Enter') cargar(); });
+
+    init();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,22 @@
+{
+  "name": "erp-daytona-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "admin-lte": "^4.0.0-beta3",
+    "alpinejs": "^3.14.9",
+    "axios": "^1.9.0",
+    "bootstrap": "^5.3.5",
+    "@popperjs/core": "^2.11.8"
+  },
+  "devDependencies": {
+    "vite": "^6.3.3",
+    "@vitejs/plugin-legacy": "^6.1.1",
+    "sass": "^1.87.0"
+  }
+}

@@ -1,0 +1,321 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caja — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <!-- Estado de caja activa -->
+    <div id="panel-sin-caja" class="card mb-3 border-warning">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-cash-register fs-1 text-warning mb-3 d-block"></i>
+        <h5>No hay caja abierta</h5>
+        <p class="text-muted">Abra una caja para comenzar a operar</p>
+        <button class="btn btn-success" id="btn-abrir-caja">
+          <i class="bi bi-unlock me-2"></i>Abrir Caja
+        </button>
+      </div>
+    </div>
+
+    <div id="panel-caja-activa" style="display:none">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card border-success h-100">
+            <div class="card-body text-center">
+              <div class="text-muted small">Caja</div>
+              <div class="fw-bold fs-5" id="ca-nombre">-</div>
+              <div class="badge bg-success mt-1">Abierta</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <div class="text-muted small">Apertura</div>
+              <div class="fw-bold fs-5" id="ca-apertura">S/ 0.00</div>
+              <div class="text-muted small" id="ca-fecha-apertura">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+              <div class="text-muted small">Saldo Sistema</div>
+              <div class="fw-bold fs-5 text-primary" id="ca-saldo-sistema">S/ 0.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center gap-2">
+              <button class="btn btn-outline-success btn-sm" id="btn-ingreso">
+                <i class="bi bi-plus-circle me-1"></i>Ingreso
+              </button>
+              <button class="btn btn-outline-danger btn-sm" id="btn-egreso">
+                <i class="bi bi-dash-circle me-1"></i>Egreso
+              </button>
+              <button class="btn btn-warning btn-sm" id="btn-cerrar-caja">
+                <i class="bi bi-lock me-1"></i>Cerrar Caja
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Movimientos -->
+      <div class="card">
+        <div class="card-header d-flex justify-content-between">
+          <h6 class="mb-0 fw-semibold"><i class="bi bi-list-ul me-2"></i>Movimientos de caja</h6>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-movs"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Hora</th>
+                  <th>Tipo</th>
+                  <th>Concepto</th>
+                  <th class="text-end">Monto</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-movs">
+                <tr><td colspan="4" class="text-center py-4 text-muted">Sin movimientos</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal abrir caja -->
+  <div class="modal fade" id="modal-abrir" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Abrir Caja</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Caja <span class="text-danger">*</span></label>
+            <select class="form-select" id="ab-caja"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Monto de apertura (S/)</label>
+            <input type="number" class="form-control" id="ab-monto" value="0" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" id="btn-confirmar-apertura"><i class="bi bi-unlock me-1"></i>Abrir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal cerrar caja -->
+  <div class="modal fade" id="modal-cerrar" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Cerrar Caja</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <div class="d-flex justify-content-between"><span>Saldo sistema:</span><strong id="ci-sistema">-</strong></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Monto contado en caja (S/) <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="ci-monto" min="0" step="0.01">
+          </div>
+          <div id="ci-diferencia" class="text-center fw-bold fs-5 mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-warning" id="btn-confirmar-cierre"><i class="bi bi-lock me-1"></i>Cerrar Caja</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal movimiento -->
+  <div class="modal fade" id="modal-movimiento" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="mov-titulo">Ingreso de Caja</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <input type="hidden" id="mov-tipo">
+          <div class="mb-3">
+            <label class="form-label">Concepto <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="mov-concepto" placeholder="Descripción del movimiento">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Monto (S/) <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="mov-monto" min="0.01" step="0.01">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-mov">Registrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { cajaApi } from '/src/api/modules.js';
+    import { formatMoneda, formatFechaHora } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('caja');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let apertura = null;
+
+    async function cargarEstado() {
+      try {
+        const res = await cajaApi.sesionActiva();
+        apertura = res.data;
+        if (apertura) {
+          mostrarCajaActiva();
+          cargarMovimientos();
+        } else {
+          mostrarSinCaja();
+        }
+      } catch (_) { mostrarSinCaja(); }
+    }
+
+    function mostrarSinCaja() {
+      document.getElementById('panel-sin-caja').style.display = '';
+      document.getElementById('panel-caja-activa').style.display = 'none';
+    }
+
+    function mostrarCajaActiva() {
+      document.getElementById('panel-sin-caja').style.display = 'none';
+      document.getElementById('panel-caja-activa').style.display = '';
+      document.getElementById('ca-nombre').textContent = apertura.caja?.nombre || 'Caja';
+      document.getElementById('ca-apertura').textContent = formatMoneda(apertura.monto_apertura);
+      document.getElementById('ca-fecha-apertura').textContent = formatFechaHora(apertura.fecha_apertura);
+    }
+
+    async function cargarMovimientos() {
+      if (!apertura) return;
+      try {
+        const res = await cajaApi.movimientos(apertura.id);
+        const movs = Array.isArray(res.data) ? res.data : res.data?.movimientos || [];
+
+        const ingresos = movs.filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + Number(m.monto), 0);
+        const egresos = movs.filter((m) => m.tipo === 'egreso').reduce((s, m) => s + Number(m.monto), 0);
+        const saldo = Number(apertura.monto_apertura) + ingresos - egresos;
+        document.getElementById('ca-saldo-sistema').textContent = formatMoneda(saldo);
+
+        const tbody = document.getElementById('tabla-movs');
+        tbody.innerHTML = movs.length ? movs.map((m) => `
+          <tr>
+            <td class="small">${formatFechaHora(m.fecha)}</td>
+            <td><span class="badge ${m.tipo === 'ingreso' ? 'bg-success' : 'bg-danger'}">${m.tipo}</span></td>
+            <td>${m.concepto}</td>
+            <td class="text-end fw-semibold ${m.tipo === 'ingreso' ? 'text-success' : 'text-danger'}">
+              ${m.tipo === 'ingreso' ? '+' : '-'}${formatMoneda(m.monto)}
+            </td>
+          </tr>`).join('') : '<tr><td colspan="4" class="text-center text-muted py-3">Sin movimientos</td></tr>';
+      } catch (_) {}
+    }
+
+    // Abrir caja
+    document.getElementById('btn-abrir-caja').addEventListener('click', async () => {
+      try {
+        const res = await cajaApi.cajas();
+        const cajas = Array.isArray(res.data) ? res.data : res.data?.cajas || [];
+        const sel = document.getElementById('ab-caja');
+        sel.innerHTML = cajas.map((c) => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        new bootstrap.Modal(document.getElementById('modal-abrir')).show();
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-confirmar-apertura').addEventListener('click', async () => {
+      try {
+        await cajaApi.abrir({
+          id_caja: document.getElementById('ab-caja').value,
+          monto_apertura: parseFloat(document.getElementById('ab-monto').value) || 0,
+        });
+        toast('Caja abierta correctamente', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('modal-abrir')).hide();
+        cargarEstado();
+      } catch (err) { toastError(err); }
+    });
+
+    // Cerrar caja
+    document.getElementById('btn-cerrar-caja').addEventListener('click', () => {
+      const saldo = document.getElementById('ca-saldo-sistema').textContent;
+      document.getElementById('ci-sistema').textContent = saldo;
+      document.getElementById('ci-monto').value = '';
+      document.getElementById('ci-diferencia').textContent = '';
+      new bootstrap.Modal(document.getElementById('modal-cerrar')).show();
+    });
+
+    document.getElementById('ci-monto').addEventListener('input', (e) => {
+      const contado = parseFloat(e.target.value) || 0;
+      const sistema = parseFloat(document.getElementById('ca-saldo-sistema').textContent.replace(/[^0-9.-]/g, '')) || 0;
+      const diff = contado - sistema;
+      const el = document.getElementById('ci-diferencia');
+      el.textContent = `Diferencia: ${diff >= 0 ? '+' : ''}${formatMoneda(diff)}`;
+      el.className = `text-center fw-bold fs-5 mt-2 ${diff >= 0 ? 'text-success' : 'text-danger'}`;
+    });
+
+    document.getElementById('btn-confirmar-cierre').addEventListener('click', async () => {
+      const monto = parseFloat(document.getElementById('ci-monto').value);
+      if (isNaN(monto) || monto < 0) { toast('Ingrese el monto contado', 'warning'); return; }
+      try {
+        await cajaApi.cerrar(apertura.id, { monto_cierre: monto });
+        toast('Caja cerrada correctamente');
+        bootstrap.Modal.getInstance(document.getElementById('modal-cerrar')).hide();
+        apertura = null;
+        cargarEstado();
+      } catch (err) { toastError(err); }
+    });
+
+    // Movimientos manuales
+    function abrirMovimiento(tipo) {
+      document.getElementById('mov-tipo').value = tipo;
+      document.getElementById('mov-titulo').textContent = tipo === 'ingreso' ? 'Ingreso de Caja' : 'Egreso de Caja';
+      document.getElementById('mov-concepto').value = '';
+      document.getElementById('mov-monto').value = '';
+      new bootstrap.Modal(document.getElementById('modal-movimiento')).show();
+    }
+
+    document.getElementById('btn-ingreso').addEventListener('click', () => abrirMovimiento('ingreso'));
+    document.getElementById('btn-egreso').addEventListener('click', () => abrirMovimiento('egreso'));
+
+    document.getElementById('btn-guardar-mov').addEventListener('click', async () => {
+      const concepto = document.getElementById('mov-concepto').value.trim();
+      const monto = parseFloat(document.getElementById('mov-monto').value);
+      if (!concepto || !monto) { toast('Complete concepto y monto', 'warning'); return; }
+      try {
+        await cajaApi.movimiento({
+          id_caja_apertura: apertura.id,
+          tipo: document.getElementById('mov-tipo').value,
+          concepto,
+          monto,
+        });
+        toast('Movimiento registrado');
+        bootstrap.Modal.getInstance(document.getElementById('modal-movimiento')).hide();
+        cargarMovimientos();
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-refresh-movs').addEventListener('click', cargarMovimientos);
+    cargarEstado();
+  </script>
+</body>
+</html>
+

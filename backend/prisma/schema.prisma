@@ -1,0 +1,1144 @@
+// ============================================================
+// ERP DAYTONA — Schema Prisma Completo
+// PostgreSQL | Normalización 3FN | Prefijo tbl_
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum AccionPermiso {
+  ver
+  crear
+  editar
+  eliminar
+  aprobar
+  anular
+}
+
+enum EstadoDispositivo {
+  pendiente
+  aprobado
+  bloqueado
+}
+
+enum TipoDocumentoCliente {
+  DNI
+  RUC
+  CE
+  PASAPORTE
+}
+
+enum TipoDocumentoSunat {
+  FACTURA
+  BOLETA
+  NOTA_CREDITO
+  NOTA_DEBITO
+  NOTA_VENTA
+  COTIZACION
+}
+
+enum EstadoSunat {
+  pendiente
+  enviado
+  aceptado
+  rechazado
+  error
+  no_aplica
+}
+
+enum EstadoVenta {
+  vigente
+  anulada
+  canjeada
+}
+
+enum Moneda {
+  PEN
+  USD
+}
+
+enum TipoMovimientoInventario {
+  entrada
+  salida
+  ajuste_positivo
+  ajuste_negativo
+  transferencia_entrada
+  transferencia_salida
+}
+
+enum TipoReferenciaMovimiento {
+  venta
+  compra
+  ajuste
+  transferencia
+  inventario_inicial
+}
+
+enum MetodoValuacion {
+  peps
+  ueps
+  promedio
+}
+
+enum EstadoOrdenCompra {
+  borrador
+  aprobado
+  convertido
+  anulado
+}
+
+enum EstadoCompra {
+  borrador
+  registrada
+  anulada
+}
+
+enum TipoProrrateoFlete {
+  precio
+  cantidad
+}
+
+enum CondicionPago {
+  contado
+  credito
+}
+
+enum EstadoCaja {
+  abierta
+  cerrada
+}
+
+enum TipoMovimientoCaja {
+  ingreso
+  egreso
+}
+
+enum FuenteTipoCambio {
+  manual
+  sunat
+}
+
+enum TipoContratoPersonal {
+  indefinido
+  plazo_fijo
+  services
+  practicas
+  locacion_servicios
+}
+
+enum TipoOperacionAuditoria {
+  INSERT
+  UPDATE
+  DELETE
+}
+
+// ============================================================
+// SEGURIDAD
+// ============================================================
+
+model tbl_empresas {
+  id                   String   @id @default(uuid())
+  ruc                  String   @unique @db.VarChar(11)
+  razon_social         String   @db.VarChar(200)
+  nombre_comercial     String?  @db.VarChar(200)
+  direccion            String?  @db.VarChar(500)
+  ubigeo               String?  @db.VarChar(6)
+  departamento         String?  @db.VarChar(100)
+  provincia            String?  @db.VarChar(100)
+  distrito             String?  @db.VarChar(100)
+  telefono             String?  @db.VarChar(20)
+  email                String?  @db.VarChar(150)
+  web                  String?  @db.VarChar(200)
+  logo_path            String?  @db.VarChar(500)
+  cert_path            String?  @db.VarChar(500)
+  cert_password        String?  @db.VarChar(200)
+  clave_sol_usuario    String?  @db.VarChar(100)
+  clave_sol_password   String?  @db.VarChar(200)
+  modo_sunat           String   @default("mock") @db.VarChar(10)
+  regimen_tributario   String?  @db.VarChar(100)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  puntos_venta tbl_puntos_venta[]
+  almacenes    tbl_almacenes[]
+
+  @@index([ruc])
+  @@map("tbl_empresas")
+}
+
+model tbl_puntos_venta {
+  id                   String   @id @default(uuid())
+  id_empresa           String
+  nombre               String   @db.VarChar(100)
+  direccion            String?  @db.VarChar(500)
+  telefono             String?  @db.VarChar(20)
+  activo               Boolean  @default(true)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  empresa         tbl_empresas          @relation(fields: [id_empresa], references: [id])
+  series          tbl_series_documento[]
+  cajas           tbl_cajas[]
+  usuarios        tbl_usuarios[]
+
+  @@index([id_empresa])
+  @@map("tbl_puntos_venta")
+}
+
+model tbl_series_documento {
+  id                   String             @id @default(uuid())
+  id_punto_venta       String
+  tipo_documento       TipoDocumentoSunat
+  serie                String             @db.VarChar(4)
+  correlativo_actual   Int                @default(0)
+  activo               Boolean            @default(true)
+  estado               Boolean            @default(true)
+  eliminado            Boolean            @default(false)
+  fecha_creacion       DateTime           @default(now())
+  fecha_modificacion   DateTime           @updatedAt
+  usuario_creacion     String?            @db.VarChar(36)
+  usuario_modificacion String?            @db.VarChar(36)
+
+  punto_venta tbl_puntos_venta @relation(fields: [id_punto_venta], references: [id])
+  ventas      tbl_ventas[]
+
+  @@unique([id_punto_venta, tipo_documento, serie])
+  @@index([id_punto_venta])
+  @@index([tipo_documento, serie])
+  @@map("tbl_series_documento")
+}
+
+model tbl_roles {
+  id                   String   @id @default(uuid())
+  nombre               String   @unique @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  es_superadmin        Boolean  @default(false)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  permisos  tbl_roles_permisos[]
+  usuarios  tbl_usuarios_roles[]
+
+  @@map("tbl_roles")
+}
+
+model tbl_permisos {
+  id                   String        @id @default(uuid())
+  modulo               String        @db.VarChar(100)
+  submodulo            String?       @db.VarChar(100)
+  accion               AccionPermiso
+  descripcion          String?       @db.VarChar(300)
+  estado               Boolean       @default(true)
+  eliminado            Boolean       @default(false)
+  fecha_creacion       DateTime      @default(now())
+  fecha_modificacion   DateTime      @updatedAt
+  usuario_creacion     String?       @db.VarChar(36)
+  usuario_modificacion String?       @db.VarChar(36)
+
+  roles tbl_roles_permisos[]
+
+  @@unique([modulo, accion])
+  @@index([modulo])
+  @@map("tbl_permisos")
+}
+
+model tbl_roles_permisos {
+  id                   String   @id @default(uuid())
+  id_rol               String
+  id_permiso           String
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  rol     tbl_roles    @relation(fields: [id_rol], references: [id])
+  permiso tbl_permisos @relation(fields: [id_permiso], references: [id])
+
+  @@unique([id_rol, id_permiso])
+  @@index([id_rol])
+  @@index([id_permiso])
+  @@map("tbl_roles_permisos")
+}
+
+model tbl_usuarios {
+  id                   String    @id @default(uuid())
+  id_punto_venta       String?
+  email                String    @unique @db.VarChar(150)
+  password_hash        String    @db.VarChar(200)
+  nombre               String    @db.VarChar(100)
+  apellido             String    @db.VarChar(100)
+  dni                  String?   @db.VarChar(8)
+  telefono             String?   @db.VarChar(20)
+  intentos_fallidos    Int       @default(0)
+  bloqueado_hasta      DateTime?
+  ultimo_acceso        DateTime?
+  refresh_token_hash   String?   @db.VarChar(200)
+  estado               Boolean   @default(true)
+  eliminado            Boolean   @default(false)
+  fecha_creacion       DateTime  @default(now())
+  fecha_modificacion   DateTime  @updatedAt
+  usuario_creacion     String?   @db.VarChar(36)
+  usuario_modificacion String?   @db.VarChar(36)
+
+  punto_venta  tbl_puntos_venta?   @relation(fields: [id_punto_venta], references: [id])
+  roles        tbl_usuarios_roles[]
+  dispositivos tbl_dispositivos[]
+  logs_acceso  tbl_logs_acceso[]
+  ventas       tbl_ventas[]
+  compras      tbl_compras[]
+  ordenes      tbl_ordenes_compra[] @relation("solicitante")
+  aprobaciones tbl_ordenes_compra[] @relation("aprobador")
+  cajas        tbl_cajas_aperturas[]
+  mov_caja     tbl_movimientos_caja[]
+  auditoria    tbl_auditoria[]
+
+  @@index([email])
+  @@index([id_punto_venta])
+  @@map("tbl_usuarios")
+}
+
+model tbl_usuarios_roles {
+  id                   String   @id @default(uuid())
+  id_usuario           String
+  id_rol               String
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  usuario tbl_usuarios @relation(fields: [id_usuario], references: [id])
+  rol     tbl_roles    @relation(fields: [id_rol], references: [id])
+
+  @@unique([id_usuario, id_rol])
+  @@index([id_usuario])
+  @@map("tbl_usuarios_roles")
+}
+
+model tbl_dispositivos {
+  id                   String            @id @default(uuid())
+  id_usuario           String
+  ip                   String            @db.VarChar(45)
+  navegador            String?           @db.VarChar(200)
+  sistema_operativo    String?           @db.VarChar(100)
+  user_agent           String?           @db.VarChar(500)
+  token_dispositivo    String            @unique @db.VarChar(64)
+  estado               EstadoDispositivo @default(pendiente)
+  ultimo_uso           DateTime?
+  estado_registro      Boolean           @default(true)
+  eliminado            Boolean           @default(false)
+  fecha_creacion       DateTime          @default(now())
+  fecha_modificacion   DateTime          @updatedAt
+  usuario_creacion     String?           @db.VarChar(36)
+  usuario_modificacion String?           @db.VarChar(36)
+
+  usuario tbl_usuarios @relation(fields: [id_usuario], references: [id])
+
+  @@index([id_usuario])
+  @@index([token_dispositivo])
+  @@map("tbl_dispositivos")
+}
+
+model tbl_logs_acceso {
+  id          String   @id @default(uuid())
+  id_usuario  String?
+  email       String?  @db.VarChar(150)
+  ip          String   @db.VarChar(45)
+  accion      String   @db.VarChar(100)
+  resultado   String   @db.VarChar(20)
+  detalle     String?  @db.VarChar(500)
+  user_agent  String?  @db.VarChar(500)
+  fecha       DateTime @default(now())
+
+  usuario tbl_usuarios? @relation(fields: [id_usuario], references: [id])
+
+  @@index([id_usuario])
+  @@index([fecha])
+  @@index([ip])
+  @@map("tbl_logs_acceso")
+}
+
+model tbl_auditoria {
+  id               String                 @id @default(uuid())
+  id_usuario       String?
+  tabla            String                 @db.VarChar(100)
+  id_registro      String                 @db.VarChar(36)
+  operacion        TipoOperacionAuditoria
+  datos_anteriores Json?
+  datos_nuevos     Json?
+  ip               String?                @db.VarChar(45)
+  fecha            DateTime               @default(now())
+
+  usuario tbl_usuarios? @relation(fields: [id_usuario], references: [id])
+
+  @@index([id_usuario])
+  @@index([tabla, id_registro])
+  @@index([fecha])
+  @@map("tbl_auditoria")
+}
+
+// ============================================================
+// MAESTROS
+// ============================================================
+
+model tbl_categorias {
+  id                   String   @id @default(uuid())
+  nombre               String   @unique @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  subcategorias tbl_subcategorias[]
+  productos     tbl_productos[]
+
+  @@map("tbl_categorias")
+}
+
+model tbl_subcategorias {
+  id                   String   @id @default(uuid())
+  id_categoria         String
+  nombre               String   @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  categoria tbl_categorias @relation(fields: [id_categoria], references: [id])
+  productos tbl_productos[]
+
+  @@unique([id_categoria, nombre])
+  @@index([id_categoria])
+  @@map("tbl_subcategorias")
+}
+
+model tbl_marcas {
+  id                   String   @id @default(uuid())
+  nombre               String   @unique @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  productos tbl_productos[]
+
+  @@map("tbl_marcas")
+}
+
+model tbl_unidades_medida {
+  id                   String   @id @default(uuid())
+  codigo_sunat         String   @unique @db.VarChar(10)
+  descripcion          String   @db.VarChar(100)
+  simbolo              String   @db.VarChar(10)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  productos tbl_productos[]
+
+  @@map("tbl_unidades_medida")
+}
+
+model tbl_almacenes {
+  id                   String   @id @default(uuid())
+  id_empresa           String
+  nombre               String   @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  direccion            String?  @db.VarChar(500)
+  es_principal         Boolean  @default(false)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  empresa     tbl_empresas          @relation(fields: [id_empresa], references: [id])
+  inventarios tbl_inventario[]
+  compras     tbl_compras[]
+
+  @@index([id_empresa])
+  @@map("tbl_almacenes")
+}
+
+model tbl_clientes {
+  id                   String               @id @default(uuid())
+  tipo_documento       TipoDocumentoCliente @default(RUC)
+  numero_documento     String               @db.VarChar(15)
+  razon_social         String               @db.VarChar(250)
+  nombre_comercial     String?              @db.VarChar(250)
+  direccion            String?              @db.VarChar(500)
+  ubigeo               String?              @db.VarChar(6)
+  departamento         String?              @db.VarChar(100)
+  provincia            String?              @db.VarChar(100)
+  distrito             String?              @db.VarChar(100)
+  email                String?              @db.VarChar(150)
+  telefono             String?              @db.VarChar(20)
+  limite_credito       Decimal              @default(0) @db.Decimal(12, 2)
+  dias_credito         Int                  @default(0)
+  es_habitual          Boolean              @default(false)
+  estado               Boolean              @default(true)
+  eliminado            Boolean              @default(false)
+  fecha_creacion       DateTime             @default(now())
+  fecha_modificacion   DateTime             @updatedAt
+  usuario_creacion     String?              @db.VarChar(36)
+  usuario_modificacion String?              @db.VarChar(36)
+
+  ventas tbl_ventas[]
+
+  @@unique([tipo_documento, numero_documento])
+  @@index([numero_documento])
+  @@index([razon_social])
+  @@map("tbl_clientes")
+}
+
+model tbl_proveedores {
+  id                   String   @id @default(uuid())
+  ruc                  String   @unique @db.VarChar(11)
+  razon_social         String   @db.VarChar(250)
+  nombre_comercial     String?  @db.VarChar(250)
+  direccion            String?  @db.VarChar(500)
+  ubigeo               String?  @db.VarChar(6)
+  departamento         String?  @db.VarChar(100)
+  provincia            String?  @db.VarChar(100)
+  distrito             String?  @db.VarChar(100)
+  email                String?  @db.VarChar(150)
+  telefono             String?  @db.VarChar(20)
+  contacto             String?  @db.VarChar(150)
+  cuenta_detraccion    String?  @db.VarChar(50)
+  banco_detraccion     String?  @db.VarChar(100)
+  porcentaje_detraccion Decimal? @db.Decimal(5, 2)
+  dias_credito         Int      @default(0)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  compras tbl_compras[]
+  ordenes tbl_ordenes_compra[]
+  codigos_producto tbl_producto_codigos_proveedor[]
+
+  @@index([ruc])
+  @@index([razon_social])
+  @@map("tbl_proveedores")
+}
+
+model tbl_producto_codigos_proveedor {
+  id                 String   @id @default(uuid())
+  id_producto        String
+  id_proveedor       String
+  codigo_alterno     String   @db.VarChar(50)
+  fecha_creacion     DateTime @default(now())
+  fecha_modificacion DateTime @updatedAt
+
+  producto  tbl_productos   @relation(fields: [id_producto], references: [id], onDelete: Cascade)
+  proveedor tbl_proveedores @relation(fields: [id_proveedor], references: [id], onDelete: Cascade)
+
+  @@unique([id_producto, id_proveedor])
+  @@index([codigo_alterno])
+  @@map("tbl_producto_codigos_proveedor")
+}
+
+model tbl_productos {
+  id                    String   @id @default(uuid())
+  codigo                String   @unique @db.VarChar(50)
+  codigo_barras         String?  @db.VarChar(50)
+  codigo_sunat          String?  @db.VarChar(20)
+  nombre                String   @db.VarChar(250)
+  descripcion           String?  @db.Text
+  id_categoria          String?
+  id_subcategoria       String?
+  id_marca              String?
+  id_unidad_medida      String
+  ubicacion             String?  @db.VarChar(100)
+  tipo_existencia       String?  @db.VarChar(10)
+  afecta_igv            Boolean  @default(true)
+  tiene_serie           Boolean  @default(false)
+  tiene_lote            Boolean  @default(false)
+  stock_actual          Decimal  @default(0) @db.Decimal(12, 4)
+  stock_minimo          Decimal  @default(0) @db.Decimal(12, 4)
+  stock_maximo          Decimal  @default(0) @db.Decimal(12, 4)
+  precio_compra_sin_igv Decimal  @default(0) @db.Decimal(12, 4)
+  precio_compra_con_igv Decimal  @default(0) @db.Decimal(12, 4)
+  precio_venta_1        Decimal  @default(0) @db.Decimal(12, 4)
+  precio_venta_2        Decimal  @default(0) @db.Decimal(12, 4)
+  precio_venta_3        Decimal  @default(0) @db.Decimal(12, 4)
+  precio_venta_4        Decimal  @default(0) @db.Decimal(12, 4)
+  precio_venta_5        Decimal  @default(0) @db.Decimal(12, 4)
+  costo_promedio        Decimal  @default(0) @db.Decimal(12, 4)
+  fecha_ultima_compra   DateTime?
+  version               Int      @default(0)
+  imagen_path           String?  @db.VarChar(500)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  categoria        tbl_categorias?     @relation(fields: [id_categoria], references: [id])
+  subcategoria     tbl_subcategorias?  @relation(fields: [id_subcategoria], references: [id])
+  marca            tbl_marcas?         @relation(fields: [id_marca], references: [id])
+  unidad_medida    tbl_unidades_medida @relation(fields: [id_unidad_medida], references: [id])
+  inventarios      tbl_inventario[]
+  movimientos      tbl_movimientos_inventario[]
+  kardex           tbl_kardex[]
+  detalle_ventas   tbl_detalle_ventas[]
+  detalle_compras  tbl_detalle_compras[]
+  detalle_ordenes  tbl_detalle_ordenes_compra[]
+  codigos_proveedor tbl_producto_codigos_proveedor[]
+
+  @@index([codigo])
+  @@index([nombre])
+  @@index([id_categoria])
+  @@map("tbl_productos")
+}
+
+// ============================================================
+// INVENTARIO / KARDEX
+// ============================================================
+
+model tbl_inventario {
+  id                   String   @id @default(uuid())
+  id_producto          String
+  id_almacen           String
+  stock_actual         Decimal  @default(0) @db.Decimal(12, 4)
+  stock_reservado      Decimal  @default(0) @db.Decimal(12, 4)
+  version              Int      @default(0)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  producto  tbl_productos  @relation(fields: [id_producto], references: [id])
+  almacen   tbl_almacenes  @relation(fields: [id_almacen], references: [id])
+
+  @@unique([id_producto, id_almacen])
+  @@index([id_producto])
+  @@index([id_almacen])
+  @@map("tbl_inventario")
+}
+
+model tbl_movimientos_inventario {
+  id               String                   @id @default(uuid())
+  id_producto      String
+  id_almacen       String
+  tipo             TipoMovimientoInventario
+  motivo           String?                  @db.VarChar(300)
+  cantidad         Decimal                  @db.Decimal(12, 4)
+  stock_antes      Decimal                  @db.Decimal(12, 4)
+  stock_despues    Decimal                  @db.Decimal(12, 4)
+  costo_unitario   Decimal                  @default(0) @db.Decimal(12, 4)
+  id_referencia    String?                  @db.VarChar(36)
+  tipo_referencia  TipoReferenciaMovimiento?
+  id_usuario       String?                  @db.VarChar(36)
+  fecha            DateTime                 @default(now())
+
+  producto tbl_productos @relation(fields: [id_producto], references: [id])
+  kardex   tbl_kardex[]
+
+  @@index([id_producto])
+  @@index([id_almacen])
+  @@index([fecha])
+  @@index([id_referencia])
+  @@map("tbl_movimientos_inventario")
+}
+
+model tbl_kardex {
+  id                String          @id @default(uuid())
+  id_producto       String
+  id_almacen        String
+  id_movimiento     String
+  fecha             DateTime
+  tipo_movimiento   String          @db.VarChar(50)
+  cantidad_entrada  Decimal         @default(0) @db.Decimal(12, 4)
+  cantidad_salida   Decimal         @default(0) @db.Decimal(12, 4)
+  costo_unitario    Decimal         @default(0) @db.Decimal(12, 4)
+  costo_total       Decimal         @default(0) @db.Decimal(12, 4)
+  stock_resultante  Decimal         @db.Decimal(12, 4)
+  metodo_valuacion  MetodoValuacion @default(promedio)
+  id_referencia     String?         @db.VarChar(36)
+  tipo_referencia   String?         @db.VarChar(50)
+  descripcion       String?         @db.VarChar(300)
+  fecha_creacion    DateTime        @default(now())
+
+  producto   tbl_productos              @relation(fields: [id_producto], references: [id])
+  movimiento tbl_movimientos_inventario @relation(fields: [id_movimiento], references: [id])
+
+  @@index([id_producto, id_almacen])
+  @@index([fecha])
+  @@map("tbl_kardex")
+}
+
+// ============================================================
+// VENTAS
+// ============================================================
+
+model tbl_metodos_pago {
+  id                   String   @id @default(uuid())
+  nombre               String   @unique @db.VarChar(100)
+  codigo               String?  @db.VarChar(20)
+  requiere_referencia  Boolean  @default(false)
+  activo               Boolean  @default(true)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  pagos tbl_pagos[]
+
+  @@map("tbl_metodos_pago")
+}
+
+model tbl_ventas {
+  id                   String             @id @default(uuid())
+  numero_interno       String             @unique @db.VarChar(20)
+  id_serie_documento   String
+  tipo_documento       TipoDocumentoSunat
+  serie                String             @db.VarChar(4)
+  correlativo          Int
+  numero_comprobante   String             @db.VarChar(15)
+  id_cliente           String
+  id_punto_venta       String?
+  id_usuario_vendedor  String
+  id_caja_apertura     String?
+  fecha_emision        DateTime           @default(now())
+  fecha_vencimiento    DateTime?
+  moneda               Moneda             @default(PEN)
+  tipo_cambio          Decimal            @default(1) @db.Decimal(10, 4)
+  subtotal             Decimal            @db.Decimal(12, 2)
+  igv                  Decimal            @db.Decimal(12, 2)
+  otros_cargos         Decimal            @default(0) @db.Decimal(12, 2)
+  total                Decimal            @db.Decimal(12, 2)
+  observaciones        String?            @db.VarChar(500)
+  estado_sunat         EstadoSunat        @default(pendiente)
+  estado_venta         EstadoVenta        @default(vigente)
+  motivo_anulacion     String?            @db.VarChar(300)
+  id_nota_original     String?            @db.VarChar(36)
+  motivo_nota          String?            @db.VarChar(300)
+  codigo_motivo_nota   String?            @db.VarChar(5)
+  id_venta_origen      String?
+  afecto_stock         Boolean            @default(true)
+  estado               Boolean            @default(true)
+  eliminado            Boolean            @default(false)
+  fecha_creacion       DateTime           @default(now())
+  fecha_modificacion   DateTime           @updatedAt
+  usuario_creacion     String?            @db.VarChar(36)
+  usuario_modificacion String?            @db.VarChar(36)
+
+  serie_documento tbl_series_documento @relation(fields: [id_serie_documento], references: [id])
+  cliente         tbl_clientes         @relation(fields: [id_cliente], references: [id])
+  vendedor        tbl_usuarios         @relation(fields: [id_usuario_vendedor], references: [id])
+  detalle         tbl_detalle_ventas[]
+  pagos           tbl_pagos[]
+  sunat_envios    tbl_sunat_envios[]
+
+  venta_origen tbl_ventas?  @relation("CanjeVenta", fields: [id_venta_origen], references: [id])
+  canjes       tbl_ventas[] @relation("CanjeVenta")
+
+  @@unique([serie, correlativo, tipo_documento])
+  @@index([id_cliente])
+  @@index([id_usuario_vendedor])
+  @@index([fecha_emision])
+  @@index([estado_sunat])
+  @@index([numero_comprobante])
+  @@map("tbl_ventas")
+}
+
+model tbl_detalle_ventas {
+  id              String  @id @default(uuid())
+  id_venta        String
+  id_producto     String
+  descripcion     String? @db.VarChar(300)
+  cantidad        Decimal @db.Decimal(12, 4)
+  precio_tipo     Int     @default(1)
+  precio_unitario Decimal @db.Decimal(12, 4)
+  descuento       Decimal @default(0) @db.Decimal(12, 4)
+  descuento_pct   Decimal @default(0) @db.Decimal(5, 2)
+  valor_unitario  Decimal @db.Decimal(12, 4)
+  subtotal        Decimal @db.Decimal(12, 2)
+  igv             Decimal @db.Decimal(12, 2)
+  total           Decimal @db.Decimal(12, 2)
+  afecta_igv      Boolean @default(true)
+
+  venta    tbl_ventas    @relation(fields: [id_venta], references: [id])
+  producto tbl_productos @relation(fields: [id_producto], references: [id])
+
+  @@index([id_venta])
+  @@index([id_producto])
+  @@map("tbl_detalle_ventas")
+}
+
+model tbl_pagos {
+  id              String   @id @default(uuid())
+  id_venta        String
+  id_metodo_pago  String
+  monto           Decimal  @db.Decimal(12, 2)
+  referencia      String?  @db.VarChar(100)
+  fecha           DateTime @default(now())
+
+  venta       tbl_ventas       @relation(fields: [id_venta], references: [id])
+  metodo_pago tbl_metodos_pago @relation(fields: [id_metodo_pago], references: [id])
+
+  @@index([id_venta])
+  @@map("tbl_pagos")
+}
+
+// ============================================================
+// COMPRAS
+// ============================================================
+
+model tbl_compras {
+  id                     String             @id @default(uuid())
+  numero_interno         String             @unique @db.VarChar(20)
+  tipo_documento         String             @db.VarChar(30)
+  serie                  String?            @db.VarChar(4)
+  numero                 String?            @db.VarChar(10)
+  id_proveedor           String
+  id_almacen             String
+  id_usuario             String
+  id_orden_compra        String?            @db.VarChar(36)
+  fecha_emision          DateTime
+  fecha_vencimiento      DateTime?
+  condicion_pago         CondicionPago      @default(contado)
+  moneda                 Moneda             @default(PEN)
+  tipo_cambio            Decimal            @default(1) @db.Decimal(10, 4)
+  subtotal               Decimal            @db.Decimal(12, 2)
+  igv                    Decimal            @db.Decimal(12, 2)
+  total                  Decimal            @db.Decimal(12, 2)
+  flete_monto            Decimal            @default(0) @db.Decimal(12, 2)
+  flete_moneda           Moneda             @default(PEN)
+  flete_tipo_cambio      Decimal            @default(1) @db.Decimal(10, 4)
+  flete_monto_pen        Decimal            @default(0) @db.Decimal(12, 2)
+  flete_tipo_prorrateo   TipoProrrateoFlete @default(precio)
+  estado                 EstadoCompra       @default(borrador)
+  observaciones          String?            @db.VarChar(500)
+  estado_registro        Boolean            @default(true)
+  eliminado              Boolean            @default(false)
+  fecha_creacion         DateTime           @default(now())
+  fecha_modificacion     DateTime           @updatedAt
+  usuario_creacion       String?            @db.VarChar(36)
+  usuario_modificacion   String?            @db.VarChar(36)
+
+  proveedor tbl_proveedores      @relation(fields: [id_proveedor], references: [id])
+  almacen   tbl_almacenes        @relation(fields: [id_almacen], references: [id])
+  usuario   tbl_usuarios         @relation(fields: [id_usuario], references: [id])
+  detalle   tbl_detalle_compras[]
+
+  @@index([id_proveedor])
+  @@index([id_almacen])
+  @@index([fecha_emision])
+  @@map("tbl_compras")
+}
+
+model tbl_detalle_compras {
+  id                        String  @id @default(uuid())
+  id_compra                 String
+  id_producto               String
+  descripcion               String? @db.VarChar(300)
+  cantidad                  Decimal @db.Decimal(12, 4)
+  importe_linea             Decimal @default(0) @db.Decimal(12, 4)
+  precio_unitario           Decimal @db.Decimal(12, 4)
+  precio_unitario_pen       Decimal @db.Decimal(12, 4)
+  costo_flete_prorrateado   Decimal @default(0) @db.Decimal(12, 4)
+  costo_unitario_total      Decimal @db.Decimal(12, 4)
+  subtotal                  Decimal @db.Decimal(12, 2)
+  igv                       Decimal @db.Decimal(12, 2)
+  total                     Decimal @db.Decimal(12, 2)
+  afecta_igv                Boolean @default(true)
+
+  compra   tbl_compras   @relation(fields: [id_compra], references: [id])
+  producto tbl_productos @relation(fields: [id_producto], references: [id])
+
+  @@index([id_compra])
+  @@index([id_producto])
+  @@map("tbl_detalle_compras")
+}
+
+// ============================================================
+// ÓRDENES DE COMPRA
+// ============================================================
+
+model tbl_ordenes_compra {
+  id                   String            @id @default(uuid())
+  numero               String            @unique @db.VarChar(20)
+  id_proveedor         String
+  id_usuario_solicitante String
+  id_usuario_aprobador String?
+  fecha_solicitud      DateTime          @default(now())
+  fecha_aprobacion     DateTime?
+  fecha_requerida      DateTime?
+  moneda               Moneda            @default(PEN)
+  total_estimado       Decimal           @default(0) @db.Decimal(12, 2)
+  estado               EstadoOrdenCompra @default(borrador)
+  observaciones        String?           @db.VarChar(500)
+  id_compra_generada   String?           @db.VarChar(36)
+  estado_registro      Boolean           @default(true)
+  eliminado            Boolean           @default(false)
+  fecha_creacion       DateTime          @default(now())
+  fecha_modificacion   DateTime          @updatedAt
+  usuario_creacion     String?           @db.VarChar(36)
+  usuario_modificacion String?           @db.VarChar(36)
+
+  proveedor  tbl_proveedores            @relation(fields: [id_proveedor], references: [id])
+  solicitante tbl_usuarios              @relation("solicitante", fields: [id_usuario_solicitante], references: [id])
+  aprobador   tbl_usuarios?             @relation("aprobador", fields: [id_usuario_aprobador], references: [id])
+  detalle    tbl_detalle_ordenes_compra[]
+
+  @@index([id_proveedor])
+  @@index([estado])
+  @@map("tbl_ordenes_compra")
+}
+
+model tbl_detalle_ordenes_compra {
+  id                String  @id @default(uuid())
+  id_orden          String
+  id_producto       String
+  descripcion       String? @db.VarChar(300)
+  cantidad          Decimal @db.Decimal(12, 4)
+  precio_referencial Decimal @default(0) @db.Decimal(12, 4)
+  subtotal_estimado Decimal @default(0) @db.Decimal(12, 2)
+
+  orden    tbl_ordenes_compra @relation(fields: [id_orden], references: [id])
+  producto tbl_productos      @relation(fields: [id_producto], references: [id])
+
+  @@index([id_orden])
+  @@map("tbl_detalle_ordenes_compra")
+}
+
+// ============================================================
+// CAJA
+// ============================================================
+
+model tbl_cajas {
+  id                   String   @id @default(uuid())
+  id_punto_venta       String
+  nombre               String   @db.VarChar(100)
+  descripcion          String?  @db.VarChar(300)
+  activo               Boolean  @default(true)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+
+  punto_venta tbl_puntos_venta      @relation(fields: [id_punto_venta], references: [id])
+  aperturas   tbl_cajas_aperturas[]
+
+  @@index([id_punto_venta])
+  @@map("tbl_cajas")
+}
+
+model tbl_cajas_aperturas {
+  id                   String     @id @default(uuid())
+  id_caja              String
+  id_usuario           String
+  monto_apertura       Decimal    @db.Decimal(12, 2)
+  monto_cierre         Decimal?   @db.Decimal(12, 2)
+  monto_sistema        Decimal?   @db.Decimal(12, 2)
+  diferencia           Decimal?   @db.Decimal(12, 2)
+  observaciones_cierre String?    @db.VarChar(500)
+  fecha_apertura       DateTime   @default(now())
+  fecha_cierre         DateTime?
+  estado               EstadoCaja @default(abierta)
+  estado_registro      Boolean    @default(true)
+  eliminado            Boolean    @default(false)
+  fecha_creacion       DateTime   @default(now())
+  fecha_modificacion   DateTime   @updatedAt
+  usuario_creacion     String?    @db.VarChar(36)
+  usuario_modificacion String?    @db.VarChar(36)
+
+  caja       tbl_cajas              @relation(fields: [id_caja], references: [id])
+  usuario    tbl_usuarios           @relation(fields: [id_usuario], references: [id])
+  movimientos tbl_movimientos_caja[]
+
+  @@index([id_caja])
+  @@index([id_usuario])
+  @@index([estado])
+  @@map("tbl_cajas_aperturas")
+}
+
+model tbl_movimientos_caja {
+  id                   String             @id @default(uuid())
+  id_caja_apertura     String
+  tipo                 TipoMovimientoCaja
+  concepto             String             @db.VarChar(300)
+  monto                Decimal            @db.Decimal(12, 2)
+  id_referencia        String?            @db.VarChar(36)
+  tipo_referencia      String?            @db.VarChar(50)
+  id_usuario           String
+  fecha                DateTime           @default(now())
+
+  caja_apertura tbl_cajas_aperturas @relation(fields: [id_caja_apertura], references: [id])
+  usuario       tbl_usuarios        @relation(fields: [id_usuario], references: [id])
+
+  @@index([id_caja_apertura])
+  @@index([fecha])
+  @@map("tbl_movimientos_caja")
+}
+
+// ============================================================
+// TIPO DE CAMBIO
+// ============================================================
+
+model tbl_tipos_cambio {
+  id                   String           @id @default(uuid())
+  fecha                DateTime
+  compra               Decimal          @db.Decimal(10, 4)
+  venta                Decimal          @db.Decimal(10, 4)
+  fuente               FuenteTipoCambio @default(manual)
+  estado               Boolean          @default(true)
+  eliminado            Boolean          @default(false)
+  fecha_creacion       DateTime         @default(now())
+  fecha_modificacion   DateTime         @updatedAt
+  usuario_creacion     String?          @db.VarChar(36)
+  usuario_modificacion String?          @db.VarChar(36)
+
+  @@unique([fecha])
+  @@index([fecha])
+  @@map("tbl_tipos_cambio")
+}
+
+// ============================================================
+// RRHH
+// ============================================================
+
+model tbl_personal {
+  id                   String               @id @default(uuid())
+  dni                  String               @unique @db.VarChar(8)
+  nombres              String               @db.VarChar(100)
+  apellidos            String               @db.VarChar(100)
+  cargo                String?              @db.VarChar(100)
+  area                 String?              @db.VarChar(100)
+  fecha_ingreso        DateTime
+  fecha_cese           DateTime?
+  sueldo               Decimal              @db.Decimal(12, 2)
+  cuenta_bancaria      String?              @db.VarChar(50)
+  banco                String?              @db.VarChar(100)
+  cci                  String?              @db.VarChar(50)
+  tipo_contrato        TipoContratoPersonal @default(indefinido)
+  email                String?              @db.VarChar(150)
+  telefono             String?              @db.VarChar(20)
+  estado               Boolean              @default(true)
+  eliminado            Boolean              @default(false)
+  fecha_creacion       DateTime             @default(now())
+  fecha_modificacion   DateTime             @updatedAt
+  usuario_creacion     String?              @db.VarChar(36)
+  usuario_modificacion String?              @db.VarChar(36)
+
+  @@index([dni])
+  @@index([apellidos])
+  @@map("tbl_personal")
+}
+
+// ============================================================
+// CONFIGURACIÓN DE MÁRGENES Y PRECIOS
+// ============================================================
+
+model tbl_config_margenes {
+  id          String   @id @default(uuid())
+  numero      Int      @unique
+  nombre      String   @db.VarChar(60)
+  margen      Decimal  @db.Decimal(8, 4)
+  activo      Boolean  @default(true)
+  descripcion String?  @db.VarChar(200)
+
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_modificacion String?  @db.VarChar(36)
+
+  @@map("tbl_config_margenes")
+}
+
+// ============================================================
+// SUNAT
+// ============================================================
+
+model tbl_sunat_envios {
+  id                   String      @id @default(uuid())
+  id_venta             String
+  tipo_documento       String      @db.VarChar(5)
+  nombre_xml           String      @db.VarChar(100)
+  xml_sin_firma        String?     @db.Text
+  xml_firmado          String?     @db.Text
+  hash_xml             String?     @db.VarChar(100)
+  zip_base64           String?     @db.Text
+  fecha_envio          DateTime?
+  intento_numero       Int         @default(0)
+  estado               EstadoSunat @default(pendiente)
+  id_job_bullmq        String?     @db.VarChar(100)
+  error_mensaje        String?     @db.VarChar(500)
+  estado_registro      Boolean     @default(true)
+  eliminado            Boolean     @default(false)
+  fecha_creacion       DateTime    @default(now())
+  fecha_modificacion   DateTime    @updatedAt
+  usuario_creacion     String?     @db.VarChar(36)
+  usuario_modificacion String?     @db.VarChar(36)
+
+  venta     tbl_ventas              @relation(fields: [id_venta], references: [id])
+  respuestas tbl_sunat_respuestas[]
+
+  @@index([id_venta])
+  @@index([estado])
+  @@map("tbl_sunat_envios")
+}
+
+model tbl_sunat_respuestas {
+  id                  String   @id @default(uuid())
+  id_envio            String
+  codigo_respuesta    String?  @db.VarChar(10)
+  descripcion_respuesta String? @db.VarChar(500)
+  cdr_xml             String?  @db.Text
+  cdr_base64          String?  @db.Text
+  es_exitoso          Boolean  @default(false)
+  fecha_respuesta     DateTime @default(now())
+
+  envio tbl_sunat_envios @relation(fields: [id_envio], references: [id])
+
+  @@index([id_envio])
+  @@map("tbl_sunat_respuestas")
+}

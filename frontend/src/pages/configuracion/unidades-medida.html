@@ -1,0 +1,147 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unidades de Medida — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-rulers me-2 text-primary"></i>Unidades de Medida</h5>
+      <button class="btn btn-primary btn-sm" id="btn-nueva"><i class="bi bi-plus-lg me-1"></i>Nueva Unidad</button>
+    </div>
+
+    <div class="card shadow-sm" style="max-width:700px">
+      <div class="card-body p-0">
+        <table class="table table-hover table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Codigo SUNAT</th>
+              <th>Descripcion</th>
+              <th>Simbolo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-body">
+            <tr><td colspan="4" class="text-center py-4 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Cargando...
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="modalUnidad" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nueva Unidad de Medida</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="unidad-id">
+          <div class="mb-3">
+            <label class="form-label">Codigo SUNAT <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="unidad-codigo" placeholder="Ej: NIU, KGM, MTR...">
+            <div class="form-text">Usar codigos del catalogo SUNAT (tabla 6)</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descripcion <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="unidad-descripcion" placeholder="Ej: Unidad, Kilogramo, Metro...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Simbolo <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="unidad-simbolo" placeholder="Ej: und, kg, m...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-guardar">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { unidadesApi } from '/src/api/modules.js';
+    import { requireAuth } from '/src/auth/auth.js';
+
+    requireAuth();
+    initLayout('config-unidades');
+
+    const modal = new bootstrap.Modal('#modalUnidad');
+
+    async function cargar() {
+      const res = await unidadesApi.listar();
+      const items = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const tbody = document.getElementById('tabla-body');
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Sin unidades registradas</td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map(u => `
+        <tr>
+          <td><code>${u.codigo_sunat}</code></td>
+          <td>${u.descripcion}</td>
+          <td><span class="badge bg-secondary">${u.simbolo}</span></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary btn-edit"
+                    data-id="${u.id}" data-codigo="${u.codigo_sunat}"
+                    data-desc="${u.descripcion}" data-simbolo="${u.simbolo}">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </td>
+        </tr>`).join('');
+
+      tbody.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('unidad-id').value = btn.dataset.id;
+          document.getElementById('unidad-codigo').value = btn.dataset.codigo;
+          document.getElementById('unidad-descripcion').value = btn.dataset.desc;
+          document.getElementById('unidad-simbolo').value = btn.dataset.simbolo;
+          document.getElementById('modal-titulo').textContent = 'Editar Unidad de Medida';
+          modal.show();
+        });
+      });
+    }
+
+    document.getElementById('btn-nueva').addEventListener('click', () => {
+      document.getElementById('unidad-id').value = '';
+      document.getElementById('unidad-codigo').value = '';
+      document.getElementById('unidad-descripcion').value = '';
+      document.getElementById('unidad-simbolo').value = '';
+      document.getElementById('modal-titulo').textContent = 'Nueva Unidad de Medida';
+      modal.show();
+    });
+
+    document.getElementById('btn-guardar').addEventListener('click', async () => {
+      const id = document.getElementById('unidad-id').value;
+      const codigo = document.getElementById('unidad-codigo').value.trim().toUpperCase();
+      const descripcion = document.getElementById('unidad-descripcion').value.trim();
+      const simbolo = document.getElementById('unidad-simbolo').value.trim();
+      if (!codigo || !descripcion || !simbolo) { alert('Todos los campos son requeridos'); return; }
+      try {
+        const data = { codigo_sunat: codigo, descripcion, simbolo };
+        if (id) await unidadesApi.actualizar(id, data);
+        else await unidadesApi.crear(data);
+        modal.hide();
+        cargar();
+      } catch (e) {
+        alert(e.message || 'Error al guardar');
+      }
+    });
+
+    cargar();
+  </script>
+</body>
+</html>
+

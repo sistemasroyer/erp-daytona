@@ -1,0 +1,341 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reportes — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-bar-chart me-2 text-primary"></i>Centro de Reportes</h5>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3" id="tabs-reportes">
+      <li class="nav-item"><button class="nav-link active" data-tab="ventas">Ventas</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="compras">Compras</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="inventario">Inventario</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="auditoria">Auditoría</button></li>
+    </ul>
+
+    <!-- Filtros comunes -->
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Desde</label>
+            <input type="date" class="form-control form-control-sm" id="f-desde">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Hasta</label>
+            <input type="date" class="form-control form-control-sm" id="f-hasta">
+          </div>
+          <div class="col-sm-4 d-flex gap-2">
+            <button class="btn btn-primary btn-sm" id="btn-generar">
+              <i class="bi bi-play-fill me-1"></i>Generar
+            </button>
+            <button class="btn btn-success btn-sm" id="btn-excel" style="display:none">
+              <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultado-ventas">
+      <div class="row g-3 mb-3" id="totales-ventas" style="display:none">
+        <div class="col-sm-3">
+          <div class="card text-center">
+            <div class="card-body py-2">
+              <div class="text-muted small">Comprobantes</div>
+              <div class="fw-bold fs-5" id="tv-cantidad">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-3">
+          <div class="card text-center">
+            <div class="card-body py-2">
+              <div class="text-muted small">Subtotal</div>
+              <div class="fw-bold fs-5" id="tv-subtotal">S/ 0.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-3">
+          <div class="card text-center">
+            <div class="card-body py-2">
+              <div class="text-muted small">IGV</div>
+              <div class="fw-bold fs-5" id="tv-igv">S/ 0.00</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-3">
+          <div class="card text-center border-primary">
+            <div class="card-body py-2">
+              <div class="text-muted small">Total</div>
+              <div class="fw-bold fs-5 text-primary" id="tv-total">S/ 0.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Comprobante</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th class="text-end">Subtotal</th>
+                  <th class="text-end">IGV</th>
+                  <th class="text-end">Total</th>
+                  <th class="text-center">SUNAT</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-ventas">
+                <tr><td colspan="7" class="text-center py-4 text-muted">Seleccione un período y haga clic en Generar</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultado-compras" style="display:none">
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Documento</th>
+                  <th>Fecha</th>
+                  <th>Proveedor</th>
+                  <th class="text-end">Subtotal</th>
+                  <th class="text-end">IGV</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-compras">
+                <tr><td colspan="6" class="text-center py-4 text-muted">Seleccione un período y haga clic en Generar</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultado-inventario" style="display:none">
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Almacén</th>
+                  <th class="text-end">Stock</th>
+                  <th class="text-end">Costo</th>
+                  <th class="text-end">Valor Stock</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-inventario">
+                <tr><td colspan="7" class="text-center py-4 text-muted">Haga clic en Generar</td></tr>
+              </tbody>
+              <tfoot id="tfoot-inv"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultado-auditoria" style="display:none">
+      <div class="card mb-3">
+        <div class="card-body py-2">
+          <div class="row g-2">
+            <div class="col-sm-4">
+              <input type="text" class="form-control form-control-sm" id="f-tabla" placeholder="Filtrar por tabla...">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha/Hora</th>
+                  <th>Usuario</th>
+                  <th>Tabla</th>
+                  <th>Operación</th>
+                  <th>Detalles</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-auditoria">
+                <tr><td colspan="5" class="text-center py-4 text-muted">Seleccione un período y haga clic en Generar</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { reportesApi } from '/src/api/modules.js';
+    import { formatMoneda, formatFecha, formatFechaHora, badgeEstado } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('reportes');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let tabActual = 'ventas';
+
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('f-desde').value = primerDia;
+    document.getElementById('f-hasta').value = hoy.toISOString().split('T')[0];
+
+    // Tabs
+    document.querySelectorAll('[data-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        tabActual = btn.dataset.tab;
+        document.querySelectorAll('[data-tab]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['ventas','compras','inventario','auditoria'].forEach((t) => {
+          document.getElementById(`resultado-${t}`).style.display = t === tabActual ? '' : 'none';
+        });
+        document.getElementById('btn-excel').style.display = ['ventas','inventario'].includes(tabActual) ? '' : 'none';
+      });
+    });
+
+    const filtros = () => ({
+      fecha_desde: document.getElementById('f-desde').value || undefined,
+      fecha_hasta: document.getElementById('f-hasta').value || undefined,
+    });
+
+    document.getElementById('btn-generar').addEventListener('click', async () => {
+      const f = filtros();
+      try {
+        if (tabActual === 'ventas') await generarVentas(f);
+        else if (tabActual === 'compras') await generarCompras(f);
+        else if (tabActual === 'inventario') await generarInventario(f);
+        else if (tabActual === 'auditoria') await generarAuditoria(f);
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-excel').addEventListener('click', async () => {
+      const f = filtros();
+      try {
+        if (tabActual === 'ventas') await reportesApi.exportarVentasExcel(f);
+        else if (tabActual === 'inventario') await reportesApi.exportarInventarioExcel(f);
+        toast('Descargando Excel...', 'info');
+      } catch (err) { toastError(err); }
+    });
+
+    async function generarVentas(f) {
+      const tbody = document.getElementById('tbody-ventas');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      const res = await reportesApi.ventas(f);
+      const { ventas, totales } = res.data || res;
+
+      document.getElementById('totales-ventas').style.display = '';
+      document.getElementById('tv-cantidad').textContent = totales.cantidad;
+      document.getElementById('tv-subtotal').textContent = formatMoneda(totales.subtotal);
+      document.getElementById('tv-igv').textContent = formatMoneda(totales.igv);
+      document.getElementById('tv-total').textContent = formatMoneda(totales.total);
+
+      tbody.innerHTML = ventas.length ? ventas.map((v) => `
+        <tr>
+          <td class="fw-semibold small">${v.numero_comprobante || `${v.serie}-${v.correlativo}`}</td>
+          <td>${formatFecha(v.fecha_emision)}</td>
+          <td>${v.cliente?.razon_social || '-'}</td>
+          <td class="text-end">${formatMoneda(v.subtotal, v.moneda)}</td>
+          <td class="text-end">${formatMoneda(v.igv, v.moneda)}</td>
+          <td class="text-end fw-semibold">${formatMoneda(v.total, v.moneda)}</td>
+          <td class="text-center">${badgeEstado(v.estado_sunat)}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Sin ventas en el período</td></tr>';
+    }
+
+    async function generarCompras(f) {
+      const tbody = document.getElementById('tbody-compras');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      const res = await reportesApi.compras(f);
+      const { compras } = res.data || res;
+      const arr = Array.isArray(compras) ? compras : [];
+
+      tbody.innerHTML = arr.length ? arr.map((c) => `
+        <tr>
+          <td class="small fw-semibold">${c.serie ? c.serie + '-' + c.numero : c.numero}</td>
+          <td>${formatFecha(c.fecha_emision)}</td>
+          <td>${c.proveedor?.razon_social || '-'}</td>
+          <td class="text-end">${formatMoneda(c.subtotal, c.moneda)}</td>
+          <td class="text-end">${formatMoneda(c.igv, c.moneda)}</td>
+          <td class="text-end fw-semibold">${formatMoneda(c.total, c.moneda)}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted">Sin compras en el período</td></tr>';
+    }
+
+    async function generarInventario(f) {
+      const tbody = document.getElementById('tbody-inventario');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      const res = await reportesApi.inventario(f);
+      const items = Array.isArray(res.data) ? res.data : res.data?.inventario || res.data || [];
+
+      let valorTotal = 0;
+      tbody.innerHTML = items.length ? items.map((i) => {
+        const stock = Number(i.stock_actual);
+        const costo = Number(i.producto?.costo_promedio || 0);
+        const valor = stock * costo;
+        valorTotal += valor;
+        return `
+        <tr>
+          <td class="small fw-semibold">${i.producto?.codigo || '-'}</td>
+          <td>${i.producto?.nombre || '-'}</td>
+          <td class="small">${i.producto?.categoria?.nombre || '-'}</td>
+          <td class="small">${i.almacen?.nombre || '-'}</td>
+          <td class="text-end">${stock.toFixed(4)}</td>
+          <td class="text-end">${formatMoneda(costo)}</td>
+          <td class="text-end fw-semibold">${formatMoneda(valor)}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="7" class="text-center text-muted">Sin registros</td></tr>';
+
+      document.getElementById('tfoot-inv').innerHTML = `
+        <tr class="table-primary fw-bold">
+          <td colspan="6" class="text-end">VALOR TOTAL INVENTARIO:</td>
+          <td class="text-end">${formatMoneda(valorTotal)}</td>
+        </tr>`;
+    }
+
+    async function generarAuditoria(f) {
+      const tbody = document.getElementById('tbody-auditoria');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      const filtro = { ...f, tabla: document.getElementById('f-tabla').value || undefined };
+      const res = await reportesApi.auditoria(filtro);
+      const items = Array.isArray(res.data) ? res.data : res.data?.auditoria || res.data || [];
+
+      tbody.innerHTML = items.length ? items.map((a) => `
+        <tr>
+          <td class="small">${formatFechaHora(a.fecha)}</td>
+          <td class="small">${a.usuario ? `${a.usuario.nombre} ${a.usuario.apellido}` : '-'}</td>
+          <td><code class="small">${a.tabla}</code></td>
+          <td><span class="badge ${a.operacion === 'INSERT' ? 'bg-success' : a.operacion === 'DELETE' ? 'bg-danger' : 'bg-warning text-dark'}">${a.operacion}</span></td>
+          <td class="small text-muted">${a.id_registro || '-'}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted">Sin registros</td></tr>';
+    }
+  </script>
+</body>
+</html>
+

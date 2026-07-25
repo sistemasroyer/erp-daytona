@@ -1,0 +1,210 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tipos de Cambio — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-currency-exchange me-2 text-primary"></i>Tipos de Cambio USD/PEN</h5>
+      <button class="btn btn-primary btn-sm" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Registrar Tipo de Cambio</button>
+    </div>
+
+    <!-- Tipo de cambio de hoy -->
+    <div class="alert" id="alert-hoy" style="display:none"></div>
+
+    <div class="card shadow-sm" style="max-width:700px">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span>Historial (ultimos 60 dias)</span>
+        <span class="badge bg-secondary" id="badge-count">0</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th class="text-end">Compra</th>
+              <th class="text-end">Venta</th>
+              <th>Fuente</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-body">
+            <tr><td colspan="5" class="text-center py-4 text-muted">
+              <span class="spinner-border spinner-border-sm me-2"></span>Cargando...
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="modalTC" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nuevo Tipo de Cambio</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="tc-id">
+          <div class="mb-3">
+            <label class="form-label">Fecha <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="tc-fecha">
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col">
+              <label class="form-label">Compra (USD → PEN) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">S/</span>
+                <input type="number" class="form-control" id="tc-compra" step="0.0001" min="0.0001" placeholder="3.7500">
+              </div>
+            </div>
+            <div class="col">
+              <label class="form-label">Venta (USD → PEN) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">S/</span>
+                <input type="number" class="form-control" id="tc-venta" step="0.0001" min="0.0001" placeholder="3.7600">
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Fuente</label>
+            <select class="form-select" id="tc-fuente">
+              <option value="manual">Manual</option>
+              <option value="sunat">SUNAT</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-guardar">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { tiposCambioApi } from '/src/api/modules.js';
+    import { requireAuth } from '/src/auth/auth.js';
+
+    requireAuth();
+    initLayout('config-tipos-cambio');
+
+    const modal = new bootstrap.Modal('#modalTC');
+
+    async function cargar() {
+      const [resAll, resHoy] = await Promise.all([
+        tiposCambioApi.listar(),
+        tiposCambioApi.hoy(),
+      ]);
+      const items = Array.isArray(resAll.data) ? resAll.data : (resAll.data?.data || []);
+      const hoy = resHoy.data;
+
+      const alertEl = document.getElementById('alert-hoy');
+      if (hoy) {
+        alertEl.className = 'alert alert-success d-flex align-items-center gap-2 mb-3';
+        alertEl.innerHTML = '<i class="bi bi-check-circle-fill"></i><div>Tipo de cambio de hoy: <strong>Compra S/ ' +
+          Number(hoy.compra).toFixed(4) + '</strong> / <strong>Venta S/ ' +
+          Number(hoy.venta).toFixed(4) + '</strong></div>';
+        alertEl.style.display = '';
+      } else {
+        alertEl.className = 'alert alert-warning d-flex align-items-center gap-2 mb-3';
+        alertEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i><div>No hay tipo de cambio registrado para hoy. Las compras en USD usaran el tipo de cambio manual.</div>';
+        alertEl.style.display = '';
+      }
+
+      document.getElementById('badge-count').textContent = items.length;
+      const tbody = document.getElementById('tabla-body');
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Sin registros</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map(tc => {
+        const fecha = new Date(tc.fecha + 'T00:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
+        const esHoy = hoy && hoy.id === tc.id;
+        return `<tr ${esHoy ? 'class="table-success"' : ''}>
+          <td>${fecha} ${esHoy ? '<span class="badge bg-success">HOY</span>' : ''}</td>
+          <td class="text-end">S/ ${Number(tc.compra).toFixed(4)}</td>
+          <td class="text-end">S/ ${Number(tc.venta).toFixed(4)}</td>
+          <td><span class="badge ${tc.fuente === 'sunat' ? 'bg-info' : 'bg-secondary'}">${tc.fuente}</span></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary btn-edit me-1"
+                    data-id="${tc.id}" data-fecha="${tc.fecha.split('T')[0]}"
+                    data-compra="${tc.compra}" data-venta="${tc.venta}" data-fuente="${tc.fuente}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger btn-del" data-id="${tc.id}">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('tc-id').value = btn.dataset.id;
+          document.getElementById('tc-fecha').value = btn.dataset.fecha;
+          document.getElementById('tc-compra').value = Number(btn.dataset.compra).toFixed(4);
+          document.getElementById('tc-venta').value = Number(btn.dataset.venta).toFixed(4);
+          document.getElementById('tc-fuente').value = btn.dataset.fuente;
+          document.getElementById('modal-titulo').textContent = 'Editar Tipo de Cambio';
+          modal.show();
+        });
+      });
+
+      tbody.querySelectorAll('.btn-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('¿Eliminar este tipo de cambio?')) return;
+          try {
+            await tiposCambioApi.eliminar(btn.dataset.id);
+            cargar();
+          } catch (e) {
+            alert(e.message || 'Error al eliminar');
+          }
+        });
+      });
+    }
+
+    document.getElementById('btn-nuevo').addEventListener('click', () => {
+      document.getElementById('tc-id').value = '';
+      document.getElementById('tc-fecha').value = new Date().toISOString().split('T')[0];
+      document.getElementById('tc-compra').value = '';
+      document.getElementById('tc-venta').value = '';
+      document.getElementById('tc-fuente').value = 'manual';
+      document.getElementById('modal-titulo').textContent = 'Nuevo Tipo de Cambio';
+      modal.show();
+    });
+
+    document.getElementById('btn-guardar').addEventListener('click', async () => {
+      const id = document.getElementById('tc-id').value;
+      const fecha = document.getElementById('tc-fecha').value;
+      const compra = parseFloat(document.getElementById('tc-compra').value);
+      const venta = parseFloat(document.getElementById('tc-venta').value);
+      if (!fecha || !compra || !venta) { alert('Todos los campos son requeridos'); return; }
+      try {
+        const data = { fecha, compra, venta, fuente: document.getElementById('tc-fuente').value };
+        if (id) await tiposCambioApi.actualizar(id, data);
+        else await tiposCambioApi.crear(data);
+        modal.hide();
+        cargar();
+      } catch (e) {
+        alert(e.message || 'Error al guardar');
+      }
+    });
+
+    cargar();
+  </script>
+</body>
+</html>
+

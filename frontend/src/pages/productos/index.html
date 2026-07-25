@@ -1,0 +1,565 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Productos — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Catálogo de Repuestos</h5>
+      <button class="btn btn-primary" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Nuevo Producto</button>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-5">
+            <input type="text" class="form-control form-control-sm" id="f-search" placeholder="Buscar por código, nombre o código de barras...">
+          </div>
+          <div class="col-sm-3">
+            <select class="form-select form-select-sm" id="f-categoria">
+              <option value="">Todas las categorías</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <select class="form-select form-select-sm" id="f-estado">
+              <option value="">Todos</option>
+              <option value="true">Activos</option>
+              <option value="false">Inactivos</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <button class="btn btn-primary btn-sm w-100" id="btn-buscar">
+              <i class="bi bi-search me-1"></i>Buscar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Categoría / Marca</th>
+                <th class="text-center">Unidad</th>
+                <th class="text-end">Stock</th>
+                <th class="text-end">Costo Prom.</th>
+                <th class="text-end">Precio Venta</th>
+                <th class="text-center">IGV</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-productos">
+              <tr><td colspan="10" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="text-muted small" id="info-res">-</span>
+        <div id="paginacion"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal producto -->
+  <div class="modal fade" id="modal-producto" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="modal-titulo"><i class="bi bi-box-seam me-2"></i>Nuevo Producto</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="form-producto" novalidate>
+
+            <!-- Identificación -->
+            <p class="fw-semibold text-primary mb-2 border-bottom pb-1">
+              <i class="bi bi-upc me-1"></i>Identificación
+            </p>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Código interno <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="p-codigo" placeholder="Ej: REP-001" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Código de barras</label>
+                <input type="text" class="form-control" id="p-codigo-barras" placeholder="EAN / UPC">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Código SUNAT</label>
+                <input type="text" class="form-control" id="p-codigo-sunat" placeholder="Ej: 85176200">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">Nombre / Descripción <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="p-nombre" placeholder="Ej: Filtro de aceite Toyota Corolla 2019" required>
+              </div>
+            </div>
+
+            <!-- Códigos alternos por proveedor -->
+            <p class="fw-semibold text-primary mb-2 border-bottom pb-1">
+              <i class="bi bi-truck me-1"></i>Códigos alternos por proveedor
+            </p>
+            <div class="mb-2">
+              <div id="codigos-proveedor-rows"></div>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-codigo-proveedor">
+                <i class="bi bi-plus-lg me-1"></i>Agregar código de proveedor
+              </button>
+              <div class="form-text">Cada proveedor puede tener su propio código para este producto (útil al recibir compras o buscar en catálogos del proveedor).</div>
+            </div>
+
+            <!-- Clasificación -->
+            <p class="fw-semibold text-primary mb-2 border-bottom pb-1">
+              <i class="bi bi-diagram-3 me-1"></i>Clasificación
+            </p>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Categoría</label>
+                <select class="form-select" id="p-categoria">
+                  <option value="">Sin categoría</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Subcategoría</label>
+                <select class="form-select" id="p-subcategoria" disabled>
+                  <option value="">Seleccione categoría primero</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Marca</label>
+                <select class="form-select" id="p-marca">
+                  <option value="">Sin marca</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Unidad de medida <span class="text-danger">*</span></label>
+                <select class="form-select" id="p-unidad" required>
+                  <option value="">Seleccione</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Tipo de existencia</label>
+                <select class="form-select" id="p-tipo-existencia">
+                  <option value="01">01 – Mercadería</option>
+                  <option value="02">02 – Productos terminados</option>
+                  <option value="03">03 – Materias primas</option>
+                  <option value="05">05 – Suministros diversos</option>
+                  <option value="99">99 – Otros</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Ubicación en almacén</label>
+                <input type="text" class="form-control" id="p-ubicacion" placeholder="Ej: Estante A-3">
+              </div>
+            </div>
+
+            <!-- Configuración -->
+            <p class="fw-semibold text-primary mb-2 border-bottom pb-1">
+              <i class="bi bi-gear me-1"></i>Configuración
+            </p>
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <label class="form-label">Afecta IGV</label>
+                <select class="form-select" id="p-igv">
+                  <option value="true">Sí (18%)</option>
+                  <option value="false">No (exonerado)</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Stock mín. de alerta</label>
+                <input type="number" class="form-control" id="p-stock-min" value="0" step="1" min="0">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Stock máx. referencial</label>
+                <input type="number" class="form-control" id="p-stock-max" value="0" step="1" min="0">
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="p-activo" checked>
+                  <label class="form-check-label" for="p-activo">Producto activo</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Precios -->
+            <p class="fw-semibold text-primary mb-2 border-bottom pb-1">
+              <i class="bi bi-tag me-1"></i>Precios
+            </p>
+            <div class="row g-2 mb-2">
+              <div class="col-md-6">
+                <div class="bg-light rounded px-2 py-1 small">
+                  <span class="text-muted">Costo promedio (ponderado):</span>
+                  <span class="fw-semibold" id="p-costo-promedio-display">S/ 0.00</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light rounded px-2 py-1 small">
+                  <span class="text-muted">Último costo de compra (sin IGV):</span>
+                  <span class="fw-semibold" id="p-costo-compra-display">S/ 0.00</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-text mb-2">El costo se calcula automáticamente al registrar compras. Los precios de venta abajo se sugieren según los márgenes configurados, pero puedes ajustarlos manualmente.</div>
+            <div class="row g-3 mb-3" id="precios-venta-rows"></div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Notas adicionales</label>
+                <textarea class="form-control" id="p-descripcion" rows="2" placeholder="Compatibilidad, observaciones, etc."></textarea>
+              </div>
+            </div>
+
+            <div class="alert alert-info mt-3 mb-0 py-2 small">
+              <i class="bi bi-info-circle me-1"></i>
+              El stock se actualiza automáticamente al registrar compras o realizar ajustes de inventario.
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-producto">
+            <span id="btn-gp-text"><i class="bi bi-check-lg me-1"></i>Guardar</span>
+            <span id="btn-gp-spin" class="spinner-border spinner-border-sm ms-1 d-none"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { productosApi, categoriasApi, subcategoriasApi, marcasApi, unidadesApi, proveedoresApi, configMargenesApi } from '/src/api/modules.js';
+    import { formatMoneda, badgeEstado, renderPaginacion } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { confirmar } from '/src/components/modal.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('productos');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let paginaActual = 1;
+    const LIMIT = 25;
+    let productoEditando = null;
+    let categorias = [], marcas = [], unidades = [], proveedores = [], margenes = [];
+
+    async function init() {
+      const [cats, mks, ums, provs, margs] = await Promise.all([
+        categoriasApi.listar().catch(() => ({ data: [] })),
+        marcasApi.listar().catch(() => ({ data: [] })),
+        unidadesApi.listar().catch(() => ({ data: [] })),
+        proveedoresApi.listar({ limit: 500 }).catch(() => ({ data: [] })),
+        configMargenesApi.listar().catch(() => ({ data: [] })),
+      ]);
+      categorias = cats.data || [];
+      marcas = mks.data || [];
+      unidades = ums.data || [];
+      proveedores = provs.data || [];
+      margenes = (margs.data || []).sort((a, b) => a.numero - b.numero);
+
+      document.getElementById('precios-venta-rows').innerHTML = margenes.map((m) => `
+        <div class="col-md-4">
+          <label class="form-label small">${m.nombre} <span class="text-muted">(${Number(m.margen)}%)</span></label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">S/</span>
+            <input type="number" class="form-control p-precio-venta" data-numero="${m.numero}" step="0.01" min="0" value="0">
+          </div>
+        </div>`).join('');
+
+      // Filtro de categorías
+      const selCat = document.getElementById('f-categoria');
+      categorias.forEach((c) => selCat.add(new Option(c.nombre, c.id)));
+
+      // Modal selects
+      const pCat = document.getElementById('p-categoria');
+      pCat.innerHTML = '<option value="">Sin categoría</option>' +
+        categorias.map((c) => `<option value="${c.id}">${c.nombre}</option>`).join('');
+
+      const pMarca = document.getElementById('p-marca');
+      pMarca.innerHTML = '<option value="">Sin marca</option>' +
+        marcas.map((m) => `<option value="${m.id}">${m.nombre}</option>`).join('');
+
+      const pUm = document.getElementById('p-unidad');
+      pUm.innerHTML = '<option value="">Seleccione</option>' +
+        unidades.map((u) => `<option value="${u.id}">${u.simbolo} — ${u.descripcion}</option>`).join('');
+
+      // Subcategoria dinámica al cambiar categoría
+      document.getElementById('p-categoria').addEventListener('change', () => {
+        cargarSubcategorias(document.getElementById('p-categoria').value, null);
+      });
+
+      cargarProductos();
+    }
+
+    async function cargarSubcategorias(idCategoria, seleccionado) {
+      const sel = document.getElementById('p-subcategoria');
+      sel.innerHTML = '<option value="">Sin subcategoría</option>';
+      sel.disabled = !idCategoria;
+      if (!idCategoria) return;
+      try {
+        const res = await subcategoriasApi.porCategoria(idCategoria);
+        const subs = res.data || res || [];
+        subs.forEach((s) => {
+          const opt = new Option(s.nombre, s.id);
+          if (s.id === seleccionado) opt.selected = true;
+          sel.add(opt);
+        });
+      } catch (_) {}
+    }
+
+    function opcionesProveedores(seleccionado) {
+      return '<option value="">Seleccione proveedor</option>' +
+        proveedores.map((p) => `<option value="${p.id}" ${p.id === seleccionado ? 'selected' : ''}>${p.razon_social}</option>`).join('');
+    }
+
+    function agregarFilaCodigoProveedor(idProveedor = '', codigo = '') {
+      const cont = document.getElementById('codigos-proveedor-rows');
+      const row = document.createElement('div');
+      row.className = 'row g-2 mb-2 align-items-center codigo-proveedor-row';
+      row.innerHTML = `
+        <div class="col-md-6">
+          <select class="form-select form-select-sm cp-proveedor">${opcionesProveedores(idProveedor)}</select>
+        </div>
+        <div class="col-md-5">
+          <input type="text" class="form-control form-control-sm cp-codigo" placeholder="Código del proveedor" value="${codigo}">
+        </div>
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-sm btn-outline-danger cp-remove"><i class="bi bi-trash"></i></button>
+        </div>`;
+      row.querySelector('.cp-remove').addEventListener('click', () => row.remove());
+      cont.appendChild(row);
+    }
+
+    function limpiarFilasCodigoProveedor() {
+      document.getElementById('codigos-proveedor-rows').innerHTML = '';
+    }
+
+    function leerCodigosProveedor() {
+      const filas = document.querySelectorAll('#codigos-proveedor-rows .codigo-proveedor-row');
+      const resultado = [];
+      for (const fila of filas) {
+        const idProveedor = fila.querySelector('.cp-proveedor').value;
+        const codigo = fila.querySelector('.cp-codigo').value.trim();
+        if (!idProveedor && !codigo) continue;
+        if (!idProveedor || !codigo) throw new Error('Cada código alterno debe tener proveedor y código completos');
+        resultado.push({ id_proveedor: idProveedor, codigo_alterno: codigo });
+      }
+      const proveedoresUsados = resultado.map((r) => r.id_proveedor);
+      if (new Set(proveedoresUsados).size !== proveedoresUsados.length) {
+        throw new Error('No se puede repetir el mismo proveedor en los códigos alternos');
+      }
+      return resultado;
+    }
+
+    document.getElementById('btn-add-codigo-proveedor').addEventListener('click', () => agregarFilaCodigoProveedor());
+
+    async function cargarProductos(page = 1) {
+      paginaActual = page;
+      const tbody = document.getElementById('tabla-productos');
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Cargando...</td></tr>';
+
+      try {
+        const res = await productosApi.listar({
+          search: document.getElementById('f-search').value || undefined,
+          id_categoria: document.getElementById('f-categoria').value || undefined,
+          page,
+          limit: LIMIT,
+        });
+
+        const items = res.data || [];
+        const total = res.total ?? items.length;
+        document.getElementById('info-res').textContent = `${total} producto${total !== 1 ? 's' : ''}`;
+
+        tbody.innerHTML = items.length ? items.map((p) => `
+          <tr>
+            <td>
+              <span class="fw-semibold small">${p.codigo}</span>
+              ${p.codigo_barras ? `<br><span class="text-muted x-small">${p.codigo_barras}</span>` : ''}
+            </td>
+            <td>
+              <div>${p.nombre}</div>
+              ${p.codigos_proveedor?.length ? `<small class="text-muted">${p.codigos_proveedor.map((c) => `${c.codigo_alterno} (${c.proveedor?.razon_social || '—'})`).join(', ')}</small>` : ''}
+            </td>
+            <td class="small text-muted">
+              ${p.categoria?.nombre || '—'}${p.subcategoria ? ` / ${p.subcategoria.nombre}` : ''}
+              ${p.marca ? `<br>${p.marca.nombre}` : ''}
+            </td>
+            <td class="text-center small">${p.unidad_medida?.simbolo || '—'}</td>
+            <td class="text-end ${Number(p.stock_actual) > 0 && Number(p.stock_actual) <= Number(p.stock_minimo) ? 'text-warning fw-semibold' : Number(p.stock_actual) <= 0 ? 'text-muted' : ''}">
+              ${Number(p.stock_actual || 0).toFixed(2)}
+            </td>
+            <td class="text-end small">${Number(p.costo_promedio || 0) > 0 ? formatMoneda(p.costo_promedio) : '<span class="text-muted">—</span>'}</td>
+            <td class="text-end small">
+              ${Number(p.precio_venta_1 || 0) > 0 ? `<span class="fw-semibold">${formatMoneda(p.precio_venta_1)}</span>` : '<span class="text-muted">—</span>'}
+              ${[p.precio_venta_2, p.precio_venta_3, p.precio_venta_4, p.precio_venta_5].some((v) => Number(v) > 0) ? `<br><span class="text-muted x-small" title="Otros precios">otros: ${[p.precio_venta_2, p.precio_venta_3, p.precio_venta_4, p.precio_venta_5].filter((v) => Number(v) > 0).map((v) => formatMoneda(v)).join(' / ')}</span>` : ''}
+            </td>
+            <td class="text-center">
+              ${p.afecta_igv ? '<span class="badge bg-warning text-dark">IGV</span>' : '<span class="badge bg-secondary">Exon.</span>'}
+            </td>
+            <td class="text-center">${badgeEstado(p.estado)}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="${p.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${p.id}" data-nombre="${p.nombre}" title="Eliminar"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted py-4">Sin resultados</td></tr>';
+
+        renderPaginacion(document.getElementById('paginacion'), { page, total, limit: LIMIT }, cargarProductos);
+
+        tbody.querySelectorAll('.btn-editar').forEach((btn) => btn.addEventListener('click', () => abrirEditar(btn.dataset.id)));
+        tbody.querySelectorAll('.btn-eliminar').forEach((btn) => btn.addEventListener('click', () => eliminar(btn.dataset.id, btn.dataset.nombre)));
+      } catch (err) {
+        toastError(err);
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Error al cargar productos</td></tr>';
+      }
+    }
+
+    function abrirNuevo() {
+      productoEditando = null;
+      document.getElementById('modal-titulo').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nuevo Producto';
+      document.getElementById('form-producto').reset();
+      document.getElementById('p-subcategoria').innerHTML = '<option value="">Seleccione categoría primero</option>';
+      document.getElementById('p-subcategoria').disabled = true;
+      document.getElementById('p-activo').checked = true;
+      document.getElementById('p-igv').value = 'true';
+      document.getElementById('p-tipo-existencia').value = '01';
+      limpiarFilasCodigoProveedor();
+      document.getElementById('p-costo-promedio-display').textContent = formatMoneda(0);
+      document.getElementById('p-costo-compra-display').textContent = formatMoneda(0);
+      document.querySelectorAll('.p-precio-venta').forEach((el) => { el.value = 0; });
+      new bootstrap.Modal(document.getElementById('modal-producto')).show();
+    }
+
+    async function abrirEditar(id) {
+      try {
+        const res = await productosApi.obtener(id);
+        const p = res.data || res;
+        productoEditando = p;
+        document.getElementById('modal-titulo').innerHTML = '<i class="bi bi-pencil me-2"></i>Editar Producto';
+
+        document.getElementById('p-codigo').value = p.codigo;
+        document.getElementById('p-codigo-barras').value = p.codigo_barras || '';
+        document.getElementById('p-codigo-sunat').value = p.codigo_sunat || '';
+        document.getElementById('p-nombre').value = p.nombre;
+        document.getElementById('p-categoria').value = p.id_categoria || '';
+        document.getElementById('p-marca').value = p.id_marca || '';
+        document.getElementById('p-unidad').value = p.id_unidad_medida;
+        document.getElementById('p-tipo-existencia').value = p.tipo_existencia || '01';
+        document.getElementById('p-ubicacion').value = p.ubicacion || '';
+        document.getElementById('p-igv').value = String(p.afecta_igv !== false);
+        document.getElementById('p-stock-min').value = p.stock_minimo || 0;
+        document.getElementById('p-stock-max').value = p.stock_maximo || 0;
+        document.getElementById('p-activo').checked = p.estado !== false;
+        document.getElementById('p-descripcion').value = p.descripcion || '';
+
+        document.getElementById('p-costo-promedio-display').textContent = formatMoneda(p.costo_promedio || 0);
+        document.getElementById('p-costo-compra-display').textContent = formatMoneda(p.precio_compra_sin_igv || 0);
+        document.querySelectorAll('.p-precio-venta').forEach((el) => {
+          el.value = p['precio_venta_' + el.dataset.numero] || 0;
+        });
+
+        limpiarFilasCodigoProveedor();
+        (p.codigos_proveedor || []).forEach((c) => agregarFilaCodigoProveedor(c.id_proveedor, c.codigo_alterno));
+
+        await cargarSubcategorias(p.id_categoria, p.id_subcategoria);
+
+        new bootstrap.Modal(document.getElementById('modal-producto')).show();
+      } catch (err) { toastError(err); }
+    }
+
+    async function eliminar(id, nombre) {
+      const ok = await confirmar(`¿Eliminar el producto "${nombre}"?`, 'Eliminar Producto');
+      if (!ok) return;
+      try {
+        await productosApi.eliminar(id);
+        toast('Producto eliminado');
+        cargarProductos(paginaActual);
+      } catch (err) { toastError(err); }
+    }
+
+    document.getElementById('btn-nuevo').addEventListener('click', abrirNuevo);
+    document.getElementById('btn-buscar').addEventListener('click', () => cargarProductos(1));
+    document.getElementById('f-search').addEventListener('keypress', (e) => { if (e.key === 'Enter') cargarProductos(1); });
+
+    document.getElementById('btn-guardar-producto').addEventListener('click', async () => {
+      const form = document.getElementById('form-producto');
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+
+      let codigosProveedor;
+      try {
+        codigosProveedor = leerCodigosProveedor();
+      } catch (err) {
+        toast(err.message, 'warning');
+        return;
+      }
+
+      const spinEl = document.getElementById('btn-gp-spin');
+      const btn = document.getElementById('btn-guardar-producto');
+      spinEl.classList.remove('d-none');
+      btn.disabled = true;
+
+      const dto = {
+        codigo: document.getElementById('p-codigo').value.trim().toUpperCase(),
+        codigos_proveedor: codigosProveedor,
+        codigo_barras: document.getElementById('p-codigo-barras').value.trim() || undefined,
+        codigo_sunat: document.getElementById('p-codigo-sunat').value.trim() || undefined,
+        nombre: document.getElementById('p-nombre').value.trim(),
+        id_categoria: document.getElementById('p-categoria').value || undefined,
+        id_subcategoria: document.getElementById('p-subcategoria').value || undefined,
+        id_marca: document.getElementById('p-marca').value || undefined,
+        id_unidad_medida: document.getElementById('p-unidad').value,
+        tipo_existencia: document.getElementById('p-tipo-existencia').value,
+        ubicacion: document.getElementById('p-ubicacion').value.trim() || undefined,
+        afecta_igv: document.getElementById('p-igv').value === 'true',
+        stock_minimo: parseFloat(document.getElementById('p-stock-min').value) || 0,
+        stock_maximo: parseFloat(document.getElementById('p-stock-max').value) || 0,
+        descripcion: document.getElementById('p-descripcion').value.trim() || undefined,
+      };
+
+      document.querySelectorAll('.p-precio-venta').forEach((el) => {
+        dto['precio_venta_' + el.dataset.numero] = parseFloat(el.value) || 0;
+      });
+
+      // Solo en edición, también actualizar estado activo
+      if (productoEditando) {
+        dto.estado = document.getElementById('p-activo').checked;
+      }
+
+      try {
+        if (productoEditando) {
+          await productosApi.actualizar(productoEditando.id, dto);
+          toast('Producto actualizado correctamente');
+        } else {
+          await productosApi.crear(dto);
+          toast('Producto creado correctamente');
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modal-producto')).hide();
+        cargarProductos(paginaActual);
+      } catch (err) {
+        toastError(err);
+      } finally {
+        spinEl.classList.add('d-none');
+        btn.disabled = false;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
+

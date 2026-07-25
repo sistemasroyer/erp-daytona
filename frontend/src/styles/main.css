@@ -1,0 +1,79 @@
+/* ERP Daytona — estilos globales */
+
+:root {
+  --erp-primary: #1a56db;
+  --erp-sidebar-width: 250px;
+}
+
+/* Sidebar fix para AdminLTE 4 sin JS de AdminLTE */
+.app-sidebar {
+  width: var(--erp-sidebar-width);
+}
+
+.app-main {
+  margin-left: var(--erp-sidebar-width);
+}
+
+/* Tablas responsive */
+.table-erp thead th {
+  background-color: #f8f9fa;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* Cards de métricas en dashboard */
+.metric-card {
+  border-left: 4px solid var(--erp-primary);
+  transition: transform 0.2s;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Formularios de venta */
+.detalle-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+/* Loading spinner overlay */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+/* Stock badge colors */
+.stock-critico { color: #dc3545; font-weight: 600; }
+.stock-bajo { color: #fd7e14; font-weight: 600; }
+.stock-ok { color: #198754; }
+
+/* Breadcrumb style */
+.page-breadcrumb { font-size: 0.85rem; }
+
+/* Sidebar active link */
+.sidebar-menu .nav-link.active {
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 6px;
+}
+
+/* Print styles */
+@media print {
+  .app-sidebar, .app-header, .app-footer, .no-print { display: none !important; }
+  .app-main { margin-left: 0 !important; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app-sidebar { transform: translateX(-100%); }
+  .app-main { margin-left: 0; }
+  .sidebar-open .app-sidebar { transform: translateX(0); }
+}

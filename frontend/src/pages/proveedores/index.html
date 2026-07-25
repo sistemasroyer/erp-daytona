@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proveedores — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-primary"></i>Proveedores</h5>
+      <button class="btn btn-primary" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Nuevo Proveedor</button>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <input type="text" class="form-control form-control-sm" id="f-search" placeholder="Buscar por RUC o razón social...">
+          </div>
+          <div class="col-sm-2">
+            <button class="btn btn-primary btn-sm w-100" id="btn-buscar"><i class="bi bi-search me-1"></i>Buscar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>RUC</th>
+                <th>Razón Social</th>
+                <th>Contacto</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th class="text-center">Días Crédito</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-proveedores">
+              <tr><td colspan="8" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between">
+        <span class="text-muted small" id="info-res">-</span>
+        <div id="paginacion"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal proveedor -->
+  <div class="modal fade" id="modal-prov" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nuevo Proveedor</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">RUC <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="pr-ruc" maxlength="11">
+                <button class="btn btn-outline-secondary" type="button" id="btn-consultar-ruc" title="Consultar SUNAT">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="pr-razon">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nombre Comercial</label>
+              <input type="text" class="form-control" id="pr-comercial">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contacto</label>
+              <input type="text" class="form-control" id="pr-contacto">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="pr-telefono">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="pr-email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cuenta detracción</label>
+              <input type="text" class="form-control" id="pr-detraccion">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Días de crédito</label>
+              <input type="number" class="form-control" id="pr-dias-credito" value="0" min="0" step="1">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="pr-direccion">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-prov">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { proveedoresApi } from '/src/api/modules.js';
+    import { badgeEstado, renderPaginacion } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { confirmar } from '/src/components/modal.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('proveedores');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let paginaActual = 1, provEditando = null;
+    const LIMIT = 20;
+
+    async function cargar(page = 1) {
+      paginaActual = page;
+      const tbody = document.getElementById('tabla-proveedores');
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await proveedoresApi.listar({ search: document.getElementById('f-search').value || undefined, page, limit: LIMIT });
+        const items = Array.isArray(res.data) ? res.data : res.data?.proveedores || [];
+        const total = res.data?.total ?? items.length;
+        document.getElementById('info-res').textContent = `${total} proveedores`;
+
+        tbody.innerHTML = items.length ? items.map((p) => `
+          <tr>
+            <td class="fw-semibold small">${p.ruc}</td>
+            <td>${p.razon_social}</td>
+            <td class="small">${p.contacto || '-'}</td>
+            <td class="small">${p.telefono || '-'}</td>
+            <td class="small">${p.email || '-'}</td>
+            <td class="text-center"><span class="badge bg-info text-dark">${p.dias_credito || 0} días</span></td>
+            <td class="text-center">${badgeEstado(p.estado)}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="${p.id}"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-outline-danger btn-del" data-id="${p.id}" data-nombre="${p.razon_social}"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted py-4">Sin resultados</td></tr>';
+
+        renderPaginacion(document.getElementById('paginacion'), { page, total, limit: LIMIT }, cargar);
+        tbody.querySelectorAll('.btn-editar').forEach((b) => b.addEventListener('click', () => abrirEditar(b.dataset.id)));
+        tbody.querySelectorAll('.btn-del').forEach((b) => b.addEventListener('click', () => eliminar(b.dataset.id, b.dataset.nombre)));
+      } catch (err) { toastError(err); }
+    }
+
+    function abrirNuevo() {
+      provEditando = null;
+      document.getElementById('modal-titulo').textContent = 'Nuevo Proveedor';
+      ['pr-ruc','pr-razon','pr-comercial','pr-contacto','pr-telefono','pr-email','pr-detraccion','pr-direccion'].forEach((id) => document.getElementById(id).value = '');
+      document.getElementById('pr-dias-credito').value = 0;
+      new bootstrap.Modal(document.getElementById('modal-prov')).show();
+    }
+
+    async function abrirEditar(id) {
+      try {
+        const res = await proveedoresApi.obtener(id);
+        const p = res.data || res;
+        provEditando = p;
+        document.getElementById('modal-titulo').textContent = 'Editar Proveedor';
+        document.getElementById('pr-ruc').value = p.ruc;
+        document.getElementById('pr-razon').value = p.razon_social;
+        document.getElementById('pr-comercial').value = p.nombre_comercial || '';
+        document.getElementById('pr-contacto').value = p.contacto || '';
+        document.getElementById('pr-telefono').value = p.telefono || '';
+        document.getElementById('pr-email').value = p.email || '';
+        document.getElementById('pr-detraccion').value = p.cuenta_detraccion || '';
+        document.getElementById('pr-dias-credito').value = p.dias_credito || 0;
+        document.getElementById('pr-direccion').value = p.direccion || '';
+        new bootstrap.Modal(document.getElementById('modal-prov')).show();
+      } catch (err) { toastError(err); }
+    }
+
+    async function eliminar(id, nombre) {
+      const ok = await confirmar(`¿Eliminar el proveedor "${nombre}"?`);
+      if (!ok) return;
+      try { await proveedoresApi.eliminar(id); toast('Proveedor eliminado'); cargar(paginaActual); }
+      catch (err) { toastError(err); }
+    }
+
+    document.getElementById('btn-consultar-ruc').addEventListener('click', async () => {
+      const ruc = document.getElementById('pr-ruc').value.trim();
+      if (ruc.length !== 11) { toast('El RUC debe tener 11 dígitos', 'warning'); return; }
+      try {
+        const res = await proveedoresApi.consultarRuc(ruc);
+        const d = res.data || res;
+        document.getElementById('pr-razon').value = d.razon_social || '';
+        document.getElementById('pr-direccion').value = d.direccion || '';
+        toast('Datos obtenidos de SUNAT');
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-guardar-prov').addEventListener('click', async () => {
+      const dto = {
+        ruc: document.getElementById('pr-ruc').value.trim(),
+        razon_social: document.getElementById('pr-razon').value.trim(),
+        nombre_comercial: document.getElementById('pr-comercial').value.trim() || undefined,
+        contacto: document.getElementById('pr-contacto').value.trim() || undefined,
+        telefono: document.getElementById('pr-telefono').value.trim() || undefined,
+        email: document.getElementById('pr-email').value.trim() || undefined,
+        cuenta_detraccion: document.getElementById('pr-detraccion').value.trim() || undefined,
+        dias_credito: parseInt(document.getElementById('pr-dias-credito').value) || 0,
+        direccion: document.getElementById('pr-direccion').value.trim() || undefined,
+      };
+      try {
+        if (provEditando) await proveedoresApi.actualizar(provEditando.id, dto);
+        else await proveedoresApi.crear(dto);
+        toast(provEditando ? 'Proveedor actualizado' : 'Proveedor creado');
+        bootstrap.Modal.getInstance(document.getElementById('modal-prov')).hide();
+        cargar(paginaActual);
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-nuevo').addEventListener('click', abrirNuevo);
+    document.getElementById('btn-buscar').addEventListener('click', () => cargar(1));
+    document.getElementById('f-search').addEventListener('keypress', (e) => { if (e.key === 'Enter') cargar(1); });
+    cargar();
+  </script>
+</body>
+</html>
+

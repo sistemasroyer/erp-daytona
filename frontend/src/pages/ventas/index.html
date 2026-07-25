@@ -1,0 +1,441 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ventas — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Listado de Ventas</h5>
+      <a href="/src/pages/ventas/nueva.html" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Nueva Venta
+      </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Desde</label>
+            <input type="date" class="form-control form-control-sm" id="f-desde">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Hasta</label>
+            <input type="date" class="form-control form-control-sm" id="f-hasta">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Estado SUNAT</label>
+            <select class="form-select form-select-sm" id="f-estado">
+              <option value="">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="enviado">Enviado</option>
+              <option value="aceptado">Aceptado</option>
+              <option value="rechazado">Rechazado</option>
+            </select>
+          </div>
+          <div class="col-sm-3">
+            <button class="btn btn-primary btn-sm w-100" id="btn-filtrar">
+              <i class="bi bi-funnel me-1"></i>Filtrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Comprobante</th>
+                <th class="text-center">Tipo</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>RUC/DNI</th>
+                <th class="text-end">Total</th>
+                <th class="text-center">Moneda</th>
+                <th class="text-center">SUNAT</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-ventas">
+              <tr><td colspan="10" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="text-muted small" id="info-resultados">-</span>
+        <div id="paginacion"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal detalle venta -->
+  <div class="modal fade" id="modal-detalle" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Detalle de Venta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="modal-detalle-body">Cargando...</div>
+        <div class="modal-footer">
+          <button class="btn btn-success d-none" id="btn-canjear-venta">
+            <i class="bi bi-arrow-repeat me-1"></i>Canjear a Boleta/Factura
+          </button>
+          <button class="btn btn-danger d-none" id="btn-anular-venta">
+            <i class="bi bi-x-circle me-1"></i>Anular
+          </button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal canje -->
+  <div class="modal fade" id="modal-canje" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Canjear a documento oficial</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted" id="canje-origen-info"></p>
+          <div class="mb-3">
+            <label class="form-label">Tipo de documento <span class="text-danger">*</span></label>
+            <select class="form-select" id="canje-tipo">
+              <option value="BOLETA">Boleta</option>
+              <option value="FACTURA">Factura</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Serie <span class="text-danger">*</span></label>
+            <select class="form-select" id="canje-serie">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Método de pago</label>
+            <select class="form-select" id="canje-metodo-pago">
+              <option value="">Cargando...</option>
+            </select>
+            <div class="form-text">El documento oficial requiere el pago completo del total.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" id="btn-confirmar-canje">
+            <i class="bi bi-check-lg me-1"></i>Confirmar Canje
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { ventasApi, seriesApi, metodosPagoApi } from '/src/api/modules.js';
+    import { formatMoneda, formatFecha, badgeEstado, renderPaginacion } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { confirmar } from '/src/components/modal.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('ventas');
+
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let paginaActual = 1;
+    const LIMIT = 20;
+
+    const TIPOS_DOC_BADGE = {
+      FACTURA: '<span class="badge bg-primary">Factura</span>',
+      BOLETA: '<span class="badge bg-primary">Boleta</span>',
+      NOTA_VENTA: '<span class="badge bg-warning text-dark">Nota Venta</span>',
+      COTIZACION: '<span class="badge bg-secondary">Cotización</span>',
+      NOTA_CREDITO: '<span class="badge bg-danger">N. Crédito</span>',
+      NOTA_DEBITO: '<span class="badge bg-danger">N. Débito</span>',
+    };
+    function badgeTipoDocumento(tipo) {
+      return TIPOS_DOC_BADGE[tipo] || `<span class="badge bg-secondary">${tipo}</span>`;
+    }
+
+    // Valores por defecto de fechas (mes actual)
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('f-desde').value = primerDia;
+    document.getElementById('f-hasta').value = hoy.toISOString().split('T')[0];
+
+    async function cargarVentas(page = 1) {
+      paginaActual = page;
+      const tbody = document.getElementById('tabla-ventas');
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+
+      try {
+        const res = await ventasApi.listar({
+          fecha_desde: document.getElementById('f-desde').value || undefined,
+          fecha_hasta: document.getElementById('f-hasta').value || undefined,
+          estado: document.getElementById('f-estado').value || undefined,
+          page,
+          limit: LIMIT,
+        });
+
+        const ventas = Array.isArray(res.data) ? res.data : res.data?.ventas || res.data || [];
+        const total = res.data?.total ?? ventas.length;
+
+        document.getElementById('info-resultados').textContent = `${total} registros`;
+
+        tbody.innerHTML = ventas.length ? ventas.map((v) => `
+          <tr style="cursor:pointer" data-id="${v.id}">
+            <td class="fw-semibold">${v.numero_comprobante || `${v.serie}-${String(v.correlativo).padStart(8,'0')}`}</td>
+            <td class="text-center small">${badgeTipoDocumento(v.tipo_documento)}</td>
+            <td>${formatFecha(v.fecha_emision)}</td>
+            <td>${v.cliente?.razon_social || '-'}</td>
+            <td class="text-muted small">${v.cliente?.numero_documento || '-'}</td>
+            <td class="text-end fw-semibold">${formatMoneda(v.total, v.moneda)}</td>
+            <td class="text-center"><span class="badge bg-light text-dark border">${v.moneda}</span></td>
+            <td class="text-center">${badgeEstado(v.estado_sunat)}</td>
+            <td class="text-center">${badgeEstado(v.estado_venta)}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary btn-ver" data-id="${v.id}" title="Ver detalle">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted py-4">Sin resultados</td></tr>';
+
+        renderPaginacion(
+          document.getElementById('paginacion'),
+          { page, total, limit: LIMIT },
+          cargarVentas
+        );
+
+        // Eventos botones ver
+        document.querySelectorAll('.btn-ver').forEach((btn) => {
+          btn.addEventListener('click', (e) => { e.stopPropagation(); abrirDetalle(btn.dataset.id); });
+        });
+        document.querySelectorAll('#tabla-ventas tr[data-id]').forEach((tr) => {
+          tr.addEventListener('click', () => abrirDetalle(tr.dataset.id));
+        });
+      } catch (err) {
+        toastError(err);
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Error al cargar datos</td></tr>';
+      }
+    }
+
+    let ventaActual = null;
+    async function abrirDetalle(id) {
+      const modal = new bootstrap.Modal(document.getElementById('modal-detalle'));
+      document.getElementById('modal-detalle-body').innerHTML = '<div class="text-center py-4"><span class="spinner-border"></span></div>';
+      document.getElementById('btn-anular-venta').classList.add('d-none');
+      modal.show();
+
+      try {
+        const res = await ventasApi.obtener(id);
+        const v = res.data || res;
+        ventaActual = v;
+
+        const detalle = v.detalle_ventas || v.detalles || [];
+        const pagos = v.pagos || [];
+
+        document.getElementById('modal-detalle-body').innerHTML = `
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <table class="table table-sm table-borderless">
+                <tr><th class="text-muted" width="40%">Comprobante</th><td class="fw-bold">${v.numero_comprobante || `${v.serie}-${String(v.correlativo).padStart(8,'0')}`}</td></tr>
+                <tr><th class="text-muted">Fecha emisión</th><td>${formatFecha(v.fecha_emision)}</td></tr>
+                <tr><th class="text-muted">Moneda</th><td>${v.moneda}</td></tr>
+                <tr><th class="text-muted">Estado SUNAT</th><td>${badgeEstado(v.estado_sunat)}</td></tr>
+                <tr><th class="text-muted">Estado</th><td>${badgeEstado(v.estado_venta)}</td></tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <table class="table table-sm table-borderless">
+                <tr><th class="text-muted" width="40%">Cliente</th><td>${v.cliente?.razon_social || '-'}</td></tr>
+                <tr><th class="text-muted">RUC/DNI</th><td>${v.cliente?.numero_documento || '-'}</td></tr>
+                <tr><th class="text-muted">Vendedor</th><td>${v.vendedor ? `${v.vendedor.nombre} ${v.vendedor.apellido}` : '-'}</td></tr>
+                ${v.observaciones ? `<tr><th class="text-muted">Observaciones</th><td>${v.observaciones}</td></tr>` : ''}
+              </table>
+            </div>
+          </div>
+
+          <h6 class="fw-semibold mb-2">Detalle de productos</h6>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm table-striped">
+              <thead class="table-dark">
+                <tr>
+                  <th>Producto</th>
+                  <th class="text-end">Cantidad</th>
+                  <th class="text-end">P. Unitario</th>
+                  <th class="text-end">Descuento</th>
+                  <th class="text-end">Subtotal</th>
+                  <th class="text-end">IGV</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detalle.map((d) => `
+                <tr>
+                  <td>${d.producto?.nombre || d.id_producto}</td>
+                  <td class="text-end">${Number(d.cantidad).toFixed(2)}</td>
+                  <td class="text-end">${formatMoneda(d.precio_unitario, v.moneda)}</td>
+                  <td class="text-end">${formatMoneda(d.descuento || 0, v.moneda)}</td>
+                  <td class="text-end">${formatMoneda(d.subtotal, v.moneda)}</td>
+                  <td class="text-end">${formatMoneda(d.igv, v.moneda)}</td>
+                  <td class="text-end fw-semibold">${formatMoneda(d.total, v.moneda)}</td>
+                </tr>`).join('')}
+              </tbody>
+              <tfoot class="table-light fw-bold">
+                <tr>
+                  <td colspan="4" class="text-end">Subtotal:</td>
+                  <td colspan="3" class="text-end">${formatMoneda(v.subtotal, v.moneda)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" class="text-end">IGV (18%):</td>
+                  <td colspan="3" class="text-end">${formatMoneda(v.igv, v.moneda)}</td>
+                </tr>
+                <tr class="table-primary">
+                  <td colspan="4" class="text-end fs-6">TOTAL:</td>
+                  <td colspan="3" class="text-end fs-6">${formatMoneda(v.total, v.moneda)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <h6 class="fw-semibold mb-2">Pagos</h6>
+          <div class="row">
+            ${pagos.map((p) => `
+            <div class="col-md-4 mb-2">
+              <div class="border rounded p-2 d-flex justify-content-between align-items-center">
+                <span class="small">${p.metodo_pago?.nombre || p.id_metodo_pago}</span>
+                <span class="fw-bold">${formatMoneda(p.monto, v.moneda)}</span>
+              </div>
+            </div>`).join('')}
+          </div>
+          ${v.id_venta_origen ? `<div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Este documento fue canjeado desde otro documento.</div>` : ''}`;
+
+        document.getElementById('btn-anular-venta').classList.toggle('d-none', v.estado_venta !== 'vigente');
+
+        const esCanjeable = v.estado_venta === 'vigente' && (v.tipo_documento === 'NOTA_VENTA' || v.tipo_documento === 'COTIZACION');
+        document.getElementById('btn-canjear-venta').classList.toggle('d-none', !esCanjeable);
+      } catch (err) {
+        document.getElementById('modal-detalle-body').innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+      }
+    }
+
+    document.getElementById('btn-anular-venta').addEventListener('click', async () => {
+      if (!ventaActual) return;
+      const ok = await confirmar(`¿Anular la venta ${ventaActual.numero_comprobante || ventaActual.serie + '-' + ventaActual.correlativo}?`, 'Anular Venta');
+      if (!ok) return;
+
+      const motivo = prompt('Motivo de anulación (requerido):');
+      if (!motivo?.trim()) { toast('Ingrese un motivo de anulación', 'warning'); return; }
+
+      try {
+        await ventasApi.anular(ventaActual.id, motivo.trim());
+        toast('Venta anulada correctamente');
+        bootstrap.Modal.getInstance(document.getElementById('modal-detalle')).hide();
+        cargarVentas(paginaActual);
+      } catch (err) {
+        toastError(err);
+      }
+    });
+
+    // ==================== CANJE ====================
+    let idPuntoVenta = null;
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      idPuntoVenta = user?.idPuntoVenta || null;
+    } catch (_) {}
+
+    let seriesDisponibles = [];
+
+    async function cargarSeriesYMetodosCanje() {
+      const [resSeries, resMetodos] = await Promise.all([
+        seriesApi.listar(idPuntoVenta || undefined),
+        metodosPagoApi.listar(),
+      ]);
+      seriesDisponibles = (resSeries.data || []).filter((s) => s.activo);
+      const metodos = resMetodos.data || [];
+
+      document.getElementById('canje-metodo-pago').innerHTML = metodos.length
+        ? metodos.map((m) => `<option value="${m.id}">${m.nombre}</option>`).join('')
+        : '<option value="">Sin métodos de pago configurados</option>';
+
+      actualizarSeriesCanje();
+    }
+
+    function actualizarSeriesCanje() {
+      const tipo = document.getElementById('canje-tipo').value;
+      const disponibles = seriesDisponibles.filter((s) => s.tipo_documento === tipo);
+      document.getElementById('canje-serie').innerHTML = disponibles.length
+        ? disponibles.map((s) => `<option value="${s.id}">${s.serie}</option>`).join('')
+        : '<option value="">Sin series configuradas</option>';
+    }
+
+    document.getElementById('canje-tipo').addEventListener('change', actualizarSeriesCanje);
+
+    document.getElementById('btn-canjear-venta').addEventListener('click', async () => {
+      if (!ventaActual) return;
+      document.getElementById('canje-origen-info').textContent =
+        `Canjeando ${ventaActual.numero_comprobante} — Total: ${formatMoneda(ventaActual.total, ventaActual.moneda)}`;
+      new bootstrap.Modal(document.getElementById('modal-canje')).show();
+      try {
+        await cargarSeriesYMetodosCanje();
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-confirmar-canje').addEventListener('click', async () => {
+      if (!ventaActual) return;
+      const tipo = document.getElementById('canje-tipo').value;
+      const idSerie = document.getElementById('canje-serie').value;
+      const idMetodo = document.getElementById('canje-metodo-pago').value;
+
+      if (!idSerie) { toast('No hay serie disponible para ese tipo de documento', 'warning'); return; }
+      if (!idMetodo) { toast('Seleccione un método de pago', 'warning'); return; }
+
+      const btn = document.getElementById('btn-confirmar-canje');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Canjeando...';
+
+      try {
+        await ventasApi.canjear(ventaActual.id, {
+          tipo_documento: tipo,
+          id_serie_documento: idSerie,
+          pagos: [{ id_metodo_pago: idMetodo, monto: Number(ventaActual.total) }],
+        });
+        toast('Documento canjeado correctamente', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('modal-canje')).hide();
+        const modalDetalle = bootstrap.Modal.getInstance(document.getElementById('modal-detalle'));
+        if (modalDetalle) modalDetalle.hide();
+        cargarVentas(paginaActual);
+      } catch (err) {
+        toastError(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirmar Canje';
+      }
+    });
+
+    document.getElementById('btn-filtrar').addEventListener('click', () => cargarVentas(1));
+
+    cargarVentas();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,258 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-people me-2 text-primary"></i>Clientes</h5>
+      <button class="btn btn-primary" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Nuevo Cliente</button>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <input type="text" class="form-control form-control-sm" id="f-search" placeholder="Buscar por nombre, RUC o DNI...">
+          </div>
+          <div class="col-sm-2">
+            <button class="btn btn-primary btn-sm w-100" id="btn-buscar"><i class="bi bi-search me-1"></i>Buscar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Tipo</th>
+                <th>Documento</th>
+                <th>Razón Social / Nombre</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th class="text-end">Límite crédito</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-clientes">
+              <tr><td colspan="8" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between">
+        <span class="text-muted small" id="info-res">-</span>
+        <div id="paginacion"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal cliente -->
+  <div class="modal fade" id="modal-cliente" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nuevo Cliente</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Tipo documento <span class="text-danger">*</span></label>
+              <select class="form-select" id="c-tipo">
+                <option value="RUC">RUC</option>
+                <option value="DNI">DNI</option>
+                <option value="CE">Carné extranjería</option>
+                <option value="PASAPORTE">Pasaporte</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Número documento <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="c-documento">
+                <button class="btn btn-outline-secondary" type="button" id="btn-consultar-doc" title="Consultar SUNAT/RENIEC">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Razón social / Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="c-razon">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nombre comercial</label>
+              <input type="text" class="form-control" id="c-comercial">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="c-email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="c-telefono">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Límite crédito (S/)</label>
+              <input type="number" class="form-control" id="c-limite" value="0" min="0" step="0.01">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Días crédito</label>
+              <input type="number" class="form-control" id="c-dias" value="0" min="0">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="c-direccion">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-cliente">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { clientesApi } from '/src/api/modules.js';
+    import { formatMoneda, badgeEstado, renderPaginacion } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { confirmar } from '/src/components/modal.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('clientes');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let paginaActual = 1, clienteEditando = null;
+    const LIMIT = 20;
+
+    async function cargar(page = 1) {
+      paginaActual = page;
+      const tbody = document.getElementById('tabla-clientes');
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await clientesApi.listar({ search: document.getElementById('f-search').value || undefined, page, limit: LIMIT });
+        const items = Array.isArray(res.data) ? res.data : res.data?.clientes || [];
+        const total = res.data?.total ?? items.length;
+        document.getElementById('info-res').textContent = `${total} clientes`;
+
+        tbody.innerHTML = items.length ? items.map((c) => `
+          <tr>
+            <td><span class="badge bg-secondary">${c.tipo_documento}</span></td>
+            <td class="fw-semibold small">${c.numero_documento}</td>
+            <td>${c.razon_social}</td>
+            <td class="small">${c.telefono || '-'}</td>
+            <td class="small">${c.email || '-'}</td>
+            <td class="text-end">${formatMoneda(c.limite_credito || 0)}</td>
+            <td class="text-center">${badgeEstado(c.estado)}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="${c.id}"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-outline-danger btn-del" data-id="${c.id}" data-nombre="${c.razon_social}"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted py-4">Sin resultados</td></tr>';
+
+        renderPaginacion(document.getElementById('paginacion'), { page, total, limit: LIMIT }, cargar);
+
+        tbody.querySelectorAll('.btn-editar').forEach((b) => b.addEventListener('click', () => abrirEditar(b.dataset.id)));
+        tbody.querySelectorAll('.btn-del').forEach((b) => b.addEventListener('click', () => eliminar(b.dataset.id, b.dataset.nombre)));
+      } catch (err) { toastError(err); }
+    }
+
+    function abrirNuevo() {
+      clienteEditando = null;
+      document.getElementById('modal-titulo').textContent = 'Nuevo Cliente';
+      document.getElementById('c-tipo').value = 'DNI';
+      ['c-documento','c-razon','c-comercial','c-email','c-telefono','c-direccion'].forEach((id) => { document.getElementById(id).value = ''; });
+      document.getElementById('c-limite').value = '0';
+      document.getElementById('c-dias').value = '0';
+      new bootstrap.Modal(document.getElementById('modal-cliente')).show();
+    }
+
+    async function abrirEditar(id) {
+      try {
+        const res = await clientesApi.obtener(id);
+        const c = res.data || res;
+        clienteEditando = c;
+        document.getElementById('modal-titulo').textContent = 'Editar Cliente';
+        document.getElementById('c-tipo').value = c.tipo_documento;
+        document.getElementById('c-documento').value = c.numero_documento;
+        document.getElementById('c-razon').value = c.razon_social;
+        document.getElementById('c-comercial').value = c.nombre_comercial || '';
+        document.getElementById('c-email').value = c.email || '';
+        document.getElementById('c-telefono').value = c.telefono || '';
+        document.getElementById('c-direccion').value = c.direccion || '';
+        document.getElementById('c-limite').value = c.limite_credito || 0;
+        document.getElementById('c-dias').value = c.dias_credito || 0;
+        new bootstrap.Modal(document.getElementById('modal-cliente')).show();
+      } catch (err) { toastError(err); }
+    }
+
+    async function eliminar(id, nombre) {
+      const ok = await confirmar(`¿Eliminar el cliente "${nombre}"?`, 'Eliminar Cliente');
+      if (!ok) return;
+      try {
+        await clientesApi.eliminar(id);
+        toast('Cliente eliminado');
+        cargar(paginaActual);
+      } catch (err) { toastError(err); }
+    }
+
+    document.getElementById('btn-consultar-doc').addEventListener('click', async () => {
+      const tipo = document.getElementById('c-tipo').value;
+      const num = document.getElementById('c-documento').value.trim();
+      if (!num) { toast('Ingrese el número de documento', 'warning'); return; }
+      try {
+        const res = await clientesApi.consultarDocumento(tipo, num);
+        const d = res.data || res;
+        document.getElementById('c-razon').value = d.razon_social || d.nombre_completo || '';
+        document.getElementById('c-direccion').value = d.direccion || '';
+        toast('Datos obtenidos correctamente', 'success');
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-guardar-cliente').addEventListener('click', async () => {
+      const dto = {
+        tipo_documento: document.getElementById('c-tipo').value,
+        numero_documento: document.getElementById('c-documento').value.trim(),
+        razon_social: document.getElementById('c-razon').value.trim(),
+        nombre_comercial: document.getElementById('c-comercial').value.trim() || undefined,
+        email: document.getElementById('c-email').value.trim() || undefined,
+        telefono: document.getElementById('c-telefono').value.trim() || undefined,
+        direccion: document.getElementById('c-direccion').value.trim() || undefined,
+        limite_credito: parseFloat(document.getElementById('c-limite').value) || 0,
+        dias_credito: parseInt(document.getElementById('c-dias').value) || 0,
+      };
+      try {
+        if (clienteEditando) await clientesApi.actualizar(clienteEditando.id, dto);
+        else await clientesApi.crear(dto);
+        toast(clienteEditando ? 'Cliente actualizado' : 'Cliente creado');
+        bootstrap.Modal.getInstance(document.getElementById('modal-cliente')).hide();
+        cargar(paginaActual);
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-nuevo').addEventListener('click', abrirNuevo);
+    document.getElementById('btn-buscar').addEventListener('click', () => cargar(1));
+    document.getElementById('f-search').addEventListener('keypress', (e) => { if (e.key === 'Enter') cargar(1); });
+
+    cargar();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nueva Compra — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+  <style>
+    .item-row { background: #f8f9fa; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid #dee2e6; }
+    .item-row:hover { border-color: #0d6efd55; }
+    .costo-calculado { background: #e7f3ff; border-radius: 4px; padding: 4px 8px; font-size: 0.82rem; color: #0a58ca; font-weight: 600; }
+    .importe-linea-display { font-size: 0.75rem; color: #6c757d; }
+    .total-check-ok { color: #198754; font-weight: 600; }
+    .total-check-err { color: #dc3545; font-weight: 600; }
+    .btn-modo.active { font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <div class="container-fluid p-3 p-md-4">
+    <form id="form-compra" novalidate>
+      <div class="row g-3">
+
+        <!-- Columna izquierda -->
+        <div class="col-lg-8">
+
+          <!-- Datos del documento -->
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header fw-semibold bg-white border-bottom">
+              <i class="bi bi-file-earmark-text me-2 text-primary"></i>Datos del documento
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Tipo doc. <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" id="tipo_documento">
+                    <option value="factura">Factura</option>
+                    <option value="boleta">Boleta</option>
+                    <option value="recibo">Recibo</option>
+                    <option value="otros">Otros</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Serie</label>
+                  <input type="text" class="form-control form-control-sm" id="serie" placeholder="F001">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Número <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" id="numero" required placeholder="00001234">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Fecha emisión</label>
+                  <input type="date" class="form-control form-control-sm" id="fecha_emision">
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold">Proveedor <span class="text-danger">*</span></label>
+                  <div class="position-relative">
+                    <input type="text" class="form-control form-control-sm" id="prov-search" placeholder="Buscar por RUC o razón social..." autocomplete="off">
+                    <div id="prov-resultados" class="list-group position-absolute w-100" style="z-index:1050;display:none;max-height:200px;overflow-y:auto"></div>
+                  </div>
+                  <input type="hidden" id="id_proveedor">
+                  <div class="mt-1 text-success small" id="prov-seleccionado"></div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Condición de pago</label>
+                  <select class="form-select form-select-sm" id="condicion_pago">
+                    <option value="contado">Contado</option>
+                    <option value="credito">Crédito (letras)</option>
+                  </select>
+                </div>
+                <div class="col-md-3" id="grupo-fecha-vencimiento" style="display:none">
+                  <label class="form-label small fw-semibold">Fecha vencimiento <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control form-control-sm" id="fecha_vencimiento">
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold">Almacén destino <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" id="id_almacen" required></select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold">Moneda factura</label>
+                  <select class="form-select form-select-sm" id="moneda">
+                    <option value="PEN">🇵🇪 PEN — Soles</option>
+                    <option value="USD">🇺🇸 USD — Dólares</option>
+                  </select>
+                </div>
+                <div class="col-md-4" id="grupo-tc">
+                  <label class="form-label small fw-semibold">Tipo de cambio (S/ por USD)</label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">S/</span>
+                    <input type="number" class="form-control" id="tipo_cambio" value="3.75" step="0.001" min="1">
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Observaciones</label>
+                  <input type="text" class="form-control form-control-sm" id="observaciones" placeholder="N° orden, referencias, notas...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flete -->
+          <div class="card mb-3 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="tiene-flete">
+                <label class="form-check-label fw-semibold" for="tiene-flete">
+                  <i class="bi bi-truck me-1 text-secondary"></i>Incluir flete / transporte
+                </label>
+              </div>
+            </div>
+            <div class="card-body py-2" id="panel-flete" style="display:none">
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label small">Monto flete</label>
+                  <input type="number" class="form-control form-control-sm" id="flete_monto" value="0" min="0" step="0.01">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Moneda flete</label>
+                  <select class="form-select form-select-sm" id="flete_moneda">
+                    <option value="PEN">PEN</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Prorratear por</label>
+                  <select class="form-select form-select-sm" id="flete_tipo">
+                    <option value="precio">Importe (proporcional)</option>
+                    <option value="cantidad">Cantidad</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ítems de la compra -->
+          <div class="card shadow-sm">
+            <div class="card-header bg-white border-bottom">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-semibold"><i class="bi bi-list-ul me-2 text-primary"></i>Ítems de la factura</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <!-- Selector de modo de ingreso -->
+                  <div class="d-flex align-items-center gap-1">
+                    <span class="small text-muted me-1">Ingresar como:</span>
+                    <div class="btn-group btn-group-sm" role="group" id="grupo-modo">
+                      <button type="button" class="btn btn-outline-secondary btn-modo" data-modo="precio_sin_igv" title="Precio unitario sin IGV">
+                        P.Unit s/IGV
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary btn-modo" data-modo="precio_con_igv" title="Precio unitario con IGV incluido">
+                        P.Unit c/IGV
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary btn-modo active btn-primary" data-modo="total_sin_igv" title="Importe total de la línea sin IGV">
+                        Total s/IGV
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary btn-modo" data-modo="total_con_igv" title="Importe total de la línea con IGV incluido">
+                        Total c/IGV
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" id="btn-agregar-prod">
+                    <i class="bi bi-plus-lg me-1"></i>Agregar producto
+                  </button>
+                </div>
+              </div>
+              <!-- Descripción del modo seleccionado -->
+              <div class="mt-2">
+                <small class="text-muted" id="desc-modo"></small>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="lista-items">
+                <div class="text-center text-muted py-4" id="empty-items">
+                  <i class="bi bi-cart-plus fs-2 d-block mb-2"></i>
+                  Agregue los productos de la factura
+                </div>
+              </div>
+
+              <!-- Validación de total -->
+              <div class="mt-3 p-2 bg-light rounded border" id="panel-validacion" style="display:none">
+                <div class="row align-items-center g-2">
+                  <div class="col-md-5">
+                    <label class="form-label small mb-1 fw-semibold">Total factura con IGV (verificación)</label>
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text" id="prefijo-total-factura">S/</span>
+                      <input type="number" class="form-control" id="total_factura_verificacion" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                  </div>
+                  <div class="col-md-7 pt-3">
+                    <div id="msg-validacion" class="small"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel derecho: resumen -->
+        <div class="col-lg-4">
+          <div class="card border-success shadow-sm mb-3 position-sticky" style="top:70px">
+            <div class="card-header bg-success text-white fw-semibold">
+              <i class="bi bi-receipt me-2"></i>Resumen de compra
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">Subtotal (sin IGV)</span>
+                <span id="r-subtotal" class="fw-semibold">S/ 0.00</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">IGV 18%</span>
+                <span id="r-igv">S/ 0.00</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2" id="r-flete-row" style="display:none!important">
+                <span class="text-muted small">Flete</span>
+                <span id="r-flete">S/ 0.00</span>
+              </div>
+              <hr class="my-2">
+              <div class="d-flex justify-content-between mb-3">
+                <span class="fw-bold">TOTAL</span>
+                <span class="fw-bold fs-5 text-success" id="r-total">S/ 0.00</span>
+              </div>
+
+              <div class="alert alert-info py-2 px-3 small mb-3" id="info-margenes" style="display:none">
+                <i class="bi bi-info-circle me-1"></i>
+                Al guardar, los precios de venta se actualizarán automáticamente según los márgenes configurados.
+              </div>
+
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success btn-lg" id="btn-guardar">
+                  <i class="bi bi-check-circle me-2"></i>Registrar Compra
+                </button>
+                <a href="/src/pages/compras/index.html" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal buscar producto -->
+  <div class="modal fade" id="modal-prod" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-search me-2"></i>Seleccionar producto</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="text" class="form-control mb-3" id="buscar-prod" placeholder="Buscar por código o nombre...">
+          <div class="table-responsive" style="max-height:380px;overflow-y:auto">
+            <table class="table table-sm table-hover">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>Código</th>
+                  <th>Nombre</th>
+                  <th class="text-center">Unidad</th>
+                  <th class="text-end">Último costo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-prod-modal"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { comprasApi, proveedoresApi, productosApi, almacenesApi } from '/src/api/modules.js';
+    import { formatMoneda } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('compras');
+
+    // ── Estado ──────────────────────────────────────────────────────────────────
+    let items = [];
+    let monedaActual = 'PEN';
+    let tipoCambio = 3.75;
+    // Modos: precio_sin_igv | precio_con_igv | total_sin_igv | total_con_igv
+    let modoIngreso = 'total_sin_igv';
+
+    const MODO_INFO = {
+      precio_sin_igv: {
+        label:  (simb) => `Precio unit. sin IGV (${simb})`,
+        desc:   'Ingresa el precio por unidad sin IGV. El sistema calcula el total de la línea multiplicando por la cantidad y agrega el IGV.',
+        ejemplo:'Ej: costo 100.00 × 5 und × 1.18 = S/ 590.00',
+      },
+      precio_con_igv: {
+        label:  (simb) => `Precio unit. con IGV (${simb})`,
+        desc:   'Ingresa el precio por unidad con IGV incluido. El sistema multiplica por la cantidad.',
+        ejemplo:'Ej: precio 118.00 × 5 und = S/ 590.00',
+      },
+      total_sin_igv: {
+        label:  (simb) => `Total línea sin IGV (${simb})`,
+        desc:   'Ingresa el importe total de la línea sin IGV. El sistema agrega el 18% de IGV.',
+        ejemplo:'Ej: subtotal 500.00 × 1.18 = S/ 590.00',
+      },
+      total_con_igv: {
+        label:  (simb) => `Total línea con IGV (${simb})`,
+        desc:   'Ingresa el importe total de la línea tal como aparece en la factura (ya incluye IGV).',
+        ejemplo:'Ej: total factura 590.00 → base 500.00 + IGV 90.00',
+      },
+    };
+
+    // Convierte el valor ingresado → importe_linea con IGV (que es lo que espera el backend)
+    function getImporteLinea(item) {
+      const v = item.valor || 0;
+      const cant = item.cantidad || 1;
+      const igvFactor = item.afecta_igv ? 1.18 : 1;
+      switch (modoIngreso) {
+        case 'precio_sin_igv': return v * cant * igvFactor;
+        case 'precio_con_igv': return v * cant;
+        case 'total_sin_igv':  return v * igvFactor;
+        case 'total_con_igv':  return v;
+        default: return v;
+      }
+    }
+
+    // Costo unitario sin IGV en soles (lo que se guarda en inventario)
+    function getCostoUnitarioSinIgvPen(item) {
+      const importeLinea = getImporteLinea(item);
+      const tc = monedaActual === 'USD' ? tipoCambio : 1;
+      const importeLineaPen = importeLinea * tc;
+      const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
+      return item.cantidad > 0 ? base / item.cantidad : 0;
+    }
+
+    function actualizarDescModo() {
+      const info = MODO_INFO[modoIngreso];
+      const simb = monedaActual === 'USD' ? 'US$' : 'S/';
+      document.getElementById('desc-modo').innerHTML =
+        `<i class="bi bi-info-circle me-1 text-primary"></i>${info.desc} <span class="text-muted">${info.ejemplo}</span>`;
+    }
+
+    // ── Inicialización ───────────────────────────────────────────────────────────
+    document.getElementById('fecha_emision').value = new Date().toISOString().split('T')[0];
+    actualizarDescModo();
+
+    const selAlmacen = document.getElementById('id_almacen');
+    selAlmacen.add(new Option('— Seleccione almacén —', ''));
+    almacenesApi.listar().then((res) => {
+      const alm = Array.isArray(res.data) ? res.data : [];
+      alm.forEach((a) => selAlmacen.add(new Option(a.nombre, a.id)));
+      if (alm.length === 1) selAlmacen.value = alm[0].id;
+    }).catch(() => {});
+
+    api.get('/config/margenes').then((res) => {
+      const m = res.data || res || [];
+      if (m.length > 0) {
+        const infoEl = document.getElementById('info-margenes');
+        const lista = m.filter(x => x.activo).map(x => `P${x.numero}: +${x.margen}%`).join(' · ');
+        infoEl.innerHTML = `<i class="bi bi-tag me-1"></i>Márgenes: ${lista}`;
+        infoEl.style.display = '';
+      }
+    }).catch(() => {});
+
+    // ── Selector de modo de ingreso ──────────────────────────────────────────────
+    document.querySelectorAll('.btn-modo').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        modoIngreso = btn.dataset.modo;
+        // Actualizar botones activos
+        document.querySelectorAll('.btn-modo').forEach((b) => {
+          b.classList.remove('active', 'btn-primary');
+          b.classList.add('btn-outline-secondary');
+        });
+        btn.classList.add('active', 'btn-primary');
+        btn.classList.remove('btn-outline-secondary');
+        actualizarDescModo();
+        renderItems();   // Re-renderiza para actualizar el label del input
+        calcularTotales();
+      });
+    });
+
+    // ── Moneda y tipo de cambio ──────────────────────────────────────────────────
+    document.getElementById('moneda').addEventListener('change', (e) => {
+      monedaActual = e.target.value;
+      document.getElementById('grupo-tc').style.display = monedaActual === 'USD' ? '' : 'none';
+      document.getElementById('prefijo-total-factura').textContent = monedaActual === 'USD' ? 'US$' : 'S/';
+      actualizarDescModo();
+      renderItems();
+      calcularTotales();
+    });
+
+    document.getElementById('tipo_cambio').addEventListener('input', (e) => {
+      tipoCambio = parseFloat(e.target.value) || 3.75;
+      calcularTotales();
+      items.forEach((_, idx) => updateItemCalc(idx));
+    });
+
+    document.getElementById('grupo-tc').style.display = 'none';
+
+    // ── Condición de pago ────────────────────────────────────────────────────────
+    document.getElementById('condicion_pago').addEventListener('change', (e) => {
+      const esCredito = e.target.value === 'credito';
+      const grupoVenc = document.getElementById('grupo-fecha-vencimiento');
+      const inputVenc = document.getElementById('fecha_vencimiento');
+      grupoVenc.style.display = esCredito ? '' : 'none';
+      inputVenc.required = esCredito;
+      if (!esCredito) inputVenc.value = '';
+    });
+
+    // ── Proveedor autocomplete ────────────────────────────────────────────────────
+    let timerProv = null;
+    document.getElementById('prov-search').addEventListener('input', (e) => {
+      clearTimeout(timerProv);
+      const q = e.target.value.trim();
+      document.getElementById('id_proveedor').value = '';
+      document.getElementById('prov-seleccionado').textContent = '';
+      if (q.length < 2) { document.getElementById('prov-resultados').style.display = 'none'; return; }
+      timerProv = setTimeout(async () => {
+        try {
+          const res = await proveedoresApi.listar({ search: q, limit: 8 });
+          const provs = res.data || [];
+          const cont = document.getElementById('prov-resultados');
+          cont.style.display = provs.length ? 'block' : 'none';
+          cont.innerHTML = provs.map((p) => `
+            <button type="button" class="list-group-item list-group-item-action py-1 small" data-id="${p.id}" data-nombre="${p.razon_social}">
+              <strong>${p.ruc}</strong> — ${p.razon_social}
+            </button>`).join('');
+          cont.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              document.getElementById('id_proveedor').value = btn.dataset.id;
+              document.getElementById('prov-search').value = btn.dataset.nombre;
+              document.getElementById('prov-seleccionado').innerHTML =
+                `<i class="bi bi-check-circle-fill text-success me-1"></i>${btn.dataset.nombre}`;
+              cont.style.display = 'none';
+            });
+          });
+        } catch (_) {}
+      }, 300);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#prov-search')) document.getElementById('prov-resultados').style.display = 'none';
+    });
+
+    // ── Flete ────────────────────────────────────────────────────────────────────
+    document.getElementById('tiene-flete').addEventListener('change', (e) => {
+      document.getElementById('panel-flete').style.display = e.target.checked ? '' : 'none';
+      document.getElementById('r-flete-row').style.setProperty('display', e.target.checked ? 'flex' : 'none', 'important');
+      calcularTotales();
+    });
+    document.getElementById('flete_monto').addEventListener('input', calcularTotales);
+
+    // ── Agregar producto ─────────────────────────────────────────────────────────
+    document.getElementById('btn-agregar-prod').addEventListener('click', () => {
+      new bootstrap.Modal(document.getElementById('modal-prod')).show();
+      buscarProds('');
+      setTimeout(() => document.getElementById('buscar-prod').focus(), 300);
+    });
+    document.getElementById('buscar-prod').addEventListener('input', (e) => buscarProds(e.target.value));
+
+    async function buscarProds(q) {
+      try {
+        const res = await productosApi.listar({ search: q, limit: 60 });
+        const prods = res.data || [];
+        const idProveedorActual = document.getElementById('id_proveedor').value;
+        document.getElementById('tbody-prod-modal').innerHTML = prods.map((p) => {
+          const codigoProv = p.codigos_proveedor?.find((c) => c.id_proveedor === idProveedorActual) || p.codigos_proveedor?.[0];
+          return `
+          <tr>
+            <td class="small fw-semibold">${p.codigo}</td>
+            <td>${p.nombre}${codigoProv ? `<br><small class="text-muted">${codigoProv.codigo_alterno} (${codigoProv.proveedor?.razon_social || '—'})</small>` : ''}</td>
+            <td class="text-center small">${p.unidad_medida?.simbolo || '—'}</td>
+            <td class="text-end small">${Number(p.precio_compra_sin_igv || 0) > 0 ? formatMoneda(p.precio_compra_sin_igv) : '<span class="text-muted">—</span>'}</td>
+            <td><button type="button" class="btn btn-sm btn-primary btn-sel" data-id="${p.id}"><i class="bi bi-plus-lg"></i></button></td>
+          </tr>`;
+        }).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">Sin resultados</td></tr>';
+        document.querySelectorAll('.btn-sel').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const prod = prods.find((p) => p.id === btn.dataset.id);
+            if (prod && !items.find(i => i.prod.id === prod.id)) {
+              agregarItem(prod);
+            }
+            bootstrap.Modal.getInstance(document.getElementById('modal-prod')).hide();
+          });
+        });
+      } catch (_) {}
+    }
+
+    function agregarItem(prod) {
+      document.getElementById('empty-items').style.display = 'none';
+      document.getElementById('panel-validacion').style.display = '';
+      // Pre-llenar valor con último costo del producto según el modo actual
+      const ultimoCosto = Number(prod.precio_compra_sin_igv || 0);
+      let valorInicial = 0;
+      if (ultimoCosto > 0) {
+        // El último costo guardado es siempre sin IGV por unidad
+        switch (modoIngreso) {
+          case 'precio_sin_igv': valorInicial = ultimoCosto; break;
+          case 'precio_con_igv': valorInicial = prod.afecta_igv !== false ? +(ultimoCosto * 1.18).toFixed(4) : ultimoCosto; break;
+          case 'total_sin_igv':  valorInicial = ultimoCosto; break; // para 1 unidad
+          case 'total_con_igv':  valorInicial = prod.afecta_igv !== false ? +(ultimoCosto * 1.18).toFixed(4) : ultimoCosto; break;
+        }
+      }
+      items.push({ prod, cantidad: 1, valor: valorInicial, afecta_igv: prod.afecta_igv !== false });
+      renderItems();
+    }
+
+    // Actualiza SOLO los valores calculados de una fila (preserva el foco del input)
+    function updateItemCalc(idx) {
+      const item = items[idx];
+      const costoUnit = getCostoUnitarioSinIgvPen(item);
+      const importeLinea = getImporteLinea(item);
+      const tc = monedaActual === 'USD' ? tipoCambio : 1;
+
+      const costoEl = document.querySelector(`.costo-display[data-idx="${idx}"]`);
+      if (costoEl) costoEl.textContent = costoUnit > 0 ? `S/ ${costoUnit.toFixed(4)}` : '—';
+
+      const linEl = document.querySelector(`.importe-linea-display[data-idx="${idx}"]`);
+      if (linEl) {
+        const importeLineaPen = importeLinea * tc;
+        const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
+        const igv = item.afecta_igv ? importeLineaPen - base : 0;
+        linEl.innerHTML = monedaActual === 'USD'
+          ? `= S/ ${importeLineaPen.toFixed(2)} &nbsp;|&nbsp; Base: S/ ${base.toFixed(2)}, IGV: S/ ${igv.toFixed(2)}`
+          : `Base: S/ ${base.toFixed(2)}, IGV: S/ ${igv.toFixed(2)}`;
+      }
+    }
+
+    // Render completo: solo cuando se agrega o quita un ítem
+    function renderItems() {
+      const lista = document.getElementById('lista-items');
+      lista.querySelectorAll('.item-row').forEach(el => el.remove());
+
+      const simb = monedaActual === 'USD' ? 'US$' : 'S/';
+      const inputLabel = MODO_INFO[modoIngreso].label(simb);
+
+      items.forEach((item, idx) => {
+        const costoUnit = getCostoUnitarioSinIgvPen(item);
+        const importeLinea = getImporteLinea(item);
+        const tc = monedaActual === 'USD' ? tipoCambio : 1;
+        const importeLineaPen = importeLinea * tc;
+        const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
+        const igv = item.afecta_igv ? importeLineaPen - base : 0;
+
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <span class="fw-semibold">${item.prod.nombre}</span>
+              <span class="text-muted small ms-2">${item.prod.codigo}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-idx="${idx}">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+          <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-2">
+              <label class="form-label x-small mb-1">Cantidad</label>
+              <input type="number" class="form-control form-control-sm inp-cant" data-idx="${idx}"
+                value="${item.cantidad}" min="0.001" step="1">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label x-small mb-1">${inputLabel}</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">${simb}</span>
+                <input type="number" class="form-control inp-valor" data-idx="${idx}"
+                  value="${item.valor || ''}" min="0" step="0.0001" placeholder="0.00">
+              </div>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+              <label class="form-label x-small mb-1">Afecta IGV</label>
+              <div class="form-check form-switch d-flex justify-content-center mt-1">
+                <input class="form-check-input inp-igv" type="checkbox" data-idx="${idx}" ${item.afecta_igv ? 'checked' : ''}>
+              </div>
+            </div>
+            <div class="col-8 col-md-3">
+              <label class="form-label x-small mb-1">Costo unit. s/IGV (calculado)</label>
+              <div class="costo-calculado text-center costo-display" data-idx="${idx}">
+                ${costoUnit > 0 ? `S/ ${costoUnit.toFixed(4)}` : '—'}
+              </div>
+            </div>
+            <div class="col-12 col-md-2">
+              <div class="importe-linea-display" data-idx="${idx}">
+                ${monedaActual === 'USD' ? `= S/ ${importeLineaPen.toFixed(2)} &nbsp;|&nbsp; ` : ''}Base: S/ ${base.toFixed(2)}, IGV: S/ ${igv.toFixed(2)}
+              </div>
+            </div>
+          </div>`;
+        lista.appendChild(div);
+      });
+
+      lista.querySelectorAll('.btn-quitar').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          items.splice(+btn.dataset.idx, 1);
+          if (items.length === 0) {
+            document.getElementById('empty-items').style.display = '';
+            document.getElementById('panel-validacion').style.display = 'none';
+          }
+          renderItems();
+          calcularTotales();
+        });
+      });
+
+      lista.querySelectorAll('.inp-cant').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          items[+inp.dataset.idx].cantidad = parseFloat(inp.value) || 1;
+          updateItemCalc(+inp.dataset.idx);
+          calcularTotales();
+        });
+      });
+
+      lista.querySelectorAll('.inp-valor').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          items[+inp.dataset.idx].valor = parseFloat(inp.value) || 0;
+          updateItemCalc(+inp.dataset.idx);
+          calcularTotales();
+        });
+      });
+
+      lista.querySelectorAll('.inp-igv').forEach((inp) => {
+        inp.addEventListener('change', () => {
+          items[+inp.dataset.idx].afecta_igv = inp.checked;
+          updateItemCalc(+inp.dataset.idx);
+          calcularTotales();
+        });
+      });
+
+      calcularTotales();
+    }
+
+    function calcularTotales() {
+      const tc = monedaActual === 'USD' ? tipoCambio : 1;
+      let subtotal = 0, igvTotal = 0;
+
+      items.forEach((item) => {
+        const importeLinea = getImporteLinea(item);
+        const importeLineaPen = importeLinea * tc;
+        const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
+        const igv = item.afecta_igv ? importeLineaPen - base : 0;
+        subtotal += base;
+        igvTotal += igv;
+      });
+
+      const flete = document.getElementById('tiene-flete').checked
+        ? (parseFloat(document.getElementById('flete_monto').value) || 0) *
+          (document.getElementById('flete_moneda').value === 'USD' ? tc : 1)
+        : 0;
+
+      const total = subtotal + igvTotal;
+
+      document.getElementById('r-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
+      document.getElementById('r-igv').textContent = `S/ ${igvTotal.toFixed(2)}`;
+      document.getElementById('r-flete').textContent = `S/ ${flete.toFixed(2)}`;
+      document.getElementById('r-total').textContent = `S/ ${total.toFixed(2)}`;
+
+      // Validar contra total ingresado manualmente (siempre en términos de total con IGV)
+      const totalFacturaStr = document.getElementById('total_factura_verificacion').value;
+      if (totalFacturaStr !== '' && items.length > 0) {
+        const totalFactura = parseFloat(totalFacturaStr) * tc;
+        const diff = Math.abs(total - totalFactura);
+        const msgEl = document.getElementById('msg-validacion');
+        if (diff < 0.05) {
+          msgEl.innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i><span class="total-check-ok">Cuadra con el total de la factura ✓</span>`;
+        } else {
+          msgEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><span class="total-check-err">Diferencia: S/ ${diff.toFixed(2)} — revise los importes</span>`;
+        }
+      }
+    }
+
+    document.getElementById('total_factura_verificacion').addEventListener('input', calcularTotales);
+
+    // ── Submit ────────────────────────────────────────────────────────────────────
+    document.getElementById('form-compra').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const idProveedor = document.getElementById('id_proveedor').value;
+      const idAlmacen   = document.getElementById('id_almacen').value;
+      const numero      = document.getElementById('numero').value.trim();
+      const fechaEmision = document.getElementById('fecha_emision').value;
+
+      if (!idProveedor)  { toast('Seleccione un proveedor', 'warning'); return; }
+      if (!idAlmacen)    { toast('Seleccione un almacén destino', 'warning'); return; }
+      if (!numero)       { toast('Ingrese el número del documento', 'warning'); return; }
+      if (!fechaEmision) { toast('Ingrese la fecha de emisión', 'warning'); return; }
+      if (items.length === 0) { toast('Agregue al menos un producto', 'warning'); return; }
+
+      const condicionPago = document.getElementById('condicion_pago').value;
+      const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+      if (condicionPago === 'credito' && !fechaVencimiento) {
+        toast('Ingrese la fecha de vencimiento para compras al crédito', 'warning'); return;
+      }
+
+      const itemsSinValor = items.filter(i => !(i.valor > 0));
+      if (itemsSinValor.length > 0) {
+        toast(`${itemsSinValor.length > 1 ? itemsSinValor.length + ' ítems' : 'Un ítem'} sin valor ingresado.`, 'warning');
+        return;
+      }
+      const itemsSinCantidad = items.filter(i => !(i.cantidad > 0));
+      if (itemsSinCantidad.length > 0) {
+        toast('Hay ítems con cantidad inválida', 'warning'); return;
+      }
+
+      const btn = document.getElementById('btn-guardar');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrando...';
+
+      const tieneFlete = document.getElementById('tiene-flete').checked;
+      const moneda = document.getElementById('moneda').value;
+      const tc = moneda === 'USD' ? (parseFloat(document.getElementById('tipo_cambio').value) || 3.75) : 1;
+
+      const dto = {
+        tipo_documento: document.getElementById('tipo_documento').value,
+        serie:          document.getElementById('serie').value.trim() || undefined,
+        numero,
+        id_proveedor:   idProveedor,
+        id_almacen:     idAlmacen,
+        moneda,
+        tipo_cambio:    tc,
+        fecha_emision:  fechaEmision,
+        condicion_pago: condicionPago,
+        fecha_vencimiento: fechaVencimiento || undefined,
+        observaciones:  document.getElementById('observaciones').value || undefined,
+        flete_monto:    tieneFlete ? parseFloat(document.getElementById('flete_monto').value) || 0 : 0,
+        flete_moneda:   tieneFlete ? document.getElementById('flete_moneda').value : undefined,
+        flete_tipo_prorrateo: tieneFlete ? document.getElementById('flete_tipo').value : undefined,
+        detalle: items.map((i) => ({
+          id_producto:   i.prod.id,
+          cantidad:      i.cantidad,
+          importe_linea: getImporteLinea(i),  // siempre convierte al formato que espera el backend
+          afecta_igv:    i.afecta_igv,
+        })),
+      };
+
+      try {
+        await comprasApi.crear(dto);
+        toast('¡Compra registrada! Stock y precios actualizados.', 'success');
+        setTimeout(() => { window.location.href = '/src/pages/compras/index.html'; }, 1500);
+      } catch (err) {
+        toastError(err);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Registrar Compra';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuarios — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-person-gear me-2 text-primary"></i>Usuarios</h5>
+      <button class="btn btn-primary" id="btn-nuevo"><i class="bi bi-plus-lg me-1"></i>Nuevo Usuario</button>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Punto de venta</th>
+                <th>Roles</th>
+                <th>Último acceso</th>
+                <th class="text-center">Bloqueado</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-usuarios">
+              <tr><td colspan="8" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal usuario -->
+  <div class="modal fade" id="modal-usuario" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-titulo">Nuevo Usuario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-tabs mb-3" id="tabs-usuario">
+            <li class="nav-item"><button class="nav-link active" data-tab-u="datos">Datos</button></li>
+            <li class="nav-item"><button class="nav-link" data-tab-u="roles" id="tab-roles-btn">Roles</button></li>
+            <li class="nav-item"><button class="nav-link" data-tab-u="password" id="tab-pass-btn">Contraseña</button></li>
+          </ul>
+
+          <div id="tab-datos">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="u-nombre">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Apellido <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="u-apellido">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="u-email">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Teléfono</label>
+                <input type="text" class="form-control" id="u-telefono">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Punto de venta</label>
+                <select class="form-select" id="u-punto-venta">
+                  <option value="">Sin asignar</option>
+                </select>
+                <div class="form-text">Define a qué caja, series de documentos y reportes de ventas tiene acceso.</div>
+              </div>
+              <div class="col-md-6" id="campo-password">
+                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="u-password" placeholder="Mínimo 8 caracteres">
+              </div>
+            </div>
+          </div>
+
+          <div id="tab-roles" style="display:none">
+            <div id="lista-roles-usuario" class="row g-2"></div>
+          </div>
+
+          <div id="tab-password" style="display:none">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Nueva contraseña <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="u-new-pass">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Confirmar contraseña <span class="text-danger">*</span></label>
+                <input type="password" class="form-control" id="u-confirm-pass">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-guardar-usuario">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { usuariosApi, rolesApi, seriesApi } from '/src/api/modules.js';
+    import { badgeEstado, formatFechaHora } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('usuarios');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let usuarioEditando = null;
+    let tabActualU = 'datos';
+    let todosRoles = [];
+    let rolesUsuario = [];
+    let puntosVenta = [];
+
+    async function cargarPuntosVenta() {
+      try {
+        const res = await seriesApi.puntosVenta();
+        puntosVenta = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const sel = document.getElementById('u-punto-venta');
+        sel.innerHTML = '<option value="">Sin asignar</option>' +
+          puntosVenta.map((pv) => `<option value="${pv.id}">${pv.nombre}</option>`).join('');
+      } catch (_) {}
+    }
+
+    // Tabs del modal
+    document.querySelectorAll('[data-tab-u]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        tabActualU = btn.dataset.tabU;
+        document.querySelectorAll('[data-tab-u]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['datos','roles','password'].forEach((t) => {
+          document.getElementById(`tab-${t}`).style.display = t === tabActualU ? '' : 'none';
+        });
+      });
+    });
+
+    async function cargar() {
+      const tbody = document.getElementById('tabla-usuarios');
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await usuariosApi.listar({});
+        const items = Array.isArray(res.data) ? res.data : res.data?.usuarios || [];
+
+        tbody.innerHTML = items.length ? items.map((u) => `
+          <tr>
+            <td class="fw-semibold">${u.nombre} ${u.apellido}</td>
+            <td>${u.email}</td>
+            <td class="small">${u.punto_venta?.nombre || '<span class="text-muted">Sin asignar</span>'}</td>
+            <td>${u.roles?.map((r) => `<span class="badge bg-primary me-1">${r.nombre}</span>`).join('') || '-'}</td>
+            <td class="small text-muted">${u.ultimo_acceso ? formatFechaHora(u.ultimo_acceso) : 'Nunca'}</td>
+            <td class="text-center">${u.bloqueado_hasta ? '<span class="badge bg-danger">Bloqueado</span>' : '<span class="badge bg-success">No</span>'}</td>
+            <td class="text-center">${badgeEstado(u.estado)}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="${u.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted py-4">Sin usuarios</td></tr>';
+
+        tbody.querySelectorAll('.btn-editar').forEach((b) => b.addEventListener('click', () => abrirEditar(b.dataset.id)));
+      } catch (err) { toastError(err); }
+    }
+
+    async function abrirNuevo() {
+      usuarioEditando = null;
+      rolesUsuario = [];
+      document.getElementById('modal-titulo').textContent = 'Nuevo Usuario';
+      document.getElementById('campo-password').style.display = '';
+      ['u-nombre','u-apellido','u-email','u-telefono','u-password'].forEach((id) => document.getElementById(id).value = '');
+      document.getElementById('u-punto-venta').value = '';
+      document.getElementById('tab-roles-btn').style.display = 'none';
+      document.getElementById('tab-pass-btn').style.display = 'none';
+      // Reset tab
+      document.querySelector('[data-tab-u="datos"]').click();
+      new bootstrap.Modal(document.getElementById('modal-usuario')).show();
+    }
+
+    async function abrirEditar(id) {
+      try {
+        const [userRes, rolesRes] = await Promise.all([
+          usuariosApi.obtener(id),
+          rolesApi.listar(),
+        ]);
+        const u = userRes.data || userRes;
+        todosRoles = Array.isArray(rolesRes.data) ? rolesRes.data : rolesRes.data?.roles || [];
+        rolesUsuario = u.roles?.map((r) => r.id) || [];
+        usuarioEditando = u;
+
+        document.getElementById('modal-titulo').textContent = 'Editar Usuario';
+        document.getElementById('u-nombre').value = u.nombre;
+        document.getElementById('u-apellido').value = u.apellido;
+        document.getElementById('u-email').value = u.email;
+        document.getElementById('u-telefono').value = u.telefono || '';
+        document.getElementById('u-punto-venta').value = u.punto_venta?.id || '';
+        document.getElementById('campo-password').style.display = 'none';
+        document.getElementById('tab-roles-btn').style.display = '';
+        document.getElementById('tab-pass-btn').style.display = '';
+
+        // Render roles
+        document.getElementById('lista-roles-usuario').innerHTML = todosRoles.map((r) => `
+          <div class="col-md-6">
+            <div class="form-check border rounded p-2">
+              <input class="form-check-input" type="checkbox" id="rol-${r.id}" value="${r.id}" ${rolesUsuario.includes(r.id) ? 'checked' : ''}>
+              <label class="form-check-label" for="rol-${r.id}">
+                <div class="fw-semibold">${r.nombre}</div>
+                <div class="text-muted small">${r.descripcion || ''}</div>
+              </label>
+            </div>
+          </div>`).join('');
+
+        // Reset tab
+        document.querySelector('[data-tab-u="datos"]').click();
+        new bootstrap.Modal(document.getElementById('modal-usuario')).show();
+      } catch (err) { toastError(err); }
+    }
+
+    document.getElementById('btn-guardar-usuario').addEventListener('click', async () => {
+      if (tabActualU === 'datos') {
+        const dto = {
+          nombre: document.getElementById('u-nombre').value.trim(),
+          apellido: document.getElementById('u-apellido').value.trim(),
+          email: document.getElementById('u-email').value.trim(),
+          telefono: document.getElementById('u-telefono').value.trim() || undefined,
+          id_punto_venta: document.getElementById('u-punto-venta').value || null,
+        };
+        if (!dto.nombre || !dto.apellido || !dto.email) { toast('Complete los campos obligatorios', 'warning'); return; }
+
+        try {
+          if (usuarioEditando) {
+            await usuariosApi.actualizar(usuarioEditando.id, dto);
+            toast('Usuario actualizado');
+          } else {
+            const pass = document.getElementById('u-password').value;
+            if (!pass) { toast('Ingrese una contraseña', 'warning'); return; }
+            await usuariosApi.crear({ ...dto, password: pass });
+            toast('Usuario creado');
+          }
+          bootstrap.Modal.getInstance(document.getElementById('modal-usuario')).hide();
+          cargar();
+        } catch (err) { toastError(err); }
+
+      } else if (tabActualU === 'roles' && usuarioEditando) {
+        const seleccionados = [...document.querySelectorAll('#lista-roles-usuario input:checked')].map((inp) => inp.value);
+        try {
+          await usuariosApi.actualizarRoles(usuarioEditando.id, seleccionados);
+          toast('Roles actualizados');
+          bootstrap.Modal.getInstance(document.getElementById('modal-usuario')).hide();
+          cargar();
+        } catch (err) { toastError(err); }
+
+      } else if (tabActualU === 'password' && usuarioEditando) {
+        const newPass = document.getElementById('u-new-pass').value;
+        const confirm = document.getElementById('u-confirm-pass').value;
+        if (!newPass || newPass !== confirm) { toast('Las contraseñas no coinciden', 'warning'); return; }
+        try {
+          await usuariosApi.cambiarPassword(usuarioEditando.id, newPass);
+          toast('Contraseña actualizada');
+          bootstrap.Modal.getInstance(document.getElementById('modal-usuario')).hide();
+        } catch (err) { toastError(err); }
+      }
+    });
+
+    document.getElementById('btn-nuevo').addEventListener('click', abrirNuevo);
+    cargarPuntosVenta();
+    cargar();
+  </script>
+</body>
+</html>
+
