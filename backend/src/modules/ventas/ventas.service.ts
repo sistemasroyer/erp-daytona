@@ -8,7 +8,9 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { SunatEnvioService } from '../facturacion/sunat-envio.service';
+import { finDeDia } from '../../common/utils/fecha.util';
 import { CreateVentaDto, AnularVentaDto, CanjearVentaDto } from './dto/create-venta.dto';
+import { CreateNotaCreditoDto } from './dto/create-nota-credito.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import {
   generarNumeroInterno,
@@ -31,7 +33,8 @@ export class VentasService {
   ) {}
 
   private async enviarASunatSiCorresponde(venta: any) {
-    if (venta.tipo_documento !== 'FACTURA' && venta.tipo_documento !== 'BOLETA') {
+    const enviaASunat = ['FACTURA', 'BOLETA', 'NOTA_CREDITO'].includes(venta.tipo_documento);
+    if (!enviaASunat) {
       return venta;
     }
     try {
@@ -286,7 +289,7 @@ export class VentasService {
     if (pagination.fecha_desde || pagination.fecha_hasta) {
       where.fecha_emision = {};
       if (pagination.fecha_desde) where.fecha_emision.gte = new Date(pagination.fecha_desde);
-      if (pagination.fecha_hasta) where.fecha_emision.lte = new Date(pagination.fecha_hasta);
+      if (pagination.fecha_hasta) where.fecha_emision.lte = finDeDia(pagination.fecha_hasta);
     }
 
     if (pagination.estado_sunat) where.estado_sunat = pagination.estado_sunat;
@@ -391,7 +394,7 @@ export class VentasService {
               cantidad: Number(detalle.cantidad),
               motivo: `Anulación venta ${venta.numero_comprobante}: ${dto.motivo}`,
               idReferencia: id,
-              tipoReferencia: 'ajuste',
+              tipoReferencia: 'venta',
               idUsuario: usuarioId,
             },
             tx as unknown as Prisma.TransactionClient,
@@ -581,5 +584,189 @@ export class VentasService {
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }).then((venta) => this.enviarASunatSiCorresponde(venta));
+  }
+
+  async crearNotaCredito(idVentaOriginal: string, dto: CreateNotaCreditoDto, usuarioId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const original = await tx.tbl_ventas.findFirst({
+        where: { id: idVentaOriginal, eliminado: false },
+        include: { detalle: true },
+      });
+      if (!original) throw new NotFoundException('Venta original no encontrada');
+
+      if (original.tipo_documento !== 'FACTURA' && original.tipo_documento !== 'BOLETA') {
+        throw new BadRequestException('Solo se puede emitir una Nota de Crédito sobre una Factura o Boleta');
+      }
+      if (original.estado_venta !== 'vigente') {
+        throw new BadRequestException(`No se puede emitir una Nota de Crédito sobre una venta en estado "${original.estado_venta}"`);
+      }
+
+      // 1. Validar y bloquear serie (debe ser NOTA_CREDITO y el prefijo debe coincidir con
+      // el tipo de documento que se está acreditando, tal como lo exige SUNAT).
+      const series = await tx.$queryRaw<any[]>`
+        SELECT id, serie, correlativo_actual, tipo_documento, id_punto_venta
+        FROM tbl_series_documento
+        WHERE id::text = ${dto.id_serie_documento} AND activo = true
+        FOR UPDATE
+      `;
+      const serieDoc = series[0];
+      if (!serieDoc) throw new BadRequestException('Serie de documento no válida o inactiva');
+      if (serieDoc.tipo_documento !== 'NOTA_CREDITO') {
+        throw new BadRequestException('La serie seleccionada no es de tipo Nota de Crédito');
+      }
+      const prefijoEsperado = original.tipo_documento === 'FACTURA' ? 'F' : 'B';
+      if (!String(serieDoc.serie).startsWith(prefijoEsperado)) {
+        throw new BadRequestException(
+          `Para acreditar una ${original.tipo_documento === 'FACTURA' ? 'Factura' : 'Boleta'} se necesita una `
+          + `serie de Nota de Crédito que empiece con "${prefijoEsperado}" (requisito de SUNAT). `
+          + 'Configure una en Configuración → Series.',
+        );
+      }
+
+      const nuevoCorrelativo = serieDoc.correlativo_actual + 1;
+      await tx.$executeRaw`
+        UPDATE tbl_series_documento SET correlativo_actual = ${nuevoCorrelativo}
+        WHERE id::text = ${dto.id_serie_documento}
+      `;
+      const numeroComprobante = generarNumeroComprobante(serieDoc.serie, nuevoCorrelativo);
+
+      // 2. Construir el detalle a partir de las líneas ORIGINALES (nunca de precios actuales,
+      // para no acreditar a un precio distinto al que realmente se cobró).
+      const detalleCalculado = dto.detalle.map((item) => {
+        const detOriginal = original.detalle.find((d) => d.id === item.id_detalle_original);
+        if (!detOriginal) {
+          throw new BadRequestException('Uno de los ítems indicados no pertenece a la venta original');
+        }
+        if (item.cantidad > Number(detOriginal.cantidad)) {
+          throw new BadRequestException(
+            `La cantidad a acreditar de "${detOriginal.descripcion}" excede la cantidad original (${detOriginal.cantidad})`,
+          );
+        }
+
+        const precioUnitario = Number(detOriginal.precio_unitario);
+        const valorUnitario = Number(detOriginal.valor_unitario);
+        const igvUnitario = detOriginal.afecta_igv ? redondear4(precioUnitario - valorUnitario) : 0;
+        const subtotal = redondear2(valorUnitario * item.cantidad);
+        const igvTotal = redondear2(igvUnitario * item.cantidad);
+
+        return {
+          id_producto: detOriginal.id_producto,
+          descripcion: detOriginal.descripcion,
+          cantidad: item.cantidad,
+          precio_tipo: detOriginal.precio_tipo,
+          precio_unitario: precioUnitario,
+          descuento: 0,
+          descuento_pct: 0,
+          valor_unitario: valorUnitario,
+          subtotal,
+          igv: igvTotal,
+          total: redondear2(subtotal + igvTotal),
+          afecta_igv: detOriginal.afecta_igv,
+        };
+      });
+
+      if (detalleCalculado.length === 0) {
+        throw new BadRequestException('Debe incluir al menos un ítem a acreditar');
+      }
+
+      const subtotalNC = redondear2(detalleCalculado.reduce((s, d) => s + d.subtotal, 0));
+      const igvNC = redondear2(detalleCalculado.reduce((s, d) => s + d.igv, 0));
+      const totalNC = redondear2(subtotalNC + igvNC);
+
+      if (dto.codigo_motivo === '01' && Math.abs(totalNC - Number(original.total)) > 0.05) {
+        throw new BadRequestException(
+          'Para anular la operación completa, la Nota de Crédito debe incluir todos los ítems por el total de la venta original',
+        );
+      }
+
+      // 3. Crear la Nota de Crédito
+      const totalVentas = await tx.tbl_ventas.count();
+      const numeroInterno = generarNumeroInterno('VTA', totalVentas + 1);
+
+      const nc = await tx.tbl_ventas.create({
+        data: {
+          numero_interno: numeroInterno,
+          id_serie_documento: dto.id_serie_documento,
+          tipo_documento: 'NOTA_CREDITO',
+          serie: serieDoc.serie,
+          correlativo: nuevoCorrelativo,
+          numero_comprobante: numeroComprobante,
+          id_cliente: original.id_cliente,
+          id_punto_venta: original.id_punto_venta,
+          id_usuario_vendedor: usuarioId,
+          fecha_emision: new Date(),
+          moneda: original.moneda,
+          tipo_cambio: original.tipo_cambio,
+          subtotal: subtotalNC,
+          igv: igvNC,
+          total: totalNC,
+          observaciones: dto.motivo,
+          id_nota_original: original.id,
+          motivo_nota: dto.motivo,
+          codigo_motivo_nota: dto.codigo_motivo,
+          estado_sunat: 'pendiente',
+          estado_venta: 'vigente',
+          afecto_stock: dto.afecta_stock,
+          usuario_creacion: usuarioId,
+        },
+      });
+
+      await tx.tbl_detalle_ventas.createMany({
+        data: detalleCalculado.map((d) => ({ id_venta: nc.id, ...d })),
+      });
+
+      // 4. Si implica devolución física, reponer stock (a costo actual, sin distorsionar el promedio)
+      if (dto.afecta_stock) {
+        const almacen = await tx.tbl_almacenes.findFirst({ where: { eliminado: false, es_principal: true } });
+        if (almacen) {
+          for (const item of detalleCalculado) {
+            const productoActual = await tx.tbl_productos.findFirst({
+              where: { id: item.id_producto },
+              select: { costo_promedio: true },
+            });
+            const costoActual = Number(productoActual?.costo_promedio || 0);
+
+            await this.inventarioRepo.registrarMovimientoEnTransaccion(
+              {
+                idProducto: item.id_producto,
+                idAlmacen: almacen.id,
+                tipo: 'entrada',
+                cantidad: Number(item.cantidad),
+                costoUnitario: costoActual > 0 ? costoActual : undefined,
+                motivo: `Nota de Crédito ${numeroComprobante} sobre ${original.numero_comprobante}`,
+                idReferencia: nc.id,
+                tipoReferencia: 'venta',
+                idUsuario: usuarioId,
+              },
+              tx as unknown as Prisma.TransactionClient,
+            );
+          }
+        }
+      }
+
+      // 5. Si es anulación total de la operación, marcar la venta original como anulada
+      if (dto.codigo_motivo === '01') {
+        await tx.tbl_ventas.update({
+          where: { id: original.id },
+          data: {
+            estado_venta: 'anulada',
+            motivo_anulacion: dto.motivo,
+            usuario_modificacion: usuarioId,
+          },
+        });
+      }
+
+      return tx.tbl_ventas.findFirst({
+        where: { id: nc.id },
+        include: {
+          cliente: { select: { razon_social: true, numero_documento: true } },
+          detalle: { include: { producto: { select: { nombre: true, codigo: true } } } },
+        },
+      });
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    }).then((nc) => this.enviarASunatSiCorresponde(nc));
   }
 }

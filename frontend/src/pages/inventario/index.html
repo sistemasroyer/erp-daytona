@@ -85,7 +85,10 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Producto <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="aj-producto-search" placeholder="Buscar producto...">
+            <div class="position-relative">
+              <input type="text" class="form-control" id="aj-producto-search" placeholder="Buscar por código o nombre..." autocomplete="off">
+              <div id="aj-producto-resultados" class="list-group position-absolute w-100" style="z-index:1060;display:none;max-height:200px;overflow-y:auto"></div>
+            </div>
             <input type="hidden" id="aj-id-producto">
           </div>
           <div class="mb-3">
@@ -95,8 +98,8 @@
           <div class="mb-3">
             <label class="form-label">Tipo ajuste <span class="text-danger">*</span></label>
             <select class="form-select" id="aj-tipo">
-              <option value="entrada">Entrada</option>
-              <option value="salida">Salida</option>
+              <option value="ajuste_positivo">Entrada (+)</option>
+              <option value="ajuste_negativo">Salida (-)</option>
             </select>
           </div>
           <div class="mb-3">
@@ -127,7 +130,10 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Producto <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="tr-producto-search" placeholder="Buscar producto...">
+            <div class="position-relative">
+              <input type="text" class="form-control" id="tr-producto-search" placeholder="Buscar por código o nombre..." autocomplete="off">
+              <div id="tr-producto-resultados" class="list-group position-absolute w-100" style="z-index:1060;display:none;max-height:200px;overflow-y:auto"></div>
+            </div>
             <input type="hidden" id="tr-id-producto">
           </div>
           <div class="row g-2 mb-3">
@@ -237,23 +243,39 @@
     document.getElementById('btn-ajuste').addEventListener('click', () => {
       document.getElementById('aj-producto-search').value = '';
       document.getElementById('aj-id-producto').value = '';
+      document.getElementById('aj-cantidad').value = '';
+      document.getElementById('aj-motivo').value = '';
       new bootstrap.Modal(document.getElementById('modal-ajuste')).show();
     });
 
     let timerAj = null;
     document.getElementById('aj-producto-search').addEventListener('input', (e) => {
       clearTimeout(timerAj);
+      const q = e.target.value.trim();
+      document.getElementById('aj-id-producto').value = '';
+      if (q.length < 2) { document.getElementById('aj-producto-resultados').style.display = 'none'; return; }
       timerAj = setTimeout(async () => {
-        if (e.target.value.length < 2) return;
         try {
-          const res = await productosApi.listar({ search: e.target.value, limit: 5 });
-          const p = (res.data?.productos || res.data || []);
-          if (p.length === 1) {
-            document.getElementById('aj-id-producto').value = p[0].id;
-            document.getElementById('aj-producto-search').value = p[0].nombre;
-          }
+          const res = await productosApi.listar({ search: q, limit: 8 });
+          const prods = res.data || [];
+          const cont = document.getElementById('aj-producto-resultados');
+          cont.style.display = prods.length ? 'block' : 'none';
+          cont.innerHTML = prods.map((p) => `
+            <button type="button" class="list-group-item list-group-item-action py-1 small" data-id="${p.id}" data-nombre="${p.nombre}">
+              <strong>${p.codigo}</strong> — ${p.nombre}
+            </button>`).join('');
+          cont.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              document.getElementById('aj-id-producto').value = btn.dataset.id;
+              document.getElementById('aj-producto-search').value = btn.dataset.nombre;
+              cont.style.display = 'none';
+            });
+          });
         } catch (_) {}
-      }, 400);
+      }, 300);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#aj-producto-search')) document.getElementById('aj-producto-resultados').style.display = 'none';
     });
 
     document.getElementById('btn-guardar-ajuste').addEventListener('click', async () => {
@@ -264,9 +286,10 @@
         cantidad: parseFloat(document.getElementById('aj-cantidad').value),
         motivo: document.getElementById('aj-motivo').value.trim(),
       };
-      if (!dto.id_producto || !dto.cantidad || !dto.motivo) {
-        toast('Complete todos los campos requeridos', 'warning'); return;
-      }
+      if (!dto.id_producto) { toast('Busque y seleccione un producto', 'warning'); return; }
+      if (!dto.id_almacen) { toast('Seleccione un almacén', 'warning'); return; }
+      if (!dto.cantidad || dto.cantidad <= 0) { toast('Ingrese una cantidad válida', 'warning'); return; }
+      if (!dto.motivo) { toast('Ingrese el motivo del ajuste', 'warning'); return; }
       try {
         await inventarioApi.ajustar(dto);
         toast('Ajuste aplicado correctamente');
@@ -279,7 +302,39 @@
     document.getElementById('btn-transferencia').addEventListener('click', () => {
       document.getElementById('tr-producto-search').value = '';
       document.getElementById('tr-id-producto').value = '';
+      document.getElementById('tr-cantidad').value = '';
+      document.getElementById('tr-motivo').value = '';
       new bootstrap.Modal(document.getElementById('modal-transfer')).show();
+    });
+
+    let timerTr = null;
+    document.getElementById('tr-producto-search').addEventListener('input', (e) => {
+      clearTimeout(timerTr);
+      const q = e.target.value.trim();
+      document.getElementById('tr-id-producto').value = '';
+      if (q.length < 2) { document.getElementById('tr-producto-resultados').style.display = 'none'; return; }
+      timerTr = setTimeout(async () => {
+        try {
+          const res = await productosApi.listar({ search: q, limit: 8 });
+          const prods = res.data || [];
+          const cont = document.getElementById('tr-producto-resultados');
+          cont.style.display = prods.length ? 'block' : 'none';
+          cont.innerHTML = prods.map((p) => `
+            <button type="button" class="list-group-item list-group-item-action py-1 small" data-id="${p.id}" data-nombre="${p.nombre}">
+              <strong>${p.codigo}</strong> — ${p.nombre}
+            </button>`).join('');
+          cont.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              document.getElementById('tr-id-producto').value = btn.dataset.id;
+              document.getElementById('tr-producto-search').value = btn.dataset.nombre;
+              cont.style.display = 'none';
+            });
+          });
+        } catch (_) {}
+      }, 300);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#tr-producto-search')) document.getElementById('tr-producto-resultados').style.display = 'none';
     });
 
     document.getElementById('btn-guardar-transfer').addEventListener('click', async () => {
@@ -288,12 +343,15 @@
         id_almacen_origen: document.getElementById('tr-origen').value,
         id_almacen_destino: document.getElementById('tr-destino').value,
         cantidad: parseFloat(document.getElementById('tr-cantidad').value),
-        motivo: document.getElementById('tr-motivo').value.trim() || 'Transferencia',
+        motivo: document.getElementById('tr-motivo').value.trim() || undefined,
       };
-      if (!dto.id_producto || !dto.cantidad) { toast('Complete todos los campos', 'warning'); return; }
+      if (!dto.id_producto) { toast('Busque y seleccione un producto', 'warning'); return; }
+      if (!dto.id_almacen_origen || !dto.id_almacen_destino) { toast('Seleccione almacén de origen y destino', 'warning'); return; }
+      if (dto.id_almacen_origen === dto.id_almacen_destino) { toast('El almacén de origen y destino no pueden ser el mismo', 'warning'); return; }
+      if (!dto.cantidad || dto.cantidad <= 0) { toast('Ingrese una cantidad válida', 'warning'); return; }
       try {
         await inventarioApi.transferir(dto);
-        toast('Transferencia realizada');
+        toast('Transferencia realizada correctamente');
         bootstrap.Modal.getInstance(document.getElementById('modal-transfer')).hide();
         cargar();
       } catch (err) { toastError(err); }

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { StockInsuficienteException } from '../../common/exceptions/stock-insuficiente.exception';
 import { ConcurrenciaException } from '../../common/exceptions/concurrencia.exception';
+import { finDeDia } from '../../common/utils/fecha.util';
 import { Prisma } from '@prisma/client';
 
 export interface MovimientoInventarioInput {
@@ -70,7 +71,7 @@ export class InventarioRepository {
 
     const stockActual = parseFloat(inventario.stock_actual);
     const cantidad = Math.abs(input.cantidad);
-    const esSalida = ['salida', 'transferencia_salida'].includes(input.tipo);
+    const esSalida = ['salida', 'ajuste_negativo', 'transferencia_salida'].includes(input.tipo);
 
     // 2. VALIDAR stock suficiente
     if (esSalida && stockActual < cantidad) {
@@ -204,22 +205,31 @@ export class InventarioRepository {
     idAlmacen?: string,
     fechaDesde?: Date,
     fechaHasta?: Date,
-    metodo: 'peps' | 'ueps' | 'promedio' = 'promedio',
+    _metodo: 'peps' | 'ueps' | 'promedio' = 'promedio',
+    limit = 500,
+    skip = 0,
   ) {
     const where: any = { id_producto: idProducto };
     if (idAlmacen) where.id_almacen = idAlmacen;
     if (fechaDesde || fechaHasta) {
       where.fecha = {};
       if (fechaDesde) where.fecha.gte = fechaDesde;
-      if (fechaHasta) where.fecha.lte = fechaHasta;
+      if (fechaHasta) where.fecha.lte = finDeDia(fechaHasta);
     }
 
-    return this.prisma.tbl_kardex.findMany({
-      where,
-      include: {
-        producto: { select: { nombre: true, codigo: true } },
-      },
-      orderBy: { fecha: 'asc' },
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.tbl_kardex.findMany({
+        where,
+        include: {
+          producto: { select: { nombre: true, codigo: true } },
+        },
+        orderBy: { fecha: 'asc' },
+        skip,
+        take: Math.min(limit, 1000),
+      }),
+      this.prisma.tbl_kardex.count({ where }),
+    ]);
+
+    return { data, total };
   }
 }

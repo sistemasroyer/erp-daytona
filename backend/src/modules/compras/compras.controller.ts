@@ -1,7 +1,9 @@
 import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ComprasService } from './compras.service';
+import { CompraXmlService } from './compra-xml.service';
 import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
+import { ImportarXmlCompraDto } from './dto/importar-xml.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -10,7 +12,17 @@ import { Permisos } from '../../common/decorators/permisos.decorator';
 @ApiBearerAuth()
 @Controller('compras')
 export class ComprasController {
-  constructor(private readonly service: ComprasService) {}
+  constructor(
+    private readonly service: ComprasService,
+    private readonly xmlService: CompraXmlService,
+  ) {}
+
+  @Post('importar-xml')
+  @Permisos('compras:crear')
+  @ApiOperation({ summary: 'Leer un XML UBL de factura/boleta de un proveedor y proponer los datos para una compra' })
+  importarXml(@Body() dto: ImportarXmlCompraDto) {
+    return this.xmlService.parsear(dto.xml);
+  }
 
   @Post()
   @Permisos('compras:crear')

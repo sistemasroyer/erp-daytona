@@ -210,14 +210,14 @@
               </table>
             </div>
           </div>
+          <h6 class="fw-semibold mb-2"><i class="bi bi-receipt me-1"></i>Detalle de la factura (tal como la emitió el proveedor)</h6>
           <div class="table-responsive">
             <table class="table table-sm table-striped">
               <thead class="table-dark">
                 <tr>
                   <th>Producto</th>
                   <th class="text-end">Cantidad</th>
-                  <th class="text-end">P. Unitario</th>
-                  <th class="text-end">Flete Pror.</th>
+                  <th class="text-end">Precio Unitario</th>
                   <th class="text-end">Subtotal</th>
                   <th class="text-end">IGV</th>
                   <th class="text-end">Total</th>
@@ -229,16 +229,15 @@
                   <td>${d.producto?.nombre || d.id_producto}</td>
                   <td class="text-end">${Number(d.cantidad).toFixed(4)}</td>
                   <td class="text-end">${formatMoneda(d.precio_unitario, c.moneda)}</td>
-                  <td class="text-end text-muted">${formatMoneda(d.costo_flete_prorrateado || 0)}</td>
                   <td class="text-end">${formatMoneda(d.subtotal, c.moneda)}</td>
                   <td class="text-end">${formatMoneda(d.igv, c.moneda)}</td>
                   <td class="text-end fw-semibold">${formatMoneda(d.total, c.moneda)}</td>
                 </tr>`).join('')}
               </tbody>
               <tfoot class="table-light fw-bold">
-                <tr><td colspan="6" class="text-end">Subtotal:</td><td class="text-end">${formatMoneda(c.subtotal, c.moneda)}</td></tr>
-                <tr><td colspan="6" class="text-end">IGV:</td><td class="text-end">${formatMoneda(c.igv, c.moneda)}</td></tr>
-                <tr class="table-primary"><td colspan="6" class="text-end fs-6">TOTAL A PAGAR AL PROVEEDOR:</td><td class="text-end fs-6">${formatMoneda(c.total, c.moneda)}</td></tr>
+                <tr><td colspan="3" class="text-end">Subtotal:</td><td colspan="3" class="text-end">${formatMoneda(c.subtotal, c.moneda)}</td></tr>
+                <tr><td colspan="3" class="text-end">IGV:</td><td colspan="3" class="text-end">${formatMoneda(c.igv, c.moneda)}</td></tr>
+                <tr class="table-primary"><td colspan="3" class="text-end fs-6">TOTAL A PAGAR AL PROVEEDOR:</td><td colspan="3" class="text-end fs-6">${formatMoneda(c.total, c.moneda)}</td></tr>
               </tfoot>
             </table>
           </div>
@@ -257,7 +256,40 @@
                    ${c.flete_fecha_pago ? `<div class="small text-muted mt-1">${formatFecha(c.flete_fecha_pago)}</div>` : ''}`
                 : '<span class="badge bg-warning text-dark">Pendiente de pago</span>'}
             </div>
-          </div>` : ''}`;
+          </div>` : ''}
+
+          <h6 class="fw-semibold mt-4 mb-2"><i class="bi bi-boxes me-1"></i>Costeo de inventario</h6>
+          <div class="alert alert-secondary py-2 px-3 small mb-2">
+            <i class="bi bi-info-circle me-1"></i>Este cálculo es independiente de la factura del proveedor: toma el costo unitario de la factura y le suma el flete prorrateado (si aplica) para obtener el costo real con el que se valoriza el inventario.
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th>Producto</th>
+                  <th class="text-end">Costo Base s/IGV (factura)</th>
+                  <th class="text-end">Flete Prorrateado</th>
+                  <th class="text-end">Costo Final s/IGV</th>
+                  <th class="text-end">Costo Final c/IGV</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detalles.map((d) => {
+                  const costoBaseSinIgv = Number(d.cantidad) > 0 ? Number(d.subtotal) / Number(d.cantidad) : 0;
+                  const costoFinalSinIgv = Number(d.costo_unitario_total || 0);
+                  const costoFinalConIgv = d.afecta_igv ? costoFinalSinIgv * 1.18 : costoFinalSinIgv;
+                  return `
+                <tr>
+                  <td>${d.producto?.nombre || d.id_producto}</td>
+                  <td class="text-end">${formatMoneda(costoBaseSinIgv)}</td>
+                  <td class="text-end text-muted">${formatMoneda(d.costo_flete_prorrateado || 0)}</td>
+                  <td class="text-end fw-semibold">${formatMoneda(costoFinalSinIgv)}</td>
+                  <td class="text-end fw-semibold">${formatMoneda(costoFinalConIgv)}</td>
+                </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>`;
 
         if (c.estado === 'registrada') {
           document.getElementById('btn-anular').classList.remove('d-none');

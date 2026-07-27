@@ -3,6 +3,8 @@ import { IsString, IsNotEmpty, IsEnum, IsNumber, Min, IsOptional } from 'class-v
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from './inventario.repository';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { finDeDia } from '../../common/utils/fecha.util';
+import { Prisma } from '@prisma/client';
 
 export class AjusteInventarioDto {
   @IsString() @IsNotEmpty() id_producto: string;
@@ -18,6 +20,14 @@ export class InicializarStockDto {
   @IsString() @IsNotEmpty() id_almacen: string;
   @IsNumber() @Min(0.0001) cantidad: number;
   @IsOptional() @IsNumber() @Min(0) costo_unitario?: number;
+}
+
+export class TransferenciaInventarioDto {
+  @IsString() @IsNotEmpty() id_producto: string;
+  @IsString() @IsNotEmpty() id_almacen_origen: string;
+  @IsString() @IsNotEmpty() id_almacen_destino: string;
+  @IsNumber() @Min(0.0001) cantidad: number;
+  @IsOptional() @IsString() motivo?: string;
 }
 
 @Injectable()
@@ -109,6 +119,64 @@ export class InventarioService {
     });
   }
 
+  async transferir(dto: TransferenciaInventarioDto, usuarioId: string) {
+    if (dto.id_almacen_origen === dto.id_almacen_destino) {
+      throw new BadRequestException('El almacén de origen y destino no pueden ser el mismo');
+    }
+
+    const producto = await this.prisma.tbl_productos.findFirst({
+      where: { id: dto.id_producto, eliminado: false },
+    });
+    if (!producto) throw new NotFoundException('Producto no encontrado');
+
+    const [origen, destino] = await Promise.all([
+      this.prisma.tbl_almacenes.findFirst({ where: { id: dto.id_almacen_origen, eliminado: false } }),
+      this.prisma.tbl_almacenes.findFirst({ where: { id: dto.id_almacen_destino, eliminado: false } }),
+    ]);
+    if (!origen) throw new NotFoundException('Almacén de origen no encontrado');
+    if (!destino) throw new NotFoundException('Almacén de destino no encontrado');
+
+    const motivo = dto.motivo || `Transferencia de ${origen.nombre} a ${destino.nombre}`;
+    const costoUnitario = Number(producto.costo_promedio);
+
+    return this.prisma.$transaction(async (tx) => {
+      const salida = await this.inventarioRepo.registrarMovimientoEnTransaccion(
+        {
+          idProducto: dto.id_producto,
+          idAlmacen: dto.id_almacen_origen,
+          tipo: 'transferencia_salida',
+          cantidad: dto.cantidad,
+          costoUnitario,
+          motivo,
+          tipoReferencia: 'transferencia',
+          idUsuario: usuarioId,
+        },
+        tx as unknown as Prisma.TransactionClient,
+      );
+
+      const entrada = await this.inventarioRepo.registrarMovimientoEnTransaccion(
+        {
+          idProducto: dto.id_producto,
+          idAlmacen: dto.id_almacen_destino,
+          tipo: 'transferencia_entrada',
+          cantidad: dto.cantidad,
+          costoUnitario,
+          motivo,
+          idReferencia: salida.movimiento.id,
+          tipoReferencia: 'transferencia',
+          idUsuario: usuarioId,
+        },
+        tx as unknown as Prisma.TransactionClient,
+      );
+
+      return { salida: salida.movimiento, entrada: entrada.movimiento };
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  }
+
   async inicializarStock(dto: InicializarStockDto, usuarioId: string) {
     const existente = await this.prisma.tbl_inventario.findFirst({
       where: {
@@ -145,7 +213,7 @@ export class InventarioService {
     if (fechaDesde || fechaHasta) {
       where.fecha = {};
       if (fechaDesde) where.fecha.gte = fechaDesde;
-      if (fechaHasta) where.fecha.lte = fechaHasta;
+      if (fechaHasta) where.fecha.lte = finDeDia(fechaHasta);
     }
 
     return this.prisma.tbl_movimientos_inventario.findMany({
@@ -160,12 +228,17 @@ export class InventarioService {
     idAlmacen?: string,
     fechaDesde?: string,
     fechaHasta?: string,
+    limit?: number,
+    skip?: number,
   ) {
     return this.inventarioRepo.obtenerKardex(
       idProducto,
       idAlmacen,
       fechaDesde ? new Date(fechaDesde) : undefined,
       fechaHasta ? new Date(fechaHasta) : undefined,
+      undefined,
+      limit,
+      skip,
     );
   }
 }

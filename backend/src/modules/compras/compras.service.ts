@@ -6,6 +6,7 @@ import { ConfigMargenesService } from '../config-margenes/config-margenes.servic
 import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils/numero-documento.util';
+import { finDeDia } from '../../common/utils/fecha.util';
 import { Prisma } from '@prisma/client';
 
 const TASA_IGV = 0.18;
@@ -241,7 +242,7 @@ export class ComprasService {
     if (pagination.fecha_desde || pagination.fecha_hasta) {
       where.fecha_emision = {};
       if (pagination.fecha_desde) where.fecha_emision.gte = new Date(pagination.fecha_desde);
-      if (pagination.fecha_hasta) where.fecha_emision.lte = new Date(pagination.fecha_hasta);
+      if (pagination.fecha_hasta) where.fecha_emision.lte = finDeDia(pagination.fecha_hasta);
     }
 
     if (pagination.id_proveedor) where.id_proveedor = pagination.id_proveedor;
@@ -299,7 +300,7 @@ export class ComprasService {
             cantidad: Number(detalle.cantidad),
             motivo: `Anulación compra ${compra.numero_interno}: ${motivo}`,
             idReferencia: id,
-            tipoReferencia: 'ajuste',
+            tipoReferencia: 'compra',
             idUsuario: usuarioId,
           },
           tx as unknown as Prisma.TransactionClient,

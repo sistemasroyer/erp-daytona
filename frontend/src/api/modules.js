@@ -85,6 +85,7 @@ export const ventasApi = {
   anular: (id, motivo) => api.patch(`/ventas/${id}/anular`, { motivo }),
   canjear: (id, d) => api.post(`/ventas/${id}/canjear`, d),
   reenviarSunat: (id) => api.post(`/ventas/${id}/reenviar-sunat`),
+  crearNotaCredito: (id, d) => api.post(`/ventas/${id}/nota-credito`, d),
 };
 
 export const comprasApi = {
@@ -93,6 +94,7 @@ export const comprasApi = {
   crear: (d) => api.post('/compras', d),
   anular: (id, motivo) => api.patch(`/compras/${id}/anular`, { motivo }),
   pagarFlete: (id, d) => api.patch(`/compras/${id}/flete/pagar`, d),
+  importarXml: (xml) => api.post('/compras/importar-xml', { xml }),
 };
 
 export const ordenesApi = {

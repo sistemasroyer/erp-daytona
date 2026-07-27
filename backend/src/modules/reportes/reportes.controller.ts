@@ -42,7 +42,12 @@ export class ReportesController {
 
   @Get('kardex/:idProducto')
   @Permisos('reportes:ver')
-  reporteKardex(@Param('idProducto') id: string, @Query() filtros: FiltroReporte) {
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'skip', required: false })
+  reporteKardex(
+    @Param('idProducto') id: string,
+    @Query() filtros: FiltroReporte & { limit?: number; skip?: number },
+  ) {
     return this.service.reporteKardex(id, filtros);
   }
 

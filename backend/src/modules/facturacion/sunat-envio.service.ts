@@ -67,6 +67,17 @@ export class SunatEnvioService {
 
       const modoSunat = this.configService.get<string>('sunat.mode');
 
+      let documentoModificado: { tipo: 'FACTURA' | 'BOLETA'; serie: string; numero: number } | undefined;
+      let tipoNotaCredito: number | undefined;
+
+      if (venta.tipo_documento === 'NOTA_CREDITO' && venta.id_nota_original) {
+        const original = await this.prisma.tbl_ventas.findFirst({ where: { id: venta.id_nota_original } });
+        if (original && (original.tipo_documento === 'FACTURA' || original.tipo_documento === 'BOLETA')) {
+          documentoModificado = { tipo: original.tipo_documento, serie: original.serie, numero: original.correlativo };
+        }
+        if (venta.codigo_motivo_nota) tipoNotaCredito = parseInt(venta.codigo_motivo_nota, 10);
+      }
+
       let respuesta: NubefactRespuesta;
 
       if (modoSunat === 'mock') {
@@ -93,6 +104,8 @@ export class SunatEnvioService {
             total: Number(venta.total),
           },
           observaciones: venta.observaciones || undefined,
+          documentoModificado,
+          tipoNotaCredito,
           items: venta.detalle.map((d) => ({
             unidadMedida: d.producto.unidad_medida.codigo_sunat,
             codigo: d.producto.codigo,

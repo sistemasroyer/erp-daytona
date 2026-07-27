@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, Query, Patch, HttpCode, Htt
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { VentasService } from './ventas.service';
 import { CreateVentaDto, AnularVentaDto, CanjearVentaDto } from './dto/create-venta.dto';
+import { CreateNotaCreditoDto } from './dto/create-nota-credito.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -57,6 +58,17 @@ export class VentasController {
   @ApiOperation({ summary: 'Anular venta (solo admin/supervisor con permiso anular)' })
   anular(@Param('id') id: string, @Body() dto: AnularVentaDto, @CurrentUser('sub') userId: string) {
     return this.service.anular(id, dto, userId);
+  }
+
+  @Post(':id/nota-credito')
+  @Permisos('ventas:anular')
+  @ApiOperation({ summary: 'Emitir una Nota de Crédito sobre una Factura/Boleta (aceptada o no por SUNAT)' })
+  crearNotaCredito(
+    @Param('id') id: string,
+    @Body() dto: CreateNotaCreditoDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.crearNotaCredito(id, dto, userId);
   }
 
   @Post(':id/reenviar-sunat')

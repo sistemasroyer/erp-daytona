@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { InventarioRepository } from '../inventario/inventario.repository';
+import { finDeDia } from '../../common/utils/fecha.util';
 import * as ExcelJS from 'exceljs';
 
 export interface FiltroReporte {
@@ -15,7 +17,10 @@ export interface FiltroReporte {
 
 @Injectable()
 export class ReportesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private inventarioRepo: InventarioRepository,
+  ) {}
 
   async reporteVentas(filtros: FiltroReporte) {
     const where: any = { eliminado: false, estado_venta: { not: 'canjeada' } };
@@ -23,7 +28,7 @@ export class ReportesService {
     if (filtros.fecha_desde || filtros.fecha_hasta) {
       where.fecha_emision = {};
       if (filtros.fecha_desde) where.fecha_emision.gte = new Date(filtros.fecha_desde);
-      if (filtros.fecha_hasta) where.fecha_emision.lte = new Date(filtros.fecha_hasta);
+      if (filtros.fecha_hasta) where.fecha_emision.lte = finDeDia(filtros.fecha_hasta);
     }
     if (filtros.id_usuario) where.id_usuario_vendedor = filtros.id_usuario;
     if (filtros.id_punto_venta) where.id_punto_venta = filtros.id_punto_venta;
@@ -63,7 +68,7 @@ export class ReportesService {
     if (filtros.fecha_desde || filtros.fecha_hasta) {
       where.fecha_emision = {};
       if (filtros.fecha_desde) where.fecha_emision.gte = new Date(filtros.fecha_desde);
-      if (filtros.fecha_hasta) where.fecha_emision.lte = new Date(filtros.fecha_hasta);
+      if (filtros.fecha_hasta) where.fecha_emision.lte = finDeDia(filtros.fecha_hasta);
     }
     if (filtros.id_proveedor) where.id_proveedor = filtros.id_proveedor;
 
@@ -106,20 +111,16 @@ export class ReportesService {
     });
   }
 
-  async reporteKardex(idProducto: string, filtros: FiltroReporte) {
-    const where: any = { id_producto: idProducto };
-    if (filtros.id_almacen) where.id_almacen = filtros.id_almacen;
-    if (filtros.fecha_desde || filtros.fecha_hasta) {
-      where.fecha = {};
-      if (filtros.fecha_desde) where.fecha.gte = new Date(filtros.fecha_desde);
-      if (filtros.fecha_hasta) where.fecha.lte = new Date(filtros.fecha_hasta);
-    }
-
-    return this.prisma.tbl_kardex.findMany({
-      where,
-      include: { producto: { select: { nombre: true, codigo: true } } },
-      orderBy: { fecha: 'asc' },
-    });
+  async reporteKardex(idProducto: string, filtros: FiltroReporte & { limit?: number; skip?: number }) {
+    return this.inventarioRepo.obtenerKardex(
+      idProducto,
+      filtros.id_almacen,
+      filtros.fecha_desde ? new Date(filtros.fecha_desde) : undefined,
+      filtros.fecha_hasta ? new Date(filtros.fecha_hasta) : undefined,
+      undefined,
+      Number(filtros.limit) || undefined,
+      Number(filtros.skip) || undefined,
+    );
   }
 
   async reporteAuditoria(filtros: FiltroReporte & { tabla?: string }) {
@@ -129,7 +130,7 @@ export class ReportesService {
     if (filtros.fecha_desde || filtros.fecha_hasta) {
       where.fecha = {};
       if (filtros.fecha_desde) where.fecha.gte = new Date(filtros.fecha_desde);
-      if (filtros.fecha_hasta) where.fecha.lte = new Date(filtros.fecha_hasta);
+      if (filtros.fecha_hasta) where.fecha.lte = finDeDia(filtros.fecha_hasta);
     }
 
     return this.prisma.tbl_auditoria.findMany({

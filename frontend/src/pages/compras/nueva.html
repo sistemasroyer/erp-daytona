@@ -28,8 +28,14 @@
 
           <!-- Datos del documento -->
           <div class="card mb-3 shadow-sm">
-            <div class="card-header fw-semibold bg-white border-bottom">
-              <i class="bi bi-file-earmark-text me-2 text-primary"></i>Datos del documento
+            <div class="card-header fw-semibold bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span><i class="bi bi-file-earmark-text me-2 text-primary"></i>Datos del documento</span>
+              <div>
+                <input type="file" id="input-xml" accept=".xml,text/xml" class="d-none">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-importar-xml">
+                  <i class="bi bi-filetype-xml me-1"></i>Importar XML del proveedor
+                </button>
+              </div>
             </div>
             <div class="card-body">
               <div class="row g-3">
@@ -289,6 +295,7 @@
     import { comprasApi, proveedoresApi, productosApi, almacenesApi } from '/src/api/modules.js';
     import { formatMoneda } from '/src/components/tabla.js';
     import { toast, toastError } from '/src/components/toast.js';
+    import { confirmar } from '/src/components/modal.js';
 
     if (!api.getToken()) window.location.href = '/src/pages/login.html';
     initLayout('compras');
@@ -533,6 +540,12 @@
       const costoEl = document.querySelector(`.costo-display[data-idx="${idx}"]`);
       if (costoEl) costoEl.textContent = costoUnit > 0 ? `S/ ${costoUnit.toFixed(4)}` : '—';
 
+      const costoConIgvEl = document.querySelector(`.costo-con-igv-display[data-idx="${idx}"]`);
+      if (costoConIgvEl) {
+        const costoConIgv = item.afecta_igv ? costoUnit * 1.18 : costoUnit;
+        costoConIgvEl.textContent = costoUnit > 0 ? `S/ ${costoConIgv.toFixed(4)}` : '—';
+      }
+
       const linEl = document.querySelector(`.importe-linea-display[data-idx="${idx}"]`);
       if (linEl) {
         const importeLineaPen = importeLinea * tc;
@@ -586,16 +599,22 @@
                   value="${item.valor || ''}" min="0" step="0.0001" placeholder="0.00">
               </div>
             </div>
-            <div class="col-4 col-md-2 text-center">
+            <div class="col-4 col-md-1 text-center">
               <label class="form-label x-small mb-1">Afecta IGV</label>
               <div class="form-check form-switch d-flex justify-content-center mt-1">
                 <input class="form-check-input inp-igv" type="checkbox" data-idx="${idx}" ${item.afecta_igv ? 'checked' : ''}>
               </div>
             </div>
-            <div class="col-8 col-md-3">
-              <label class="form-label x-small mb-1">Costo unit. s/IGV (calculado)</label>
+            <div class="col-4 col-md-2">
+              <label class="form-label x-small mb-1">Costo unit. s/IGV</label>
               <div class="costo-calculado text-center costo-display" data-idx="${idx}">
                 ${costoUnit > 0 ? `S/ ${costoUnit.toFixed(4)}` : '—'}
+              </div>
+            </div>
+            <div class="col-4 col-md-2">
+              <label class="form-label x-small mb-1">Costo unit. c/IGV</label>
+              <div class="costo-calculado text-center costo-con-igv-display" data-idx="${idx}">
+                ${costoUnit > 0 ? `S/ ${(item.afecta_igv ? costoUnit * 1.18 : costoUnit).toFixed(4)}` : '—'}
               </div>
             </div>
             <div class="col-12 col-md-2">
@@ -686,6 +705,118 @@
     }
 
     document.getElementById('total_factura_verificacion').addEventListener('input', calcularTotales);
+
+    // ── Importar XML del proveedor ───────────────────────────────────────────────
+    document.getElementById('btn-importar-xml').addEventListener('click', () => {
+      document.getElementById('input-xml').click();
+    });
+
+    document.getElementById('input-xml').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+
+      try {
+        const texto = await file.text();
+        const res = await comprasApi.importarXml(texto);
+        await aplicarImportacionXml(res.data || res);
+      } catch (err) {
+        toastError(err);
+      }
+    });
+
+    async function aplicarImportacionXml(data) {
+      if (items.length > 0) {
+        const ok = await confirmar('Esto reemplazará los productos ya agregados en el formulario. ¿Continuar?', 'Importar XML');
+        if (!ok) return;
+      }
+
+      const tipoSel = document.getElementById('tipo_documento');
+      if ([...tipoSel.options].some((o) => o.value === data.tipo_documento)) tipoSel.value = data.tipo_documento;
+      document.getElementById('serie').value = data.serie || '';
+      document.getElementById('numero').value = data.numero || '';
+      if (data.fecha_emision) document.getElementById('fecha_emision').value = data.fecha_emision;
+      if (data.moneda) {
+        document.getElementById('moneda').value = data.moneda;
+        document.getElementById('moneda').dispatchEvent(new Event('change'));
+      }
+
+      if (data.proveedor?.encontrado) {
+        document.getElementById('id_proveedor').value = data.proveedor.id;
+        document.getElementById('prov-search').value = data.proveedor.razon_social;
+        document.getElementById('prov-seleccionado').innerHTML =
+          `<i class="bi bi-check-circle-fill text-success me-1"></i>${data.proveedor.razon_social}`;
+      } else {
+        document.getElementById('id_proveedor').value = '';
+        document.getElementById('prov-seleccionado').innerHTML = '';
+        document.getElementById('prov-search').value = data.proveedor?.razon_social || '';
+        toast(
+          `El proveedor RUC ${data.proveedor?.ruc || '—'} (${data.proveedor?.razon_social || 'desconocido'}) no está registrado. Créelo en Proveedores y vuelva a importar el XML.`,
+          'warning', 8000,
+        );
+      }
+
+      // El importe por línea ya viene calculado con IGV incluido desde el XML.
+      modoIngreso = 'total_con_igv';
+      document.querySelectorAll('.btn-modo').forEach((b) => {
+        const activo = b.dataset.modo === modoIngreso;
+        b.classList.toggle('active', activo);
+        b.classList.toggle('btn-primary', activo);
+        b.classList.toggle('btn-outline-secondary', !activo);
+      });
+      actualizarDescModo();
+
+      items = [];
+      const sinAsociar = [];
+      for (const linea of data.detalle || []) {
+        if (linea.producto) {
+          items.push({
+            prod: linea.producto,
+            cantidad: linea.cantidad,
+            valor: linea.importe_linea,
+            afecta_igv: linea.afecta_igv,
+          });
+        } else {
+          sinAsociar.push(linea);
+        }
+      }
+
+      document.getElementById('empty-items').style.display = items.length ? 'none' : '';
+      document.getElementById('panel-validacion').style.display = items.length ? '' : 'none';
+      renderItems();
+
+      if (data.totales?.total) {
+        document.getElementById('total_factura_verificacion').value = data.totales.total;
+        calcularTotales();
+      }
+
+      mostrarLineasSinAsociar(sinAsociar);
+
+      toast(
+        `XML importado: ${items.length} producto(s) asociado(s)${sinAsociar.length ? `, ${sinAsociar.length} sin asociar (revise el aviso debajo)` : ''}.`,
+        sinAsociar.length ? 'warning' : 'success',
+      );
+    }
+
+    function mostrarLineasSinAsociar(lineas) {
+      let cont = document.getElementById('lineas-sin-asociar');
+      if (!lineas.length) {
+        if (cont) cont.remove();
+        return;
+      }
+      if (!cont) {
+        cont = document.createElement('div');
+        cont.id = 'lineas-sin-asociar';
+        cont.className = 'alert alert-warning mt-3 mb-0';
+        document.getElementById('lista-items').insertAdjacentElement('afterend', cont);
+      }
+      const simb = monedaActual === 'USD' ? 'US$' : 'S/';
+      cont.innerHTML = `
+        <div class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Ítems del XML sin producto asociado — agréguelos manualmente:</div>
+        <ul class="mb-0 small">
+          ${lineas.map((l) => `<li><strong>${l.codigo_proveedor || '—'}</strong> — ${l.descripcion} (cant. ${l.cantidad}, ${simb} ${Number(l.importe_linea).toFixed(2)} c/IGV)</li>`).join('')}
+        </ul>`;
+    }
 
     // ── Submit ────────────────────────────────────────────────────────────────────
     document.getElementById('form-compra').addEventListener('submit', async (e) => {

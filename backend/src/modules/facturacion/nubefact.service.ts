@@ -38,6 +38,14 @@ export interface NubefactComprobanteInput {
   };
   observaciones?: string;
   items: NubefactItemInput[];
+  /** Solo para NOTA_CREDITO/NOTA_DEBITO: documento que se está modificando */
+  documentoModificado?: {
+    tipo: 'FACTURA' | 'BOLETA';
+    serie: string;
+    numero: number;
+  };
+  /** Solo para NOTA_CREDITO: catálogo 09 SUNAT (1..13) */
+  tipoNotaCredito?: number;
 }
 
 export interface NubefactRespuesta {
@@ -111,6 +119,14 @@ export class NubefactService {
       enviar_automaticamente_a_la_sunat: true,
       enviar_automaticamente_al_cliente: !!input.cliente.email,
       cancelado: true,
+      ...(input.documentoModificado
+        ? {
+            documento_que_se_modifica_tipo: input.documentoModificado.tipo === 'FACTURA' ? 1 : 2,
+            documento_que_se_modifica_serie: input.documentoModificado.serie,
+            documento_que_se_modifica_numero: input.documentoModificado.numero,
+          }
+        : {}),
+      ...(input.tipoNotaCredito ? { tipo_de_nota_de_credito: input.tipoNotaCredito } : {}),
       items: input.items.map((item) => ({
         unidad_de_medida: item.unidadMedida,
         codigo: item.codigo || '',

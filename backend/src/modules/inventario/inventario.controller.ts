@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { InventarioService, AjusteInventarioDto, InicializarStockDto } from './inventario.service';
+import { InventarioService, AjusteInventarioDto, InicializarStockDto, TransferenciaInventarioDto } from './inventario.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -47,13 +47,17 @@ export class InventarioController {
   @Get('kardex/:idProducto')
   @Permisos('inventario:ver')
   @ApiOperation({ summary: 'Kardex de un producto (inmutable)' })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'skip', required: false })
   getKardex(
     @Param('idProducto') id: string,
     @Query('id_almacen') idAlmacen?: string,
     @Query('fecha_desde') fechaDesde?: string,
     @Query('fecha_hasta') fechaHasta?: string,
+    @Query('limit') limit?: string,
+    @Query('skip') skip?: string,
   ) {
-    return this.service.getKardex(id, idAlmacen, fechaDesde, fechaHasta);
+    return this.service.getKardex(id, idAlmacen, fechaDesde, fechaHasta, Number(limit) || undefined, Number(skip) || undefined);
   }
 
   @Post('inicializar')
@@ -68,5 +72,12 @@ export class InventarioController {
   @ApiOperation({ summary: 'Registrar ajuste de inventario (+/-)' })
   ajustar(@Body() dto: AjusteInventarioDto, @CurrentUser('sub') userId: string) {
     return this.service.ajustar(dto, userId);
+  }
+
+  @Post('transferencia')
+  @Permisos('inventario:editar')
+  @ApiOperation({ summary: 'Transferir stock de un producto entre almacenes' })
+  transferir(@Body() dto: TransferenciaInventarioDto, @CurrentUser('sub') userId: string) {
+    return this.service.transferir(dto, userId);
   }
 }
