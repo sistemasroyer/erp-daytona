@@ -579,9 +579,22 @@
           pagos: pagos.length ? pagos : undefined,
         };
 
-        await ventasApi.crear(dto);
-        toast('¡Documento emitido correctamente!', 'success');
-        setTimeout(() => { window.location.href = '/src/pages/ventas/index.html'; }, 1200);
+        const res = await ventasApi.crear(dto);
+        const ventaCreada = res.data || res;
+
+        if (ventaCreada.tipo_documento === 'FACTURA' || ventaCreada.tipo_documento === 'BOLETA') {
+          const envio = (ventaCreada.sunat_envios || [])[0];
+          if (ventaCreada.estado_sunat === 'aceptado') {
+            toast('¡Documento emitido y aceptado por SUNAT!', 'success');
+          } else if (ventaCreada.estado_sunat === 'rechazado' || ventaCreada.estado_sunat === 'error') {
+            toast(`Documento emitido, pero SUNAT lo rechazó: ${envio?.error_mensaje || 'revise el detalle en Ventas'}`, 'danger', 6000);
+          } else {
+            toast('Documento emitido, envío a SUNAT en proceso...', 'success');
+          }
+        } else {
+          toast('¡Documento emitido correctamente!', 'success');
+        }
+        setTimeout(() => { window.location.href = '/src/pages/ventas/index.html'; }, 1500);
       } catch (err) {
         toastError(err);
         btn.disabled = false;

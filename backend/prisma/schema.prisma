@@ -554,6 +554,7 @@ model tbl_proveedores {
   usuario_modificacion String?  @db.VarChar(36)
 
   compras tbl_compras[]
+  compras_flete tbl_compras[] @relation("FleteProveedor")
   ordenes tbl_ordenes_compra[]
   codigos_producto tbl_producto_codigos_proveedor[]
 
@@ -729,6 +730,7 @@ model tbl_metodos_pago {
   usuario_modificacion String?  @db.VarChar(36)
 
   pagos tbl_pagos[]
+  compras_flete tbl_compras[]
 
   @@map("tbl_metodos_pago")
 }
@@ -854,6 +856,11 @@ model tbl_compras {
   flete_tipo_cambio      Decimal            @default(1) @db.Decimal(10, 4)
   flete_monto_pen        Decimal            @default(0) @db.Decimal(12, 2)
   flete_tipo_prorrateo   TipoProrrateoFlete @default(precio)
+  id_proveedor_flete     String?
+  flete_pagado           Boolean            @default(false)
+  flete_fecha_pago       DateTime?
+  flete_id_metodo_pago   String?
+  flete_referencia_pago  String?            @db.VarChar(100)
   estado                 EstadoCompra       @default(borrador)
   observaciones          String?            @db.VarChar(500)
   estado_registro        Boolean            @default(true)
@@ -863,12 +870,15 @@ model tbl_compras {
   usuario_creacion       String?            @db.VarChar(36)
   usuario_modificacion   String?            @db.VarChar(36)
 
-  proveedor tbl_proveedores      @relation(fields: [id_proveedor], references: [id])
+  proveedor         tbl_proveedores      @relation(fields: [id_proveedor], references: [id])
+  proveedor_flete   tbl_proveedores?     @relation("FleteProveedor", fields: [id_proveedor_flete], references: [id])
+  metodo_pago_flete tbl_metodos_pago?    @relation(fields: [flete_id_metodo_pago], references: [id])
   almacen   tbl_almacenes        @relation(fields: [id_almacen], references: [id])
   usuario   tbl_usuarios         @relation(fields: [id_usuario], references: [id])
   detalle   tbl_detalle_compras[]
 
   @@index([id_proveedor])
+  @@index([id_proveedor_flete])
   @@index([id_almacen])
   @@index([fecha_emision])
   @@map("tbl_compras")
@@ -1102,16 +1112,16 @@ model tbl_sunat_envios {
   id                   String      @id @default(uuid())
   id_venta             String
   tipo_documento       String      @db.VarChar(5)
-  nombre_xml           String      @db.VarChar(100)
-  xml_sin_firma        String?     @db.Text
-  xml_firmado          String?     @db.Text
-  hash_xml             String?     @db.VarChar(100)
-  zip_base64           String?     @db.Text
+  identificador        String      @db.VarChar(100)
   fecha_envio          DateTime?
   intento_numero       Int         @default(0)
   estado               EstadoSunat @default(pendiente)
-  id_job_bullmq        String?     @db.VarChar(100)
   error_mensaje        String?     @db.VarChar(500)
+  codigo_hash          String?     @db.VarChar(200)
+  enlace               String?     @db.VarChar(500)
+  enlace_pdf           String?     @db.VarChar(500)
+  enlace_xml           String?     @db.VarChar(500)
+  enlace_cdr           String?     @db.VarChar(500)
   estado_registro      Boolean     @default(true)
   eliminado            Boolean     @default(false)
   fecha_creacion       DateTime    @default(now())
@@ -1128,14 +1138,14 @@ model tbl_sunat_envios {
 }
 
 model tbl_sunat_respuestas {
-  id                  String   @id @default(uuid())
-  id_envio            String
-  codigo_respuesta    String?  @db.VarChar(10)
-  descripcion_respuesta String? @db.VarChar(500)
-  cdr_xml             String?  @db.Text
-  cdr_base64          String?  @db.Text
-  es_exitoso          Boolean  @default(false)
-  fecha_respuesta     DateTime @default(now())
+  id                    String   @id @default(uuid())
+  id_envio              String
+  codigo_respuesta      String?  @db.VarChar(10)
+  descripcion_respuesta String?  @db.VarChar(500)
+  observaciones         String?  @db.VarChar(500)
+  es_exitoso            Boolean  @default(false)
+  respuesta_raw         Json?
+  fecha_respuesta       DateTime @default(now())
 
   envio tbl_sunat_envios @relation(fields: [id_envio], references: [id])
 

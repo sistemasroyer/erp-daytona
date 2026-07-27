@@ -5,7 +5,6 @@
 - Ubuntu 22.04 LTS (mínimo 2 vCPU, 4 GB RAM, 40 GB SSD)
 - Node.js 20 LTS
 - PostgreSQL 16
-- Redis 7
 - PM2 (global)
 - Nginx (reverse proxy)
 
@@ -34,12 +33,6 @@ curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearm
 sudo apt update && sudo apt install -y postgresql-16
 sudo systemctl enable --now postgresql
 
-# Redis 7
-curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
-sudo apt update && sudo apt install -y redis
-sudo systemctl enable --now redis-server
-
 # Nginx
 sudo apt install -y nginx
 sudo systemctl enable --now nginx
@@ -64,27 +57,7 @@ psql -h localhost -U erp_user -d erp_daytona -c "SELECT version();"
 
 ---
 
-## 3. Configurar Redis
-
-```bash
-# Editar configuración Redis para producción
-sudo nano /etc/redis/redis.conf
-
-# Cambios recomendados:
-# requirepass TU_PASSWORD_REDIS
-# maxmemory 512mb
-# maxmemory-policy allkeys-lru
-# bind 127.0.0.1
-
-sudo systemctl restart redis-server
-
-# Verificar
-redis-cli ping  # debe responder PONG
-```
-
----
-
-## 4. Subir el Código
+## 3. Subir el Código
 
 ```bash
 # Crear directorio de la aplicación
@@ -101,7 +74,7 @@ git clone https://github.com/tu-org/erp-daytona.git /var/www/erp-daytona
 
 ---
 
-## 5. Configurar Variables de Entorno
+## 4. Configurar Variables de Entorno
 
 ```bash
 cd /var/www/erp-daytona/backend
@@ -126,22 +99,13 @@ JWT_REFRESH_SECRET=$(openssl rand -base64 64)
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
-# Redis
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_PASSWORD=TU_PASSWORD_REDIS
-
-# SUNAT
-SUNAT_MODE=mock   # cambiar a 'real' cuando tengas certificado
-SUNAT_CERT_PATH=/var/www/erp-daytona/backend/storage/certs/certificado.pfx
-SUNAT_CERT_PASSWORD=password_del_certificado
-SUNAT_RUC_EMPRESA=20123456789
+# SUNAT / Facturación Electrónica — vía NubeFact
+SUNAT_MODE=mock   # cambiar a 'real' cuando la cuenta NubeFact esté en producción
+NUBEFACT_RUTA=https://api.nubefact.com/api/v1/tu_ruta_aqui
+NUBEFACT_TOKEN=tu_token_aqui
 
 # CORS - dominio del frontend
 CORS_ORIGINS=https://tu-dominio.com
-
-# Storage
-STORAGE_PATH=/var/www/erp-daytona/backend/storage
 ```
 
 **Generar JWT secrets seguros:**
@@ -153,7 +117,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 
 ---
 
-## 6. Instalar Dependencias y Construir
+## 5. Instalar Dependencias y Construir
 
 ```bash
 cd /var/www/erp-daytona/backend
@@ -170,7 +134,7 @@ ls -la dist/
 
 ---
 
-## 7. Migraciones y Seed Inicial
+## 6. Migraciones y Seed Inicial
 
 ```bash
 cd /var/www/erp-daytona/backend
@@ -190,7 +154,7 @@ npx prisma studio  # abrir en navegador para inspeccionar (usar con SSH tunnel)
 
 ---
 
-## 8. Iniciar con PM2
+## 7. Iniciar con PM2
 
 ```bash
 cd /var/www/erp-daytona/backend
@@ -209,7 +173,7 @@ pm2 startup  # ejecutar el comando que muestra
 
 ---
 
-## 9. Construir y Desplegar Frontend
+## 8. Construir y Desplegar Frontend
 
 ```bash
 cd /var/www/erp-daytona/frontend
@@ -229,7 +193,7 @@ ls -la dist/
 
 ---
 
-## 10. Configurar Nginx
+## 9. Configurar Nginx
 
 ```bash
 sudo nano /etc/nginx/sites-available/erp-daytona
@@ -298,7 +262,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 11. SSL con Let's Encrypt
+## 10. SSL con Let's Encrypt
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -311,7 +275,7 @@ sudo crontab -e
 
 ---
 
-## 12. Firewall
+## 11. Firewall
 
 ```bash
 sudo ufw allow OpenSSH
@@ -322,7 +286,7 @@ sudo ufw status
 
 ---
 
-## 13. Monitoreo
+## 12. Monitoreo
 
 ```bash
 # Estado general PM2
@@ -338,13 +302,11 @@ pm2 reload erp-daytona-api
 # Métricas PostgreSQL
 sudo -u postgres psql -c "SELECT count(*) FROM pg_stat_activity;"
 
-# Métricas Redis
-redis-cli info stats
 ```
 
 ---
 
-## 14. Backups Automáticos
+## 13. Backups Automáticos
 
 ```bash
 # Script de backup PostgreSQL
@@ -372,7 +334,7 @@ sudo crontab -e
 
 ---
 
-## 15. Actualizar la Aplicación
+## 14. Actualizar la Aplicación
 
 ```bash
 cd /var/www/erp-daytona
@@ -432,19 +394,15 @@ curl -I https://tu-dominio.com  # debe mostrar HTTP/2 200
 
 ## Soporte SUNAT Modo Real
 
-Para habilitar facturación electrónica real:
+La facturación electrónica se envía a través de [NubeFact](https://www.nubefact.com) (PSE/OSE). Para habilitarla:
 
-1. Obtener certificado digital (.PFX) del proveedor autorizado
-2. Copiar a `/var/www/erp-daytona/backend/storage/certs/certificado.pfx`
-3. Registrar en el panel SUNAT/OSE
+1. Crear/activar tu cuenta en NubeFact y obtener la **RUTA** y el **TOKEN** de la opción API (Integración).
+2. Confirmar que las series (F001, B001, etc.) estén dadas de alta en tu cuenta NubeFact — deben coincidir con las configuradas en `series-documento`.
+3. Generar los comprobantes de prueba que NubeFact solicita antes de pasar la cuenta a producción (ver su manual de integración).
 4. Actualizar `.env`:
    ```env
    SUNAT_MODE=real
-   SUNAT_OSE_URL=https://ose.pe/api/...
-   SUNAT_CERT_PATH=/var/www/erp-daytona/backend/storage/certs/certificado.pfx
-   SUNAT_CERT_PASSWORD=tu_password
-   SUNAT_RUC_EMPRESA=20XXXXXXXXX
-   SUNAT_CLAVE_SOL_USUARIO=XXXXXXXX
-   SUNAT_CLAVE_SOL_PASSWORD=xxxxxxxx
+   NUBEFACT_RUTA=https://api.nubefact.com/api/v1/tu_ruta
+   NUBEFACT_TOKEN=tu_token
    ```
 5. Reiniciar: `pm2 reload erp-daytona-api`

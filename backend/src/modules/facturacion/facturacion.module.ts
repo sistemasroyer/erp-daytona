@@ -1,24 +1,11 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
-import { SunatXmlService } from './sunat-xml.service';
+import { NubefactService } from './nubefact.service';
 import { SunatEnvioService } from './sunat-envio.service';
-import { SunatProcessor, SUNAT_QUEUE } from './sunat.processor';
 import { FacturacionController } from './facturacion.controller';
 
 @Module({
-  imports: [
-    BullModule.registerQueue({
-      name: SUNAT_QUEUE,
-      defaultJobOptions: {
-        attempts: 5,
-        backoff: { type: 'exponential', delay: 120000 },
-        removeOnComplete: 100,
-        removeOnFail: 200,
-      },
-    }),
-  ],
   controllers: [FacturacionController],
-  providers: [SunatXmlService, SunatEnvioService, SunatProcessor],
-  exports: [SunatXmlService, SunatEnvioService],
+  providers: [NubefactService, SunatEnvioService],
+  exports: [NubefactService, SunatEnvioService],
 })
 export class FacturacionModule {}

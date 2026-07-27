@@ -3,7 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { ConfigMargenesService } from '../config-margenes/config-margenes.service';
-import { CreateCompraDto } from './dto/create-compra.dto';
+import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils/numero-documento.util';
 import { Prisma } from '@prisma/client';
@@ -33,6 +33,13 @@ export class ComprasService {
     const condicionPago = dto.condicion_pago || 'contado';
     if (condicionPago === 'credito' && !dto.fecha_vencimiento) {
       throw new BadRequestException('Debe indicar la fecha de vencimiento para compras al crédito');
+    }
+
+    if (dto.id_proveedor_flete) {
+      const proveedorFlete = await this.prisma.tbl_proveedores.findFirst({
+        where: { id: dto.id_proveedor_flete, eliminado: false },
+      });
+      if (!proveedorFlete) throw new NotFoundException('Proveedor/transportista del flete no encontrado');
     }
 
     const margenes = await this.configMargenes.findActivos();
@@ -140,6 +147,7 @@ export class ComprasService {
           flete_tipo_cambio: fleteTipoCambio,
           flete_monto_pen: fleteMontoPen,
           flete_tipo_prorrateo: (dto.flete_tipo_prorrateo || 'precio') as any,
+          id_proveedor_flete: dto.id_proveedor_flete || null,
           estado: 'registrada',
           observaciones: dto.observaciones,
           usuario_creacion: usuarioId,
@@ -204,6 +212,7 @@ export class ComprasService {
         where: { id: compra.id },
         include: {
           proveedor: { select: { razon_social: true, ruc: true } },
+          proveedor_flete: { select: { razon_social: true, ruc: true } },
           almacen: { select: { nombre: true } },
           detalle: { include: { producto: { select: { nombre: true, codigo: true } } } },
         },
@@ -260,6 +269,8 @@ export class ComprasService {
       where: { id, eliminado: false },
       include: {
         proveedor: true,
+        proveedor_flete: { select: { id: true, razon_social: true, ruc: true } },
+        metodo_pago_flete: { select: { nombre: true } },
         almacen: { select: { id: true, nombre: true } },
         usuario: { select: { nombre: true, apellido: true } },
         detalle: { include: { producto: { select: { codigo: true, nombre: true, unidad_medida: { select: { simbolo: true } } } } } },
@@ -296,6 +307,52 @@ export class ComprasService {
       }
 
       return tx.tbl_compras.findFirst({ where: { id } });
+    });
+  }
+
+  async pagarFlete(id: string, dto: PagarFleteDto, usuarioId: string) {
+    const compra = await this.findOne(id);
+
+    if (Number(compra.flete_monto) <= 0) {
+      throw new BadRequestException('Esta compra no tiene flete registrado');
+    }
+    if (compra.flete_pagado) {
+      throw new BadRequestException('El flete de esta compra ya fue marcado como pagado');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.tbl_compras.update({
+        where: { id },
+        data: {
+          flete_pagado: true,
+          flete_fecha_pago: new Date(),
+          flete_id_metodo_pago: dto.id_metodo_pago,
+          flete_referencia_pago: dto.referencia,
+          usuario_modificacion: usuarioId,
+        },
+      });
+
+      if (dto.id_caja_apertura) {
+        await tx.tbl_movimientos_caja.create({
+          data: {
+            id_caja_apertura: dto.id_caja_apertura,
+            tipo: 'egreso',
+            concepto: `Pago de flete - Compra ${compra.numero_interno}`,
+            monto: compra.flete_monto_pen,
+            id_referencia: id,
+            tipo_referencia: 'flete_compra',
+            id_usuario: usuarioId,
+          },
+        });
+      }
+
+      return tx.tbl_compras.findFirst({
+        where: { id },
+        include: {
+          proveedor_flete: { select: { razon_social: true, ruc: true } },
+          metodo_pago_flete: { select: { nombre: true } },
+        },
+      });
     });
   }
 }

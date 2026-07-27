@@ -1,10 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
-import { SunatXmlService, DatosDocumentoSunat } from './sunat-xml.service';
+import { NubefactService, NubefactRespuesta } from './nubefact.service';
+import { redondear2 } from '../../common/utils/numero-documento.util';
 
 @Injectable()
 export class SunatEnvioService {
@@ -12,7 +10,7 @@ export class SunatEnvioService {
 
   constructor(
     private prisma: PrismaService,
-    private sunatXml: SunatXmlService,
+    private nubefact: NubefactService,
     private configService: ConfigService,
   ) {}
 
@@ -45,16 +43,14 @@ export class SunatEnvioService {
       return;
     }
 
+    const codigoTipo = this.getCodigoTipo(venta.tipo_documento as string);
+    const identificador = `${empresa.ruc}-${codigoTipo}-${venta.serie}-${String(venta.correlativo).padStart(8, '0')}`;
+
     const envio = await this.prisma.tbl_sunat_envios.create({
       data: {
         id_venta: idVenta,
-        tipo_documento: this.getCodigoTipo(venta.tipo_documento as string),
-        nombre_xml: this.sunatXml.generarNombreZip(
-          empresa.ruc,
-          this.getCodigoTipo(venta.tipo_documento as string),
-          venta.serie,
-          venta.correlativo,
-        ),
+        tipo_documento: codigoTipo,
+        identificador,
         estado: 'pendiente',
         intento_numero: 1,
         usuario_creacion: 'sistema',
@@ -62,101 +58,83 @@ export class SunatEnvioService {
     });
 
     try {
-      const datosDocumento: DatosDocumentoSunat = {
-        tipoDocumento: venta.tipo_documento as string,
-        serie: venta.serie,
-        correlativo: venta.correlativo,
-        fechaEmision: venta.fecha_emision,
-        moneda: venta.moneda as string,
-        emisor: {
-          ruc: empresa.ruc,
-          razonSocial: empresa.razon_social,
-          nombreComercial: empresa.nombre_comercial || undefined,
-          direccion: empresa.direccion || undefined,
-          ubigeo: empresa.ubigeo || undefined,
-          departamento: empresa.departamento || undefined,
-          provincia: empresa.provincia || undefined,
-          distrito: empresa.distrito || undefined,
-        },
-        receptor: {
-          tipoDoc: venta.cliente.tipo_documento as string,
-          numeroDoc: venta.cliente.numero_documento,
-          razonSocial: venta.cliente.razon_social,
-        },
-        detalle: venta.detalle.map((d) => ({
-          codigo: d.producto.codigo,
-          descripcion: d.descripcion || d.producto.nombre,
-          cantidad: Number(d.cantidad),
-          unidadMedida: d.producto.unidad_medida.codigo_sunat,
-          precioUnitario: Number(d.precio_unitario),
-          valorUnitario: Number(d.valor_unitario),
-          subtotal: Number(d.subtotal),
-          igv: Number(d.igv),
-          total: Number(d.total),
-        })),
-        totales: {
-          subtotal: Number(venta.subtotal),
-          igv: Number(venta.igv),
-          total: Number(venta.total),
-        },
-      };
-
-      // Generar XML UBL 2.1
-      const xmlSinFirma = this.sunatXml.generarXmlFactura(datosDocumento);
-
-      // Firmar XML
-      const certPath = this.configService.get<string>('sunat.certPath') || '';
-      const certPassword = this.configService.get<string>('sunat.certPassword') || '';
-      const xmlFirmado = await this.sunatXml.firmarXml(xmlSinFirma, certPath, certPassword);
-
-      // Hash del XML
-      const hash = require('crypto').createHash('sha256').update(xmlFirmado).digest('hex');
-
-      // Guardar XML localmente
-      const xmlsPath = this.configService.get<string>('storage.xmlsPath') || './storage/xmls';
-      if (!fs.existsSync(xmlsPath)) fs.mkdirSync(xmlsPath, { recursive: true });
-      fs.writeFileSync(path.join(xmlsPath, `${envio.nombre_xml}.xml`), xmlFirmado, 'utf8');
-
-      // Comprimir en ZIP
-      const zipBuffer = await this.sunatXml.comprimirXml(xmlFirmado, envio.nombre_xml);
-      const zipBase64 = zipBuffer.toString('base64');
-
-      await this.prisma.tbl_sunat_envios.update({
-        where: { id: envio.id },
-        data: {
-          xml_sin_firma: xmlSinFirma,
-          xml_firmado: xmlFirmado,
-          hash_xml: hash,
-          zip_base64: zipBase64,
-          estado: 'enviado',
-          fecha_envio: new Date(),
-        },
-      });
+      const totalGravada = venta.detalle
+        .filter((d) => d.afecta_igv)
+        .reduce((acc, d) => acc + Number(d.subtotal), 0);
+      const totalInafecta = venta.detalle
+        .filter((d) => !d.afecta_igv)
+        .reduce((acc, d) => acc + Number(d.subtotal), 0);
 
       const modoSunat = this.configService.get<string>('sunat.mode');
-      let respuesta: { codigo: string; descripcion: string; cdrXml?: string; exitoso: boolean };
+
+      let respuesta: NubefactRespuesta;
 
       if (modoSunat === 'mock') {
-        respuesta = await this.simularRespuestaSunat(empresa.ruc, envio.nombre_xml);
+        respuesta = this.simularRespuestaNubefact(venta.tipo_documento as string, venta.serie, venta.correlativo);
       } else {
-        respuesta = await this.enviarASunat(empresa.ruc, envio.nombre_xml, zipBase64);
+        respuesta = await this.nubefact.generarComprobante({
+          tipoDocumento: venta.tipo_documento as any,
+          serie: venta.serie,
+          numero: venta.correlativo,
+          fechaEmision: venta.fecha_emision,
+          moneda: venta.moneda as any,
+          tipoCambio: Number(venta.tipo_cambio),
+          cliente: {
+            tipoDocumento: venta.cliente.tipo_documento as any,
+            numeroDocumento: venta.cliente.numero_documento,
+            razonSocial: venta.cliente.razon_social,
+            direccion: venta.cliente.direccion || undefined,
+            email: venta.cliente.email || undefined,
+          },
+          totales: {
+            gravada: redondear2(totalGravada),
+            inafecta: redondear2(totalInafecta),
+            igv: Number(venta.igv),
+            total: Number(venta.total),
+          },
+          observaciones: venta.observaciones || undefined,
+          items: venta.detalle.map((d) => ({
+            unidadMedida: d.producto.unidad_medida.codigo_sunat,
+            codigo: d.producto.codigo,
+            descripcion: d.descripcion || d.producto.nombre,
+            cantidad: Number(d.cantidad),
+            valorUnitario: Number(d.valor_unitario),
+            precioUnitario: Number(d.precio_unitario),
+            descuento: Number(d.descuento) || undefined,
+            subtotal: Number(d.subtotal),
+            gravado: d.afecta_igv,
+            igv: Number(d.igv),
+            total: Number(d.total),
+          })),
+        });
       }
 
       await this.prisma.tbl_sunat_respuestas.create({
         data: {
           id_envio: envio.id,
-          codigo_respuesta: respuesta.codigo,
-          descripcion_respuesta: respuesta.descripcion,
-          cdr_xml: respuesta.cdrXml,
-          es_exitoso: respuesta.exitoso,
+          codigo_respuesta: respuesta.sunatResponseCode,
+          descripcion_respuesta: respuesta.sunatDescripcion || respuesta.errorMensaje,
+          observaciones: respuesta.sunatNota,
+          es_exitoso: respuesta.aceptado,
+          respuesta_raw: respuesta.raw ?? undefined,
           fecha_respuesta: new Date(),
         },
       });
 
-      const nuevoEstado = respuesta.exitoso ? 'aceptado' : 'rechazado';
+      const nuevoEstado = respuesta.aceptado ? 'aceptado' : 'rechazado';
+
       await this.prisma.tbl_sunat_envios.update({
         where: { id: envio.id },
-        data: { estado: nuevoEstado as any },
+        data: {
+          estado: nuevoEstado as any,
+          fecha_envio: new Date(),
+          enlace: respuesta.enlace,
+          enlace_pdf: respuesta.enlacePdf,
+          enlace_xml: respuesta.enlaceXml,
+          enlace_cdr: respuesta.enlaceCdr,
+          codigo_hash: respuesta.codigoHash,
+          error_mensaje: respuesta.aceptado ? null : respuesta.errorMensaje?.substring(0, 490),
+        },
       });
 
       await this.prisma.tbl_ventas.update({
@@ -164,7 +142,7 @@ export class SunatEnvioService {
         data: { estado_sunat: nuevoEstado as any },
       });
 
-      this.logger.log(`Venta ${idVenta} → SUNAT: ${nuevoEstado} (${respuesta.codigo})`);
+      this.logger.log(`Venta ${idVenta} → SUNAT (NubeFact): ${nuevoEstado}`);
     } catch (error) {
       this.logger.error(`Error procesando venta ${idVenta}: ${error.message}`);
 
@@ -185,61 +163,21 @@ export class SunatEnvioService {
     }
   }
 
-  private async simularRespuestaSunat(ruc: string, nombreXml: string) {
-    await new Promise((r) => setTimeout(r, 100));
-
-    const cdrXml = `<?xml version="1.0" encoding="UTF-8"?>
-<ApplicationResponse xmlns="urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2">
-  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
-  <cbc:ID>CDR-${nombreXml}</cbc:ID>
-  <cbc:IssueDate>${new Date().toISOString().split('T')[0]}</cbc:IssueDate>
-  <cac:DocumentResponse>
-    <cac:Response>
-      <cbc:ResponseCode>0</cbc:ResponseCode>
-      <cbc:Description>La Factura numero ${nombreXml.split('-').slice(-2).join('-')}, ha sido aceptada</cbc:Description>
-    </cac:Response>
-  </cac:DocumentResponse>
-</ApplicationResponse>`;
-
+  private simularRespuestaNubefact(tipoDocumento: string, serie: string, correlativo: number): NubefactRespuesta {
+    const nombre = `${serie}-${String(correlativo).padStart(8, '0')}`;
     return {
-      codigo: '0',
-      descripcion: `La Factura ${nombreXml} ha sido aceptada [MODO MOCK]`,
-      cdrXml,
-      exitoso: true,
+      aceptado: true,
+      serie,
+      numero: correlativo,
+      enlace: `https://mock.nubefact.local/cpe/${nombre}`,
+      enlacePdf: `https://mock.nubefact.local/cpe/${nombre}.pdf`,
+      enlaceXml: `https://mock.nubefact.local/cpe/${nombre}.xml`,
+      enlaceCdr: `https://mock.nubefact.local/cpe/${nombre}.cdr`,
+      codigoHash: 'MOCK-HASH',
+      sunatDescripcion: `[MODO MOCK] Comprobante ${nombre} aceptado`,
+      sunatResponseCode: '0',
+      raw: null,
     };
-  }
-
-  private async enviarASunat(ruc: string, nombreZip: string, zipBase64: string) {
-    const oseUrl = this.configService.get<string>('sunat.oseUrl') ?? '';
-    const claveSolUser = this.configService.get<string>('sunat.claveSolUsuario') ?? '';
-    const claveSolPass = this.configService.get<string>('sunat.claveSolPassword') ?? '';
-
-    try {
-      const response = await axios.post(
-        oseUrl,
-        {
-          ruc,
-          fileName: `${nombreZip}.zip`,
-          contentFile: zipBase64,
-        },
-        {
-          auth: { username: `${ruc}${claveSolUser}`, password: claveSolPass },
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 30000,
-        },
-      );
-
-      return {
-        codigo: response.data.codigoRespuesta || '0',
-        descripcion: response.data.descripcionRespuesta || 'Aceptado',
-        cdrXml: response.data.cdrZip
-          ? Buffer.from(response.data.cdrZip, 'base64').toString('utf8')
-          : undefined,
-        exitoso: response.data.codigoRespuesta === '0',
-      };
-    } catch (error) {
-      throw new Error(`Error comunicando con SUNAT/OSE: ${error.message}`);
-    }
   }
 
   private getCodigoTipo(tipo: string): string {

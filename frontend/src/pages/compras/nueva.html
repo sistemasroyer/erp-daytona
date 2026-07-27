@@ -115,24 +115,33 @@
             </div>
             <div class="card-body py-2" id="panel-flete" style="display:none">
               <div class="row g-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small">Monto flete</label>
                   <input type="number" class="form-control form-control-sm" id="flete_monto" value="0" min="0" step="0.01">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small">Moneda flete</label>
                   <select class="form-select form-select-sm" id="flete_moneda">
                     <option value="PEN">PEN</option>
                     <option value="USD">USD</option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small">Prorratear por</label>
                   <select class="form-select form-select-sm" id="flete_tipo">
                     <option value="precio">Importe (proporcional)</option>
                     <option value="cantidad">Cantidad</option>
                   </select>
                 </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Transportista</label>
+                  <select class="form-select form-select-sm" id="id_proveedor_flete">
+                    <option value="">Sin especificar</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-text mt-1">
+                <i class="bi bi-info-circle me-1"></i>El flete es un gasto aparte de la factura del proveedor: <strong>no se suma al total a pagar por la mercadería</strong>, solo aumenta el costo del inventario. Se registra como una obligación de pago independiente (podrás marcarlo como pagado luego, desde el detalle de la compra).
               </div>
             </div>
           </div>
@@ -213,14 +222,15 @@
                 <span class="text-muted small">IGV 18%</span>
                 <span id="r-igv">S/ 0.00</span>
               </div>
-              <div class="d-flex justify-content-between mb-2" id="r-flete-row" style="display:none!important">
-                <span class="text-muted small">Flete</span>
-                <span id="r-flete">S/ 0.00</span>
-              </div>
               <hr class="my-2">
               <div class="d-flex justify-content-between mb-3">
-                <span class="fw-bold">TOTAL</span>
+                <span class="fw-bold">TOTAL A PAGAR AL PROVEEDOR</span>
                 <span class="fw-bold fs-5 text-success" id="r-total">S/ 0.00</span>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center bg-light rounded px-2 py-2 mb-3" id="r-flete-row" style="display:none!important">
+                <span class="text-muted small"><i class="bi bi-truck me-1"></i>Flete (gasto aparte, no incluido arriba)</span>
+                <span id="r-flete" class="fw-semibold">S/ 0.00</span>
               </div>
 
               <div class="alert alert-info py-2 px-3 small mb-3" id="info-margenes" style="display:none">
@@ -353,6 +363,12 @@
       const alm = Array.isArray(res.data) ? res.data : [];
       alm.forEach((a) => selAlmacen.add(new Option(a.nombre, a.id)));
       if (alm.length === 1) selAlmacen.value = alm[0].id;
+    }).catch(() => {});
+
+    const selProveedorFlete = document.getElementById('id_proveedor_flete');
+    proveedoresApi.listar({ limit: 200 }).then((res) => {
+      const provs = Array.isArray(res.data) ? res.data : [];
+      provs.forEach((p) => selProveedorFlete.add(new Option(p.razon_social, p.id)));
     }).catch(() => {});
 
     api.get('/config/margenes').then((res) => {
@@ -725,6 +741,7 @@
         flete_monto:    tieneFlete ? parseFloat(document.getElementById('flete_monto').value) || 0 : 0,
         flete_moneda:   tieneFlete ? document.getElementById('flete_moneda').value : undefined,
         flete_tipo_prorrateo: tieneFlete ? document.getElementById('flete_tipo').value : undefined,
+        id_proveedor_flete: tieneFlete ? (document.getElementById('id_proveedor_flete').value || undefined) : undefined,
         detalle: items.map((i) => ({
           id_producto:   i.prod.id,
           cantidad:      i.cantidad,

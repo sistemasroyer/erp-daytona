@@ -81,8 +81,38 @@
         </div>
         <div class="modal-body" id="modal-body">Cargando...</div>
         <div class="modal-footer">
+          <button class="btn btn-success d-none" id="btn-pagar-flete"><i class="bi bi-truck me-1"></i>Registrar pago de flete</button>
           <button class="btn btn-danger d-none" id="btn-anular"><i class="bi bi-x-circle me-1"></i>Anular</button>
           <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pagar flete -->
+  <div class="modal fade" id="modal-pagar-flete" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Registrar pago de flete</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2 small" id="pf-info"></div>
+          <div class="mb-3">
+            <label class="form-label">Método de pago <span class="text-danger">*</span></label>
+            <select class="form-select" id="pf-metodo-pago">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Referencia (opcional)</label>
+            <input type="text" class="form-control" id="pf-referencia" placeholder="N° operación, voucher, etc.">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" id="btn-confirmar-pago-flete"><i class="bi bi-check-lg me-1"></i>Confirmar Pago</button>
         </div>
       </div>
     </div>
@@ -93,7 +123,7 @@
   <script type="module">
     import { initLayout } from '/src/components/layout.js';
     import { api } from '/src/api/client.js';
-    import { comprasApi } from '/src/api/modules.js';
+    import { comprasApi, metodosPagoApi } from '/src/api/modules.js';
     import { formatMoneda, formatFecha, badgeEstado, renderPaginacion } from '/src/components/tabla.js';
     import { toast, toastError } from '/src/components/toast.js';
     import { confirmar } from '/src/components/modal.js';
@@ -152,12 +182,13 @@
       const modal = new bootstrap.Modal(document.getElementById('modal-detalle'));
       document.getElementById('modal-body').innerHTML = '<div class="text-center py-4"><span class="spinner-border"></span></div>';
       document.getElementById('btn-anular').classList.add('d-none');
+      document.getElementById('btn-pagar-flete').classList.add('d-none');
       modal.show();
       try {
         const res = await comprasApi.obtener(id);
         const c = res.data || res;
         compraActual = c;
-        const detalles = c.detalle_compras || c.detalles || [];
+        const detalles = c.detalle || c.detalle_compras || c.detalles || [];
 
         document.getElementById('modal-body').innerHTML = `
           <div class="row mb-3">
@@ -205,16 +236,34 @@
                 </tr>`).join('')}
               </tbody>
               <tfoot class="table-light fw-bold">
-                ${c.flete_monto > 0 ? `<tr><td colspan="6" class="text-end">Flete (${c.flete_moneda}):</td><td class="text-end">${formatMoneda(c.flete_monto, c.flete_moneda)}</td></tr>` : ''}
                 <tr><td colspan="6" class="text-end">Subtotal:</td><td class="text-end">${formatMoneda(c.subtotal, c.moneda)}</td></tr>
                 <tr><td colspan="6" class="text-end">IGV:</td><td class="text-end">${formatMoneda(c.igv, c.moneda)}</td></tr>
-                <tr class="table-primary"><td colspan="6" class="text-end fs-6">TOTAL:</td><td class="text-end fs-6">${formatMoneda(c.total, c.moneda)}</td></tr>
+                <tr class="table-primary"><td colspan="6" class="text-end fs-6">TOTAL A PAGAR AL PROVEEDOR:</td><td class="text-end fs-6">${formatMoneda(c.total, c.moneda)}</td></tr>
               </tfoot>
             </table>
-          </div>`;
+          </div>
+          ${c.flete_monto > 0 ? `
+          <div class="d-flex justify-content-between align-items-center bg-light rounded p-3 mt-2">
+            <div>
+              <div class="fw-semibold"><i class="bi bi-truck me-1"></i>Flete (gasto aparte, no incluido en el total de arriba)</div>
+              <div class="small text-muted">
+                ${formatMoneda(c.flete_monto, c.flete_moneda)}
+                ${c.proveedor_flete ? ` · Transportista: ${c.proveedor_flete.razon_social}` : ''}
+              </div>
+            </div>
+            <div class="text-end">
+              ${c.flete_pagado
+                ? `<span class="badge bg-success">Pagado${c.metodo_pago_flete ? ` (${c.metodo_pago_flete.nombre})` : ''}</span>
+                   ${c.flete_fecha_pago ? `<div class="small text-muted mt-1">${formatFecha(c.flete_fecha_pago)}</div>` : ''}`
+                : '<span class="badge bg-warning text-dark">Pendiente de pago</span>'}
+            </div>
+          </div>` : ''}`;
 
         if (c.estado === 'registrada') {
           document.getElementById('btn-anular').classList.remove('d-none');
+        }
+        if (c.estado === 'registrada' && c.flete_monto > 0 && !c.flete_pagado) {
+          document.getElementById('btn-pagar-flete').classList.remove('d-none');
         }
       } catch (err) {
         document.getElementById('modal-body').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
@@ -225,12 +274,61 @@
       if (!compraActual) return;
       const ok = await confirmar(`¿Anular la compra ${compraActual.numero}?`, 'Anular Compra');
       if (!ok) return;
+      const motivo = prompt('Motivo de anulación (requerido):');
+      if (!motivo?.trim()) { toast('Ingrese un motivo de anulación', 'warning'); return; }
       try {
-        await comprasApi.anular(compraActual.id);
+        await comprasApi.anular(compraActual.id, motivo.trim());
         toast('Compra anulada');
         bootstrap.Modal.getInstance(document.getElementById('modal-detalle')).hide();
         cargar(paginaActual);
       } catch (err) { toastError(err); }
+    });
+
+    // ── Pagar flete ──────────────────────────────────────────────────────────────
+    document.getElementById('btn-pagar-flete').addEventListener('click', async () => {
+      if (!compraActual) return;
+      document.getElementById('pf-info').innerHTML =
+        `Flete de <strong>${formatMoneda(compraActual.flete_monto, compraActual.flete_moneda)}</strong>` +
+        (compraActual.proveedor_flete ? ` a <strong>${compraActual.proveedor_flete.razon_social}</strong>` : '') +
+        ` — Compra ${compraActual.numero}`;
+      document.getElementById('pf-referencia').value = '';
+
+      const selMetodo = document.getElementById('pf-metodo-pago');
+      selMetodo.innerHTML = '<option value="">Cargando...</option>';
+      try {
+        const res = await metodosPagoApi.listar();
+        const metodos = res.data || [];
+        selMetodo.innerHTML = metodos.length
+          ? metodos.map((m) => `<option value="${m.id}">${m.nombre}</option>`).join('')
+          : '<option value="">Sin métodos de pago configurados</option>';
+      } catch (err) { toastError(err); }
+
+      new bootstrap.Modal(document.getElementById('modal-pagar-flete')).show();
+    });
+
+    document.getElementById('btn-confirmar-pago-flete').addEventListener('click', async () => {
+      if (!compraActual) return;
+      const idMetodo = document.getElementById('pf-metodo-pago').value;
+      if (!idMetodo) { toast('Seleccione un método de pago', 'warning'); return; }
+
+      const btn = document.getElementById('btn-confirmar-pago-flete');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+      try {
+        await comprasApi.pagarFlete(compraActual.id, {
+          id_metodo_pago: idMetodo,
+          referencia: document.getElementById('pf-referencia').value.trim() || undefined,
+        });
+        toast('Pago de flete registrado');
+        bootstrap.Modal.getInstance(document.getElementById('modal-pagar-flete')).hide();
+        abrirDetalle(compraActual.id);
+      } catch (err) {
+        toastError(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirmar Pago';
+      }
     });
 
     document.getElementById('btn-filtrar').addEventListener('click', () => cargar(1));

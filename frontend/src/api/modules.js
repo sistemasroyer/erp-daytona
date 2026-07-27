@@ -84,13 +84,15 @@ export const ventasApi = {
   crear: (d) => api.post('/ventas', d),
   anular: (id, motivo) => api.patch(`/ventas/${id}/anular`, { motivo }),
   canjear: (id, d) => api.post(`/ventas/${id}/canjear`, d),
+  reenviarSunat: (id) => api.post(`/ventas/${id}/reenviar-sunat`),
 };
 
 export const comprasApi = {
   listar: (p) => api.get('/compras', p),
   obtener: (id) => api.get(`/compras/${id}`),
   crear: (d) => api.post('/compras', d),
-  anular: (id) => api.patch(`/compras/${id}/anular`),
+  anular: (id, motivo) => api.patch(`/compras/${id}/anular`, { motivo }),
+  pagarFlete: (id, d) => api.patch(`/compras/${id}/flete/pagar`, d),
 };
 
 export const ordenesApi = {

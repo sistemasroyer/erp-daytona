@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -10,7 +9,6 @@ import { validationSchema } from './config/validation.schema';
 
 import { PrismaModule } from './database/prisma.module';
 import { PeruApiModule } from './modules/peru-api/peru-api.module';
-import { EventsModule } from './events/events.module';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
@@ -70,32 +68,8 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
       ignoreErrors: false,
     }),
 
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          host: config.get<string>('redis.host'),
-          port: config.get<number>('redis.port'),
-          password: config.get<string>('redis.password') || undefined,
-          db: config.get<number>('redis.db'),
-          // Redis es opcional en desarrollo: si no está disponible, dejar de
-          // reintentar tras el primer fallo en vez de spamear ECONNREFUSED.
-          retryStrategy: () => null,
-          maxRetriesPerRequest: null,
-          enableOfflineQueue: false,
-          lazyConnect: true,
-        },
-        defaultJobOptions: {
-          removeOnComplete: { count: 100 },
-          removeOnFail: { count: 200 },
-        },
-      }),
-      inject: [ConfigService],
-    }),
-
     PrismaModule,
     PeruApiModule,
-    EventsModule,
 
     AuthModule,
     UsuariosModule,

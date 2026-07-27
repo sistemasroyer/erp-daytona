@@ -111,6 +111,11 @@ export class CreateCompraDto {
   @IsEnum(['precio', 'cantidad'])
   flete_tipo_prorrateo?: 'precio' | 'cantidad';
 
+  @ApiPropertyOptional({ description: 'Proveedor/transportista a quien se le debe el flete (gasto aparte de la mercadería)' })
+  @IsOptional()
+  @IsString()
+  id_proveedor_flete?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -121,4 +126,20 @@ export class CreateCompraDto {
   @ValidateNested({ each: true })
   @Type(() => DetalleCompraDto)
   detalle: DetalleCompraDto[];
+}
+
+export class PagarFleteDto {
+  @ApiProperty()
+  @IsString() @IsNotEmpty()
+  id_metodo_pago: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  referencia?: string;
+
+  @ApiPropertyOptional({ description: 'Si se envía, registra el egreso en esa apertura de caja' })
+  @IsOptional()
+  @IsString()
+  id_caja_apertura?: string;
 }

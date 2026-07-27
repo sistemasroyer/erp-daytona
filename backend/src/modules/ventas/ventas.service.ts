@@ -5,9 +5,9 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
+import { SunatEnvioService } from '../facturacion/sunat-envio.service';
 import { CreateVentaDto, AnularVentaDto, CanjearVentaDto } from './dto/create-venta.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import {
@@ -27,8 +27,20 @@ export class VentasService {
   constructor(
     private prisma: PrismaService,
     private inventarioRepo: InventarioRepository,
-    private eventEmitter: EventEmitter2,
+    private sunatEnvio: SunatEnvioService,
   ) {}
+
+  private async enviarASunatSiCorresponde(venta: any) {
+    if (venta.tipo_documento !== 'FACTURA' && venta.tipo_documento !== 'BOLETA') {
+      return venta;
+    }
+    try {
+      await this.sunatEnvio.procesarEnvio(venta.id);
+    } catch (error) {
+      this.logger.error(`Error enviando venta ${venta.id} a NubeFact/SUNAT: ${error.message}`);
+    }
+    return this.findOne(venta.id);
+  }
 
   async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -250,11 +262,7 @@ export class VentasService {
       maxWait: 15000,
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }).then((venta) => {
-      // Emitir evento DESPUÉS del commit
-      this.eventEmitter.emit('venta.creada', venta);
-      return venta;
-    });
+    }).then((venta) => this.enviarASunatSiCorresponde(venta));
   }
 
   async findAll(pagination: PaginationDto & {
@@ -402,8 +410,8 @@ export class VentasService {
       throw new BadRequestException('No se puede reenviar una venta anulada');
     }
 
-    this.eventEmitter.emit('venta.reenviar_sunat', venta);
-    return { message: 'Reenvío a SUNAT encolado correctamente' };
+    await this.sunatEnvio.procesarEnvio(id);
+    return this.findOne(id);
   }
 
   async canjear(id: string, dto: CanjearVentaDto, usuarioId: string, idPuntoVenta?: string) {
@@ -572,9 +580,6 @@ export class VentasService {
       maxWait: 15000,
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }).then((venta) => {
-      this.eventEmitter.emit('venta.creada', venta);
-      return venta;
-    });
+    }).then((venta) => this.enviarASunatSiCorresponde(venta));
   }
 }

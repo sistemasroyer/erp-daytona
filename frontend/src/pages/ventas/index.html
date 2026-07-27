@@ -91,6 +91,9 @@
         </div>
         <div class="modal-body" id="modal-detalle-body">Cargando...</div>
         <div class="modal-footer">
+          <button class="btn btn-outline-primary d-none" id="btn-reenviar-sunat">
+            <i class="bi bi-send me-1"></i>Reenviar a SUNAT
+          </button>
           <button class="btn btn-success d-none" id="btn-canjear-venta">
             <i class="bi bi-arrow-repeat me-1"></i>Canjear a Boleta/Factura
           </button>
@@ -238,6 +241,30 @@
       }
     }
 
+    function renderSunatInfo(v) {
+      if (v.tipo_documento !== 'FACTURA' && v.tipo_documento !== 'BOLETA') return '';
+      const envio = (v.sunat_envios || [])[0];
+      if (!envio) {
+        return `<div class="alert alert-warning small mt-3 mb-0"><i class="bi bi-hourglass me-1"></i>Aún no se ha generado el envío a SUNAT.</div>`;
+      }
+      const links = [
+        envio.enlace_pdf ? `<a href="${envio.enlace_pdf}" target="_blank" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>` : '',
+        envio.enlace_xml ? `<a href="${envio.enlace_xml}" target="_blank" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-file-earmark-code me-1"></i>XML</a>` : '',
+        envio.enlace_cdr ? `<a href="${envio.enlace_cdr}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-check me-1"></i>CDR</a>` : '',
+      ].join('');
+      const alertClass = envio.estado === 'aceptado' ? 'alert-success' : (envio.estado === 'error' || envio.estado === 'rechazado' ? 'alert-danger' : 'alert-secondary');
+      return `
+        <div class="alert ${alertClass} small mt-3 mb-0">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <i class="bi bi-cloud-check me-1"></i><strong>SUNAT (NubeFact):</strong> ${badgeEstado(envio.estado)}
+              ${envio.error_mensaje ? `<div class="text-danger mt-1">${envio.error_mensaje}</div>` : ''}
+            </div>
+            <div>${links}</div>
+          </div>
+        </div>`;
+    }
+
     let ventaActual = null;
     async function abrirDetalle(id) {
       const modal = new bootstrap.Modal(document.getElementById('modal-detalle'));
@@ -327,12 +354,17 @@
               </div>
             </div>`).join('')}
           </div>
-          ${v.id_venta_origen ? `<div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Este documento fue canjeado desde otro documento.</div>` : ''}`;
+          ${v.id_venta_origen ? `<div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Este documento fue canjeado desde otro documento.</div>` : ''}
+          ${renderSunatInfo(v)}`;
 
         document.getElementById('btn-anular-venta').classList.toggle('d-none', v.estado_venta !== 'vigente');
 
         const esCanjeable = v.estado_venta === 'vigente' && (v.tipo_documento === 'NOTA_VENTA' || v.tipo_documento === 'COTIZACION');
         document.getElementById('btn-canjear-venta').classList.toggle('d-none', !esCanjeable);
+
+        const enviaASunat = v.tipo_documento === 'FACTURA' || v.tipo_documento === 'BOLETA';
+        const noAceptado = v.estado_sunat !== 'aceptado';
+        document.getElementById('btn-reenviar-sunat').classList.toggle('d-none', !(enviaASunat && noAceptado && v.estado_venta === 'vigente'));
       } catch (err) {
         document.getElementById('modal-detalle-body').innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
       }
@@ -353,6 +385,24 @@
         cargarVentas(paginaActual);
       } catch (err) {
         toastError(err);
+      }
+    });
+
+    document.getElementById('btn-reenviar-sunat').addEventListener('click', async () => {
+      if (!ventaActual) return;
+      const btn = document.getElementById('btn-reenviar-sunat');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+      try {
+        await ventasApi.reenviarSunat(ventaActual.id);
+        toast('Reenvío a SUNAT encolado correctamente');
+        await abrirDetalle(ventaActual.id);
+        cargarVentas(paginaActual);
+      } catch (err) {
+        toastError(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-1"></i>Reenviar a SUNAT';
       }
     });
 
