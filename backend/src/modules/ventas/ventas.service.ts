@@ -272,11 +272,13 @@ export class VentasService {
     fecha_desde?: string;
     fecha_hasta?: string;
     estado_sunat?: string;
+    tipo_documento?: string;
     id_usuario?: string;
     id_punto_venta?: string;
   }) {
     const where: any = { eliminado: false };
     if (pagination.id_punto_venta) where.id_punto_venta = pagination.id_punto_venta;
+    if (pagination.tipo_documento) where.tipo_documento = pagination.tipo_documento;
 
     if (pagination.search) {
       where.OR = [

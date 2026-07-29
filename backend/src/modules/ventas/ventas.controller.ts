@@ -29,11 +29,16 @@ export class VentasController {
   @ApiQuery({ name: 'fecha_desde', required: false })
   @ApiQuery({ name: 'fecha_hasta', required: false })
   @ApiQuery({ name: 'estado_sunat', required: false })
+  @ApiQuery({ name: 'tipo_documento', required: false })
+  @ApiQuery({ name: 'id_usuario', required: false, description: 'Solo superadmin puede filtrar por otro vendedor' })
   findAll(
     @Query() pagination: PaginationDto,
     @Query('fecha_desde') fecha_desde: string,
     @Query('fecha_hasta') fecha_hasta: string,
     @Query('estado_sunat') estado_sunat: string,
+    @Query('tipo_documento') tipo_documento: string,
+    @Query('id_usuario') id_usuario: string,
+    @CurrentUser('sub') userId: string,
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
@@ -43,6 +48,10 @@ export class VentasController {
       fecha_desde,
       fecha_hasta,
       estado_sunat,
+      tipo_documento,
+      // Un vendedor/cajero solo ve sus propias ventas; el superadmin ve todas
+      // o puede acotar a un vendedor puntual mediante ?id_usuario=.
+      id_usuario: esSuperadmin ? (id_usuario || undefined) : userId,
       id_punto_venta: esSuperadmin ? undefined : idPuntoVenta,
     } as any);
   }

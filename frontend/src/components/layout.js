@@ -17,7 +17,8 @@ const MENU = [
   {
     header: 'Ventas',
     items: [
-      { key: 'ventas', label: 'Ventas', icon: 'bi-receipt', href: '/src/pages/ventas/index.html', perm: 'ventas:ver' },
+      { key: 'ventas', label: 'Nueva Venta', icon: 'bi-receipt', href: '/src/pages/ventas/nueva.html', perm: 'ventas:crear' },
+      { key: 'ventas-listado', label: 'Listado de Ventas', icon: 'bi-list-check', href: '/src/pages/ventas/index.html', perm: 'ventas:ver' },
       { key: 'clientes', label: 'Clientes', icon: 'bi-people', href: '/src/pages/clientes/index.html', perm: 'clientes:ver' },
       { key: 'caja', label: 'Caja', icon: 'bi-cash-register', href: '/src/pages/caja/index.html', perm: 'caja:ver' },
     ],

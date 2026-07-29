@@ -21,7 +21,17 @@
     <!-- Filtros -->
     <div class="card mb-3">
       <div class="card-body py-2">
-        <div class="row g-2 align-items-end">
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Periodo</label>
+            <select class="form-select form-select-sm" id="f-periodo">
+              <option value="mes-actual">Este mes</option>
+              <option value="mes-anterior">Mes anterior</option>
+              <option value="anio-actual">Este año</option>
+              <option value="anio-anterior">Año anterior</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
+          </div>
           <div class="col-sm-3">
             <label class="form-label small mb-1">Desde</label>
             <input type="date" class="form-control form-control-sm" id="f-desde">
@@ -31,6 +41,20 @@
             <input type="date" class="form-control form-control-sm" id="f-hasta">
           </div>
           <div class="col-sm-3">
+            <label class="form-label small mb-1">Tipo de documento</label>
+            <select class="form-select form-select-sm" id="f-tipo">
+              <option value="">Todos</option>
+              <option value="FACTURA">Factura</option>
+              <option value="BOLETA">Boleta</option>
+              <option value="NOTA_VENTA">Nota de Venta</option>
+              <option value="COTIZACION">Cotización</option>
+              <option value="NOTA_CREDITO">Nota de Crédito</option>
+              <option value="NOTA_DEBITO">Nota de Débito</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
             <label class="form-label small mb-1">Estado SUNAT</label>
             <select class="form-select form-select-sm" id="f-estado">
               <option value="">Todos</option>
@@ -39,6 +63,16 @@
               <option value="aceptado">Aceptado</option>
               <option value="rechazado">Rechazado</option>
             </select>
+          </div>
+          <div class="col-sm-3 d-none" id="f-vendedor-wrap">
+            <label class="form-label small mb-1">Vendedor</label>
+            <select class="form-select form-select-sm" id="f-vendedor">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Buscar</label>
+            <input type="text" class="form-control form-control-sm" id="f-search" placeholder="N° comprobante o cliente...">
           </div>
           <div class="col-sm-3">
             <button class="btn btn-primary btn-sm w-100" id="btn-filtrar">
@@ -223,14 +257,14 @@
   <script type="module">
     import { initLayout } from '/src/components/layout.js';
     import { api } from '/src/api/client.js';
-    import { ventasApi, seriesApi, metodosPagoApi } from '/src/api/modules.js';
+    import { ventasApi, seriesApi, metodosPagoApi, usuariosApi } from '/src/api/modules.js';
     import { formatMoneda, formatFecha, badgeEstado, renderPaginacion } from '/src/components/tabla.js';
     import { toast, toastError } from '/src/components/toast.js';
     import { confirmar } from '/src/components/modal.js';
     import { logout } from '/src/auth/auth.js';
 
     if (!api.getToken()) window.location.href = '/src/pages/login.html';
-    initLayout('ventas');
+    initLayout('ventas-listado');
 
     document.getElementById('btn-logout').addEventListener('click', () => logout());
 
@@ -249,11 +283,62 @@
       return TIPOS_DOC_BADGE[tipo] || `<span class="badge bg-secondary">${tipo}</span>`;
     }
 
-    // Valores por defecto de fechas (mes actual)
-    const hoy = new Date();
-    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
-    document.getElementById('f-desde').value = primerDia;
-    document.getElementById('f-hasta').value = hoy.toISOString().split('T')[0];
+    // ==================== PERIODO / VENDEDOR (admin) ====================
+    const usuarioSesion = (() => {
+      try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch (_) { return null; }
+    })();
+
+    function toISODate(d) { return d.toISOString().split('T')[0]; }
+
+    function aplicarPeriodo() {
+      const periodo = document.getElementById('f-periodo').value;
+      const hoy = new Date();
+      let desde, hasta;
+      switch (periodo) {
+        case 'mes-actual':
+          desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+          hasta = hoy;
+          break;
+        case 'mes-anterior':
+          desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+          hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+          break;
+        case 'anio-actual':
+          desde = new Date(hoy.getFullYear(), 0, 1);
+          hasta = hoy;
+          break;
+        case 'anio-anterior':
+          desde = new Date(hoy.getFullYear() - 1, 0, 1);
+          hasta = new Date(hoy.getFullYear() - 1, 11, 31);
+          break;
+        default: // personalizado: no tocar las fechas actuales
+          return;
+      }
+      document.getElementById('f-desde').value = toISODate(desde);
+      document.getElementById('f-hasta').value = toISODate(hasta);
+    }
+
+    document.getElementById('f-periodo').addEventListener('change', aplicarPeriodo);
+    // Si el usuario edita las fechas a mano, pasar el periodo a "Personalizado"
+    ['f-desde', 'f-hasta'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', () => {
+        document.getElementById('f-periodo').value = 'personalizado';
+      });
+    });
+
+    aplicarPeriodo(); // valores por defecto: mes actual
+
+    async function cargarFiltroVendedor() {
+      if (!usuarioSesion?.esSuperadmin) return;
+      document.getElementById('f-vendedor-wrap').classList.remove('d-none');
+      try {
+        const res = await usuariosApi.listar({ limit: 100 });
+        const usuarios = res.data || [];
+        const sel = document.getElementById('f-vendedor');
+        usuarios.forEach((u) => sel.add(new Option(`${u.nombre} ${u.apellido || ''}`.trim(), u.id)));
+      } catch (err) { toastError(err); }
+    }
+    cargarFiltroVendedor();
 
     async function cargarVentas(page = 1) {
       paginaActual = page;
@@ -264,13 +349,16 @@
         const res = await ventasApi.listar({
           fecha_desde: document.getElementById('f-desde').value || undefined,
           fecha_hasta: document.getElementById('f-hasta').value || undefined,
-          estado: document.getElementById('f-estado').value || undefined,
+          estado_sunat: document.getElementById('f-estado').value || undefined,
+          tipo_documento: document.getElementById('f-tipo').value || undefined,
+          id_usuario: document.getElementById('f-vendedor').value || undefined,
+          search: document.getElementById('f-search').value || undefined,
           page,
           limit: LIMIT,
         });
 
         const ventas = Array.isArray(res.data) ? res.data : res.data?.ventas || res.data || [];
-        const total = res.data?.total ?? ventas.length;
+        const total = res.meta?.total ?? ventas.length;
 
         document.getElementById('info-resultados').textContent = `${total} registros`;
 

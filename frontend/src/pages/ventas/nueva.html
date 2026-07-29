@@ -10,85 +10,96 @@
 </head>
 <body>
 
-  <div class="container-fluid p-4">
+  <div class="container-fluid p-3">
     <form id="form-venta" novalidate>
-      <div class="row g-3">
 
-        <!-- Datos principales -->
-        <div class="col-lg-8">
-          <div class="card mb-3">
-            <div class="card-header fw-semibold"><i class="bi bi-person me-2"></i>Datos del comprobante</div>
-            <div class="card-body">
-              <div class="row g-3">
-                <div class="col-md-3">
-                  <label class="form-label">Tipo de documento <span class="text-danger">*</span></label>
-                  <select class="form-select" id="tipo_documento" required>
-                    <option value="BOLETA" selected>Boleta de Venta</option>
-                    <option value="FACTURA">Factura</option>
-                    <option value="NOTA_VENTA">Nota de Venta</option>
-                    <option value="COTIZACION">Cotización</option>
-                  </select>
-                  <div class="form-text" id="tipo-documento-hint"></div>
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Serie <span class="text-danger">*</span></label>
-                  <select class="form-select" id="id_serie_documento" required>
-                    <option value="">Cargando...</option>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Moneda <span class="text-danger">*</span></label>
-                  <select class="form-select" id="moneda">
-                    <option value="PEN" selected>PEN (Soles)</option>
-                    <option value="USD">USD (Dólares)</option>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Tipo de cambio</label>
-                  <input type="number" class="form-control" id="tipo_cambio" value="3.80" step="0.001" min="0">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Cliente <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <input type="text" class="form-control" id="cliente-search" placeholder="Buscar cliente por nombre o documento...">
-                    <button class="btn btn-outline-secondary" type="button" id="btn-cliente-generico" title="Usar cliente genérico">
-                      <i class="bi bi-person-fill"></i> Genérico
-                    </button>
-                  </div>
-                  <div id="cliente-resultados" class="list-group mt-1 position-absolute" style="z-index:1000;width:400px;display:none"></div>
-                  <input type="hidden" id="id_cliente">
-                  <div id="cliente-seleccionado" class="mt-1 text-success small"></div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Fecha de emisión</label>
-                  <input type="date" class="form-control" id="fecha_emision">
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Fecha de vencimiento</label>
-                  <input type="date" class="form-control" id="fecha_vencimiento">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Observaciones</label>
-                  <textarea class="form-control" id="observaciones" rows="2" placeholder="Opcional..."></textarea>
-                </div>
+      <!-- Cabecera compacta: lo justo para no frenar una venta rápida -->
+      <div class="card mb-2">
+        <div class="card-body py-2">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+              <label class="form-label small mb-1">Documento <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm" id="tipo_documento" required>
+                <option value="BOLETA" selected>Boleta</option>
+                <option value="FACTURA">Factura</option>
+                <option value="NOTA_VENTA">Nota de Venta</option>
+                <option value="COTIZACION">Cotización</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small mb-1">Serie <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm" id="id_serie_documento" required>
+                <option value="">Cargando...</option>
+              </select>
+            </div>
+            <div class="col-md-5 position-relative">
+              <label class="form-label small mb-1">Cliente <span class="text-danger">*</span></label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control" id="cliente-search" placeholder="Buscar cliente por nombre o documento...">
+                <button class="btn btn-outline-secondary" type="button" id="btn-cliente-generico" title="Usar cliente genérico">
+                  <i class="bi bi-person-fill"></i>
+                </button>
               </div>
+              <div id="cliente-resultados" class="list-group mt-1 position-absolute" style="z-index:1000;width:100%;display:none"></div>
+              <input type="hidden" id="id_cliente">
+            </div>
+            <div class="col-md-3">
+              <div id="cliente-seleccionado" class="small text-success text-truncate"></div>
+              <div class="form-text small mb-0" id="tipo-documento-hint"></div>
             </div>
           </div>
-
-          <!-- Detalle de productos -->
-          <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
-              <span><i class="bi bi-box-seam me-2"></i>Productos</span>
-              <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar-producto">
-                <i class="bi bi-plus-lg me-1"></i>Agregar producto
-              </button>
+          <button type="button" class="btn btn-link btn-sm p-0 mt-1 text-decoration-none" id="btn-toggle-detalles">
+            <i class="bi bi-chevron-down me-1"></i>Agregar observación
+          </button>
+          <div class="row g-2 mt-1 d-none" id="detalles-extra">
+            <div class="col-12">
+              <label class="form-label small mb-1">Observaciones</label>
+              <input type="text" class="form-control form-control-sm" id="observaciones" placeholder="Opcional...">
             </div>
-            <div class="card-body">
-              <div id="lista-productos">
-                <div class="text-center text-muted py-3" id="empty-productos">
-                  <i class="bi bi-cart-plus fs-2"></i><br>Agregue productos a la venta
-                </div>
-              </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+
+        <!-- Productos: lo más importante de la pantalla -->
+        <div class="col-lg-8">
+          <div class="card mb-3 border-primary">
+            <div class="card-header fw-semibold bg-primary text-white">
+              <i class="bi bi-box-seam me-2"></i>Productos
+              <span class="small fw-normal ms-2 opacity-75">Escriba el código o nombre y presione Enter para avanzar</span>
+            </div>
+            <div class="card-body p-0">
+              <!-- Sin .table-responsive a propósito: ese wrapper de Bootstrap recorta
+                   cualquier elemento posicionado que se salga de la tabla (dropdowns,
+                   popovers) — y por eso las sugerencias de producto no se veían.
+                   Al fijar overflow-x en cualquier valor (incluido "auto") ocurre lo
+                   mismo, así que se deja sin scroll horizontal en esta tabla. -->
+              <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:140px">Código</th>
+                    <th>Producto</th>
+                    <th style="width:80px" class="text-end">Cant.</th>
+                    <th style="width:180px">Precio</th>
+                    <th style="width:100px" class="text-end">Total</th>
+                    <th style="width:36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="filas-productos">
+                  <tr id="fila-entrada">
+                    <td class="position-relative">
+                      <input type="text" class="form-control form-control-sm" id="entrada-codigo" placeholder="Código o nombre..." autocomplete="off">
+                      <div id="entrada-sugerencias" class="list-group position-absolute" style="z-index:1000;width:340px;display:none;max-height:280px;overflow-y:auto"></div>
+                    </td>
+                    <td class="text-muted small" id="entrada-nombre">—</td>
+                    <td><input type="number" class="form-control form-control-sm text-end" id="entrada-cantidad" value="1" min="1" step="1" disabled></td>
+                    <td><select class="form-select form-select-sm" id="entrada-precio" disabled></select></td>
+                    <td class="text-end small text-muted" id="entrada-total">—</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -154,37 +165,6 @@
     </form>
   </div>
 
-  <!-- Modal buscar producto -->
-  <div class="modal fade" id="modal-producto" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Seleccionar Producto</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <input type="text" class="form-control mb-3" id="buscar-producto" placeholder="Buscar por código o nombre...">
-          <div class="table-responsive" style="max-height:400px;overflow-y:auto">
-            <table class="table table-sm table-hover">
-              <thead class="table-light sticky-top">
-                <tr>
-                  <th>Código</th>
-                  <th>Nombre</th>
-                  <th>Stock</th>
-                  <th>Precio 1</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="tabla-productos-modal">
-                <tr><td colspan="5" class="text-center text-muted">Buscando...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
@@ -200,7 +180,7 @@
 
     // Estado de la venta
     const estado = {
-      items: [],   // { producto, cantidad, precio, precio_tipo, descuento }
+      items: [],   // { producto, cantidad, precio, precio_tipo }
       pagos: [],   // { id_metodo_pago, nombre_metodo, monto }
       cliente: null,
       metodosPago: [],
@@ -220,9 +200,15 @@
       idPuntoVenta = user?.idPuntoVenta || null;
     } catch (_) {}
 
-    // Fecha por defecto
-    const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha_emision').value = hoy;
+    // Toggle "más datos" (fecha / observaciones) — oculto por defecto para no
+    // quitarle espacio a lo importante: agregar productos.
+    document.getElementById('btn-toggle-detalles').addEventListener('click', (e) => {
+      const cont = document.getElementById('detalles-extra');
+      const icon = e.currentTarget.querySelector('i');
+      const abrir = cont.classList.contains('d-none');
+      cont.classList.toggle('d-none', !abrir);
+      icon.className = abrir ? 'bi bi-chevron-up me-1' : 'bi bi-chevron-down me-1';
+    });
 
     async function init() {
       try {
@@ -333,110 +319,207 @@
       }
     });
 
-    // ==================== PRODUCTOS ====================
-    let todosProductos = [];
+    // ==================== PRODUCTOS (fila de entrada, 100% teclado) ====================
+    // Flujo: escribir código/nombre → Enter (resuelve o abre sugerencias) →
+    // Enter en cantidad → Enter en precio confirma la línea y deja la fila
+    // lista para el siguiente producto. Sin modales de por medio.
+    const inpCodigo = document.getElementById('entrada-codigo');
+    const contSugerencias = document.getElementById('entrada-sugerencias');
+    const inpCantidadEntrada = document.getElementById('entrada-cantidad');
+    const selPrecioEntrada = document.getElementById('entrada-precio');
+    const spanTotalEntrada = document.getElementById('entrada-total');
+    const spanNombreEntrada = document.getElementById('entrada-nombre');
 
-    document.getElementById('btn-agregar-producto').addEventListener('click', async () => {
-      const modal = new bootstrap.Modal(document.getElementById('modal-producto'));
-      modal.show();
-      await cargarProductosModal('');
-    });
+    let productoEntrada = null;
+    let sugerencias = [];
+    let sugerenciaActiva = -1;
+    let timerEntradaProducto = null;
 
-    document.getElementById('buscar-producto').addEventListener('input', (e) => {
-      cargarProductosModal(e.target.value);
-    });
+    function ocultarSugerencias() {
+      contSugerencias.style.display = 'none';
+      contSugerencias.innerHTML = '';
+      sugerencias = [];
+      sugerenciaActiva = -1;
+    }
 
-    async function cargarProductosModal(q) {
-      const tbody = document.getElementById('tabla-productos-modal');
-      try {
-        const res = await productosApi.listar({ search: q, limit: 50 });
-        const prods = Array.isArray(res.data) ? res.data : res.data?.productos || [];
-        todosProductos = prods;
-        tbody.innerHTML = prods.map((p) => `
-          <tr>
-            <td class="small">${p.codigo}</td>
-            <td>${p.nombre}</td>
-            <td class="text-end">${Number(p.stock_actual || 0).toFixed(2)}</td>
-            <td class="text-end">${formatMoneda(p.precio_venta_1)}</td>
-            <td>
-              <button type="button" class="btn btn-sm btn-primary btn-sel-prod" data-id="${p.id}">
-                <i class="bi bi-plus"></i>
-              </button>
-            </td>
-          </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Sin resultados</td></tr>';
-
-        tbody.querySelectorAll('.btn-sel-prod').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const prod = todosProductos.find((p) => p.id === btn.dataset.id);
-            if (prod) agregarItem(prod);
-            bootstrap.Modal.getInstance(document.getElementById('modal-producto')).hide();
-          });
+    function renderSugerencias() {
+      if (!sugerencias.length) { ocultarSugerencias(); return; }
+      contSugerencias.style.display = 'block';
+      contSugerencias.innerHTML = sugerencias.map((p, i) => `
+        <button type="button" class="list-group-item list-group-item-action py-1 ${i === sugerenciaActiva ? 'active' : ''}" data-idx="${i}">
+          <div><span class="text-muted small">${p.codigo}</span> ${p.nombre}</div>
+          <div class="small ${i === sugerenciaActiva ? '' : 'text-muted'}">Stock: ${Number(p.stock_actual || 0).toFixed(0)}</div>
+        </button>`).join('');
+      contSugerencias.querySelectorAll('button').forEach((btn) => {
+        // mousedown (no click): dispara antes que el blur del input, así no se cierra antes de leer el dato
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          seleccionarProductoEntrada(sugerencias[+btn.dataset.idx]);
         });
-      } catch (err) { toastError(err); }
+      });
     }
 
-    function agregarItem(producto) {
-      document.getElementById('empty-productos').style.display = 'none';
-      const idx = estado.items.length;
-      estado.items.push({ producto, cantidad: 1, precio_tipo: 1, precio: Number(producto.precio_venta_1), descuento: 0 });
-      renderItems();
+    async function buscarSugerenciasProducto(q) {
+      try {
+        const res = await productosApi.listar({ search: q, limit: 8 });
+        sugerencias = Array.isArray(res.data) ? res.data : res.data?.productos || [];
+        sugerenciaActiva = -1;
+        renderSugerencias();
+      } catch (_) { /* búsqueda silenciosa mientras se escribe */ }
     }
+
+    function resetEntradaProducto() {
+      productoEntrada = null;
+      spanNombreEntrada.textContent = '—';
+      selPrecioEntrada.innerHTML = '';
+      inpCantidadEntrada.value = 1;
+      inpCantidadEntrada.disabled = true;
+      selPrecioEntrada.disabled = true;
+      spanTotalEntrada.textContent = '—';
+    }
+
+    function actualizarTotalEntrada() {
+      if (!productoEntrada) { spanTotalEntrada.textContent = '—'; return; }
+      const cant = Math.max(1, parseInt(inpCantidadEntrada.value, 10) || 1);
+      const tipo = +selPrecioEntrada.value;
+      const precio = Number(productoEntrada[`precio_venta_${tipo}`] || productoEntrada.precio_venta_1);
+      spanTotalEntrada.textContent = formatMoneda(cant * precio);
+    }
+
+    function seleccionarProductoEntrada(producto) {
+      productoEntrada = producto;
+      inpCodigo.value = producto.codigo;
+      spanNombreEntrada.textContent = producto.nombre;
+      ocultarSugerencias();
+
+      selPrecioEntrada.innerHTML = [1, 2, 3, 4, 5].map((n) => {
+        const val = producto[`precio_venta_${n}`];
+        return val && Number(val) > 0 ? `<option value="${n}">P${n}: ${formatMoneda(val)}</option>` : '';
+      }).join('');
+
+      inpCantidadEntrada.disabled = false;
+      selPrecioEntrada.disabled = false;
+      inpCantidadEntrada.value = 1;
+      actualizarTotalEntrada();
+
+      inpCantidadEntrada.focus();
+      inpCantidadEntrada.select();
+    }
+
+    function confirmarFilaEntrada() {
+      if (!productoEntrada) return;
+      const cantidad = Math.max(1, parseInt(inpCantidadEntrada.value, 10) || 1);
+      const precio_tipo = +selPrecioEntrada.value;
+      const precio = Number(productoEntrada[`precio_venta_${precio_tipo}`] || productoEntrada.precio_venta_1);
+
+      // Misma línea (producto + tipo de precio) ya en la venta → suma cantidad
+      // en vez de duplicar la fila.
+      const existente = estado.items.find((i) => i.producto.id === productoEntrada.id && i.precio_tipo === precio_tipo);
+      if (existente) {
+        existente.cantidad += cantidad;
+      } else {
+        estado.items.push({ producto: productoEntrada, cantidad, precio_tipo, precio });
+      }
+      renderItems();
+
+      inpCodigo.value = '';
+      resetEntradaProducto();
+      inpCodigo.focus();
+    }
+
+    inpCodigo.addEventListener('input', () => {
+      clearTimeout(timerEntradaProducto);
+      if (productoEntrada) resetEntradaProducto(); // re-escribiendo: invalida la selección previa
+      const q = inpCodigo.value.trim();
+      if (!q) { ocultarSugerencias(); return; }
+      timerEntradaProducto = setTimeout(() => buscarSugerenciasProducto(q), 200);
+    });
+
+    inpCodigo.addEventListener('keydown', async (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!sugerencias.length) return;
+        sugerenciaActiva = (sugerenciaActiva + 1) % sugerencias.length;
+        renderSugerencias();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!sugerencias.length) return;
+        sugerenciaActiva = (sugerenciaActiva - 1 + sugerencias.length) % sugerencias.length;
+        renderSugerencias();
+      } else if (e.key === 'Escape') {
+        ocultarSugerencias();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva]) {
+          seleccionarProductoEntrada(sugerencias[sugerenciaActiva]);
+          return;
+        }
+        const q = inpCodigo.value.trim();
+        if (!q) return;
+        clearTimeout(timerEntradaProducto);
+        try {
+          const res = await productosApi.listar({ search: q, limit: 8 });
+          const prods = Array.isArray(res.data) ? res.data : res.data?.productos || [];
+          const exacto = prods.find((p) => p.codigo?.toLowerCase() === q.toLowerCase());
+          if (exacto) { seleccionarProductoEntrada(exacto); return; }
+          if (prods.length === 1) { seleccionarProductoEntrada(prods[0]); return; }
+          if (prods.length > 1) { sugerencias = prods; sugerenciaActiva = 0; renderSugerencias(); return; }
+          toast('Producto no encontrado', 'warning');
+        } catch (err) { toastError(err); }
+      }
+    });
+
+    inpCantidadEntrada.addEventListener('input', actualizarTotalEntrada);
+    inpCantidadEntrada.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); selPrecioEntrada.focus(); }
+    });
+
+    selPrecioEntrada.addEventListener('change', actualizarTotalEntrada);
+    selPrecioEntrada.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmarFilaEntrada(); }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#entrada-codigo') && !e.target.closest('#entrada-sugerencias')) {
+        ocultarSugerencias();
+      }
+    });
 
     function renderItems() {
-      const lista = document.getElementById('lista-productos');
-      lista.innerHTML = '';
-      if (estado.items.length === 0) {
-        document.getElementById('empty-productos').style.display = '';
-        lista.appendChild(document.getElementById('empty-productos'));
-      }
+      const tbody = document.getElementById('filas-productos');
+      const filaEntrada = document.getElementById('fila-entrada');
+      tbody.querySelectorAll('tr:not(#fila-entrada)').forEach((tr) => tr.remove());
+
       estado.items.forEach((item, idx) => {
-        const div = document.createElement('div');
-        div.className = 'detalle-item mb-2 p-3 bg-light rounded border';
-        const precios = [1,2,3,4,5].map((n) => {
+        const tr = document.createElement('tr');
+        const precios = [1, 2, 3, 4, 5].map((n) => {
           const val = item.producto[`precio_venta_${n}`];
-          return val && Number(val) > 0 ? `<option value="${n}" ${item.precio_tipo===n?'selected':''}>Precio ${n} — ${formatMoneda(val)}</option>` : '';
+          return val && Number(val) > 0 ? `<option value="${n}" ${item.precio_tipo === n ? 'selected' : ''}>P${n}: ${formatMoneda(val)}</option>` : '';
         }).join('');
-        div.innerHTML = `
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <div class="fw-semibold">${item.producto.nombre}</div>
-            <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-idx="${idx}">
-              <i class="bi bi-trash"></i>
-            </button>
-          </div>
-          <div class="row g-2">
-            <div class="col-sm-3">
-              <label class="form-label small mb-1">Cantidad</label>
-              <input type="number" class="form-control form-control-sm inp-cantidad" data-idx="${idx}" value="${item.cantidad}" min="0.001" step="0.001">
-            </div>
-            <div class="col-sm-4">
-              <label class="form-label small mb-1">Tipo precio</label>
-              <select class="form-select form-select-sm sel-precio-tipo" data-idx="${idx}">${precios}</select>
-            </div>
-            <div class="col-sm-3">
-              <label class="form-label small mb-1">Descuento</label>
-              <input type="number" class="form-control form-control-sm inp-descuento" data-idx="${idx}" value="${item.descuento}" min="0" step="0.01">
-            </div>
-            <div class="col-sm-2 d-flex align-items-end">
-              <div class="text-end w-100">
-                <div class="small text-muted">Total</div>
-                <div class="fw-bold total-item" data-idx="${idx}">${formatMoneda(calcularTotalItem(item))}</div>
-              </div>
-            </div>
-          </div>`;
-        lista.appendChild(div);
+        tr.innerHTML = `
+          <td class="small text-muted">${item.producto.codigo}</td>
+          <td>${item.producto.nombre}</td>
+          <td><input type="number" class="form-control form-control-sm text-end inp-cantidad" data-idx="${idx}" value="${item.cantidad}" min="1" step="1"></td>
+          <td><select class="form-select form-select-sm sel-precio-tipo" data-idx="${idx}">${precios}</select></td>
+          <td class="text-end fw-semibold total-item" data-idx="${idx}">${formatMoneda(calcularTotalItem(item))}</td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-idx="${idx}"><i class="bi bi-trash"></i></button></td>`;
+        tbody.insertBefore(tr, filaEntrada);
       });
 
       // Eventos
-      lista.querySelectorAll('.btn-quitar').forEach((btn) => {
-        btn.addEventListener('click', () => { estado.items.splice(+btn.dataset.idx, 1); renderItems(); calcularTotales(); });
-      });
-      lista.querySelectorAll('.inp-cantidad').forEach((inp) => {
-        inp.addEventListener('change', () => {
-          estado.items[+inp.dataset.idx].cantidad = parseFloat(inp.value) || 1;
+      tbody.querySelectorAll('.btn-quitar').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          estado.items.splice(+btn.dataset.idx, 1);
           renderItems(); calcularTotales();
         });
       });
-      lista.querySelectorAll('.sel-precio-tipo').forEach((sel) => {
+      tbody.querySelectorAll('.inp-cantidad').forEach((inp) => {
+        inp.addEventListener('change', () => {
+          estado.items[+inp.dataset.idx].cantidad = Math.max(1, parseInt(inp.value, 10) || 1);
+          renderItems(); calcularTotales();
+        });
+      });
+      tbody.querySelectorAll('.sel-precio-tipo').forEach((sel) => {
         sel.addEventListener('change', () => {
           const idx = +sel.dataset.idx;
           const tipo = +sel.value;
@@ -445,28 +528,20 @@
           renderItems(); calcularTotales();
         });
       });
-      lista.querySelectorAll('.inp-descuento').forEach((inp) => {
-        inp.addEventListener('change', () => {
-          estado.items[+inp.dataset.idx].descuento = parseFloat(inp.value) || 0;
-          calcularTotales();
-        });
-      });
-
       calcularTotales();
     }
 
     function calcularTotalItem(item) {
-      return (item.cantidad * item.precio) - item.descuento;
+      return item.cantidad * item.precio;
     }
 
     function calcularTotales() {
       const total = estado.items.reduce((s, i) => s + calcularTotalItem(i), 0);
       const igv = total - (total / 1.18);
       const subtotal = total / 1.18;
-      const moneda = document.getElementById('moneda').value;
-      document.getElementById('resumen-subtotal').textContent = formatMoneda(subtotal, moneda);
-      document.getElementById('resumen-igv').textContent = formatMoneda(igv, moneda);
-      document.getElementById('resumen-total').textContent = formatMoneda(total, moneda);
+      document.getElementById('resumen-subtotal').textContent = formatMoneda(subtotal, 'PEN');
+      document.getElementById('resumen-igv').textContent = formatMoneda(igv, 'PEN');
+      document.getElementById('resumen-total').textContent = formatMoneda(total, 'PEN');
       actualizarPrimerPago(total);
     }
 
@@ -524,6 +599,42 @@
       agregarPago();
     });
 
+    // Deja el formulario listo para la siguiente venta, sin salir de la pantalla
+    // (las ventas son rápidas y seguidas: no tiene sentido volver al listado cada vez).
+    function resetearFormulario() {
+      estado.items = [];
+      renderItems();
+
+      inpCodigo.value = '';
+      resetEntradaProducto();
+      ocultarSugerencias();
+
+      estado.pagos = [];
+      document.getElementById('lista-pagos').innerHTML = '';
+      agregarPago();
+
+      estado.cliente = null;
+      document.getElementById('id_cliente').value = '';
+      document.getElementById('cliente-search').value = '';
+      document.getElementById('cliente-seleccionado').textContent = '';
+
+      document.getElementById('observaciones').value = '';
+      document.getElementById('detalles-extra').classList.add('d-none');
+      document.getElementById('btn-toggle-detalles').querySelector('i').className = 'bi bi-chevron-down me-1';
+
+      document.getElementById('tipo_documento').value = 'BOLETA';
+      actualizarSeriesDisponibles();
+      actualizarHintTipoDocumento();
+
+      calcularTotales();
+
+      const btn = document.getElementById('btn-guardar');
+      btn.disabled = false;
+      actualizarTextoBoton();
+
+      document.getElementById('cliente-search').focus();
+    }
+
     // ==================== GUARDAR ====================
     document.getElementById('form-venta').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -546,7 +657,6 @@
         id_producto: item.producto.id,
         cantidad: item.cantidad,
         precio_tipo: item.precio_tipo,
-        descuento: item.descuento || 0,
       }));
 
       const pagos = estado.pagos
@@ -569,10 +679,7 @@
           tipo_documento: tipoDocumento,
           id_serie_documento: idSerie,
           id_cliente: document.getElementById('id_cliente').value,
-          moneda: document.getElementById('moneda').value,
-          tipo_cambio: parseFloat(document.getElementById('tipo_cambio').value) || 3.80,
-          fecha_emision: document.getElementById('fecha_emision').value,
-          fecha_vencimiento: document.getElementById('fecha_vencimiento').value || undefined,
+          moneda: 'PEN',
           observaciones: document.getElementById('observaciones').value || undefined,
           id_caja_apertura: document.getElementById('id_caja_apertura').value || undefined,
           detalle,
@@ -594,7 +701,7 @@
         } else {
           toast('¡Documento emitido correctamente!', 'success');
         }
-        setTimeout(() => { window.location.href = '/src/pages/ventas/index.html'; }, 1500);
+        resetearFormulario();
       } catch (err) {
         toastError(err);
         btn.disabled = false;
