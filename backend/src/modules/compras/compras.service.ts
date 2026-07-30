@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { ConfigMargenesService } from '../config-margenes/config-margenes.service';
 import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
+import { CreateNotaCreditoCompraDto } from './dto/create-nota-credito-compra.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils/numero-documento.util';
 import { finDeDia } from '../../common/utils/fecha.util';
@@ -228,8 +229,10 @@ export class ComprasService {
     });
   }
 
-  async findAll(pagination: PaginationDto & { fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string }) {
+  async findAll(pagination: PaginationDto & { fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string; tipo_documento?: string }) {
     const where: any = { eliminado: false };
+
+    if (pagination.tipo_documento) where.tipo_documento = pagination.tipo_documento;
 
     if (pagination.search) {
       where.OR = [
@@ -354,6 +357,154 @@ export class ComprasService {
           metodo_pago_flete: { select: { nombre: true } },
         },
       });
+    });
+  }
+
+  async crearNotaCreditoCompra(idCompraOriginal: string, dto: CreateNotaCreditoCompraDto, usuarioId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const original = await tx.tbl_compras.findFirst({
+        where: { id: idCompraOriginal, eliminado: false },
+        include: { detalle: true },
+      });
+      if (!original) throw new NotFoundException('Compra original no encontrada');
+
+      if (original.tipo_documento === 'nota_credito') {
+        throw new BadRequestException('No se puede emitir una Nota de Crédito sobre otra Nota de Crédito');
+      }
+      if (original.estado !== 'registrada') {
+        throw new BadRequestException(`No se puede emitir una Nota de Crédito sobre una compra en estado "${original.estado}"`);
+      }
+
+      // Construir el detalle a partir de las líneas ORIGINALES (para saber si cada
+      // una afecta IGV) — el importe a acreditar por línea lo indica el proveedor
+      // en su propio documento, no se recalcula desde precios actuales.
+      const detalleCalculado = dto.detalle.map((item) => {
+        const detOriginal = original.detalle.find((d) => d.id === item.id_detalle_original);
+        if (!detOriginal) {
+          throw new BadRequestException('Uno de los ítems indicados no pertenece a la compra original');
+        }
+        if (item.cantidad > Number(detOriginal.cantidad)) {
+          throw new BadRequestException(
+            `La cantidad a acreditar de "${detOriginal.descripcion}" excede la cantidad original (${detOriginal.cantidad})`,
+          );
+        }
+
+        const tipoCambio = Number(original.tipo_cambio);
+        const importeLineaPen = redondear4(item.importe_linea * tipoCambio);
+        const afectaIgv = detOriginal.afecta_igv;
+        const subtotal = afectaIgv
+          ? redondear2(importeLineaPen / (1 + TASA_IGV))
+          : redondear2(importeLineaPen);
+        const igvTotal = afectaIgv ? redondear2(importeLineaPen - subtotal) : 0;
+        const precioUnitario = redondear4(item.importe_linea / item.cantidad);
+        const precioUnitarioPen = redondear4(importeLineaPen / item.cantidad);
+
+        return {
+          id_producto: detOriginal.id_producto,
+          descripcion: detOriginal.descripcion,
+          cantidad: item.cantidad,
+          importe_linea: item.importe_linea,
+          precio_unitario: precioUnitario,
+          precio_unitario_pen: precioUnitarioPen,
+          costo_flete_prorrateado: 0,
+          costo_unitario_total: redondear4(subtotal / item.cantidad),
+          subtotal,
+          igv: igvTotal,
+          total: redondear2(subtotal + igvTotal),
+          afecta_igv: afectaIgv,
+        };
+      });
+
+      if (detalleCalculado.length === 0) {
+        throw new BadRequestException('Debe incluir al menos un ítem a acreditar');
+      }
+
+      const subtotalNC = redondear2(detalleCalculado.reduce((s, d) => s + d.subtotal, 0));
+      const igvNC = redondear2(detalleCalculado.reduce((s, d) => s + d.igv, 0));
+      const totalNC = redondear2(subtotalNC + igvNC);
+
+      if (dto.codigo_motivo === '01' && Math.abs(totalNC - Number(original.total)) > 0.05) {
+        throw new BadRequestException(
+          'Para anular la operación completa, la Nota de Crédito debe incluir todos los ítems por el total de la compra original',
+        );
+      }
+
+      const totalCompras = await tx.tbl_compras.count();
+      const numeroInterno = generarNumeroInterno('COM', totalCompras + 1);
+
+      const nc = await tx.tbl_compras.create({
+        data: {
+          numero_interno: numeroInterno,
+          tipo_documento: 'nota_credito',
+          serie: dto.serie,
+          numero: dto.numero,
+          id_proveedor: original.id_proveedor,
+          id_almacen: original.id_almacen,
+          id_usuario: usuarioId,
+          fecha_emision: new Date(dto.fecha_emision),
+          condicion_pago: 'contado',
+          moneda: original.moneda,
+          tipo_cambio: original.tipo_cambio,
+          subtotal: subtotalNC,
+          igv: igvNC,
+          total: totalNC,
+          estado: 'registrada',
+          observaciones: dto.motivo,
+          id_compra_original: original.id,
+          motivo_nota: dto.motivo,
+          codigo_motivo_nota: dto.codigo_motivo,
+          usuario_creacion: usuarioId,
+        },
+      });
+
+      await tx.tbl_detalle_compras.createMany({
+        data: detalleCalculado.map((d) => ({ id_compra: nc.id, ...d })),
+      });
+
+      // Si implica devolución física al proveedor, descontar stock
+      if (dto.afecta_stock) {
+        const numeroDocProveedor = dto.numero ? `${dto.serie ? dto.serie + '-' : ''}${dto.numero}` : numeroInterno;
+        for (const item of detalleCalculado) {
+          await this.inventarioRepo.registrarMovimientoEnTransaccion(
+            {
+              idProducto: item.id_producto,
+              idAlmacen: original.id_almacen,
+              tipo: 'salida',
+              cantidad: Number(item.cantidad),
+              motivo: `Nota de Crédito ${numeroDocProveedor} sobre compra ${original.numero_interno}`,
+              idReferencia: nc.id,
+              tipoReferencia: 'compra',
+              idUsuario: usuarioId,
+            },
+            tx as unknown as Prisma.TransactionClient,
+          );
+        }
+      }
+
+      // Si es anulación total de la operación, marcar la compra original como anulada
+      if (dto.codigo_motivo === '01') {
+        await tx.tbl_compras.update({
+          where: { id: original.id },
+          data: {
+            estado: 'anulada',
+            observaciones: `ANULADA por Nota de Crédito: ${dto.motivo}`,
+            usuario_modificacion: usuarioId,
+          },
+        });
+      }
+
+      return tx.tbl_compras.findFirst({
+        where: { id: nc.id },
+        include: {
+          proveedor: { select: { razon_social: true, ruc: true } },
+          almacen: { select: { nombre: true } },
+          detalle: { include: { producto: { select: { nombre: true, codigo: true } } } },
+        },
+      });
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
   }
 }

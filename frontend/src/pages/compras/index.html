@@ -82,6 +82,7 @@
         <div class="modal-body" id="modal-body">Cargando...</div>
         <div class="modal-footer">
           <button class="btn btn-success d-none" id="btn-pagar-flete"><i class="bi bi-truck me-1"></i>Registrar pago de flete</button>
+          <button class="btn btn-warning d-none" id="btn-nota-credito-compra"><i class="bi bi-file-earmark-minus me-1"></i>Emitir Nota de Crédito</button>
           <button class="btn btn-danger d-none" id="btn-anular"><i class="bi bi-x-circle me-1"></i>Anular</button>
           <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>
@@ -141,6 +142,11 @@
     let paginaActual = 1, compraActual = null;
     const LIMIT = 20;
 
+    const TIPOS_DOC_COMPRA_BADGE = { nota_credito: '<span class="badge bg-danger">N. Crédito</span>' };
+    function badgeTipoDocumentoCompra(tipo) {
+      return TIPOS_DOC_COMPRA_BADGE[tipo] || `<span class="badge bg-secondary">${tipo}</span>`;
+    }
+
     async function cargar(page = 1) {
       paginaActual = page;
       const tbody = document.getElementById('tabla-compras');
@@ -159,7 +165,7 @@
         tbody.innerHTML = items.length ? items.map((c) => `
           <tr style="cursor:pointer" data-id="${c.id}">
             <td class="fw-semibold small">${c.serie ? `${c.serie}-${c.numero}` : c.numero || '-'}</td>
-            <td><span class="badge bg-secondary">${c.tipo_documento}</span></td>
+            <td>${badgeTipoDocumentoCompra(c.tipo_documento)}</td>
             <td>${formatFecha(c.fecha_emision)}</td>
             <td>${c.proveedor?.razon_social || '-'}</td>
             <td class="small">${c.almacen?.nombre || '-'}</td>
@@ -183,6 +189,7 @@
       document.getElementById('modal-body').innerHTML = '<div class="text-center py-4"><span class="spinner-border"></span></div>';
       document.getElementById('btn-anular').classList.add('d-none');
       document.getElementById('btn-pagar-flete').classList.add('d-none');
+      document.getElementById('btn-nota-credito-compra').classList.add('d-none');
       modal.show();
       try {
         const res = await comprasApi.obtener(id);
@@ -297,10 +304,18 @@
         if (c.estado === 'registrada' && c.flete_monto > 0 && !c.flete_pagado) {
           document.getElementById('btn-pagar-flete').classList.remove('d-none');
         }
+        if (c.estado === 'registrada' && c.tipo_documento !== 'nota_credito') {
+          document.getElementById('btn-nota-credito-compra').classList.remove('d-none');
+        }
       } catch (err) {
         document.getElementById('modal-body').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
       }
     }
+
+    document.getElementById('btn-nota-credito-compra').addEventListener('click', () => {
+      if (!compraActual) return;
+      window.location.href = `/src/pages/compras/nueva-nota-credito.html?compra=${compraActual.id}`;
+    });
 
     document.getElementById('btn-anular').addEventListener('click', async () => {
       if (!compraActual) return;

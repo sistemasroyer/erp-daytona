@@ -19,6 +19,7 @@ const MENU = [
     items: [
       { key: 'ventas', label: 'Nueva Venta', icon: 'bi-receipt', href: '/src/pages/ventas/nueva.html', perm: 'ventas:crear' },
       { key: 'ventas-listado', label: 'Listado de Ventas', icon: 'bi-list-check', href: '/src/pages/ventas/index.html', perm: 'ventas:ver' },
+      { key: 'nueva-nota-credito', label: 'Nueva Nota de Crédito', icon: 'bi-file-earmark-minus', href: '/src/pages/ventas/nueva-nota-credito.html', perm: 'ventas:anular' },
       { key: 'clientes', label: 'Clientes', icon: 'bi-people', href: '/src/pages/clientes/index.html', perm: 'clientes:ver' },
       { key: 'caja', label: 'Caja', icon: 'bi-cash-register', href: '/src/pages/caja/index.html', perm: 'caja:ver' },
     ],
@@ -27,6 +28,7 @@ const MENU = [
     header: 'Compras',
     items: [
       { key: 'compras', label: 'Compras', icon: 'bi-cart', href: '/src/pages/compras/index.html', perm: 'compras:ver' },
+      { key: 'nueva-nota-credito-compra', label: 'Nota de Crédito (Compra)', icon: 'bi-file-earmark-minus', href: '/src/pages/compras/nueva-nota-credito.html', perm: 'compras:anular' },
       { key: 'ordenes', label: 'Ordenes de Compra', icon: 'bi-file-earmark-text', href: '/src/pages/ordenes-compra/index.html', perm: 'ordenes_compra:ver' },
       { key: 'proveedores', label: 'Proveedores', icon: 'bi-truck', href: '/src/pages/proveedores/index.html', perm: 'proveedores:ver' },
     ],

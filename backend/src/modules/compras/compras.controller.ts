@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { ComprasService } from './compras.service';
 import { CompraXmlService } from './compra-xml.service';
 import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
+import { CreateNotaCreditoCompraDto } from './dto/create-nota-credito-compra.dto';
 import { ImportarXmlCompraDto } from './dto/importar-xml.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -36,13 +37,15 @@ export class ComprasController {
   @ApiQuery({ name: 'fecha_desde', required: false })
   @ApiQuery({ name: 'fecha_hasta', required: false })
   @ApiQuery({ name: 'id_proveedor', required: false })
+  @ApiQuery({ name: 'tipo_documento', required: false })
   findAll(
     @Query() pagination: PaginationDto,
     @Query('fecha_desde') fecha_desde?: string,
     @Query('fecha_hasta') fecha_hasta?: string,
     @Query('id_proveedor') id_proveedor?: string,
+    @Query('tipo_documento') tipo_documento?: string,
   ) {
-    return this.service.findAll({ ...pagination, skip: Number(pagination.skip) || 0, fecha_desde, fecha_hasta, id_proveedor } as any);
+    return this.service.findAll({ ...pagination, skip: Number(pagination.skip) || 0, fecha_desde, fecha_hasta, id_proveedor, tipo_documento } as any);
   }
 
   @Get(':id')
@@ -63,5 +66,16 @@ export class ComprasController {
   @ApiOperation({ summary: 'Registrar el pago del flete de una compra' })
   pagarFlete(@Param('id') id: string, @Body() dto: PagarFleteDto, @CurrentUser('sub') userId: string) {
     return this.service.pagarFlete(id, dto, userId);
+  }
+
+  @Post(':id/nota-credito')
+  @Permisos('compras:anular')
+  @ApiOperation({ summary: 'Registrar una Nota de Crédito que el proveedor emitió sobre una compra' })
+  crearNotaCredito(
+    @Param('id') id: string,
+    @Body() dto: CreateNotaCreditoCompraDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.crearNotaCreditoCompra(id, dto, userId);
   }
 }

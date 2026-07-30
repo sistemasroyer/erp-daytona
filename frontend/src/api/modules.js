@@ -95,6 +95,7 @@ export const comprasApi = {
   anular: (id, motivo) => api.patch(`/compras/${id}/anular`, { motivo }),
   pagarFlete: (id, d) => api.patch(`/compras/${id}/flete/pagar`, d),
   importarXml: (xml) => api.post('/compras/importar-xml', { xml }),
+  crearNotaCredito: (id, d) => api.post(`/compras/${id}/nota-credito`, d),
 };
 
 export const ordenesApi = {

@@ -3,11 +3,10 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-
-/** Catálogo SUNAT 09 — Tipo de Nota de Crédito */
-export const CODIGOS_MOTIVO_NOTA_CREDITO = [
-  '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13',
-] as const;
+import {
+  CODIGOS_MOTIVO_NOTA_CREDITO,
+  DESCRIPCION_MOTIVOS_NOTA_CREDITO,
+} from '../../../common/constants/motivos-nota-credito.constant';
 
 export class DetalleNotaCreditoDto {
   @ApiProperty({ description: 'id de tbl_detalle_ventas de la línea original que se está acreditando' })
