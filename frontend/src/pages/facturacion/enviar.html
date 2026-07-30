@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enviar a SUNAT — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-cloud-upload me-2 text-primary"></i>Enviar Documentos a SUNAT</h5>
+    </div>
+
+    <div class="alert alert-info small">
+      <i class="bi bi-info-circle me-1"></i>
+      Los comprobantes ya no se envían automáticamente a SUNAT al emitirse. Desde aquí puedes enviarlos (o reintentar
+      los que fallaron) manualmente, uno por uno o todos los pendientes de una vez.
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Tipo de documento</label>
+            <select class="form-select form-select-sm" id="f-tipo">
+              <option value="BOLETA">Boleta</option>
+              <option value="FACTURA">Factura</option>
+              <option value="NOTA_CREDITO">Nota de Crédito</option>
+            </select>
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Estado SUNAT</label>
+            <select class="form-select form-select-sm" id="f-estado">
+              <option value="">Todos (excepto aceptados)</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="rechazado">Rechazado</option>
+              <option value="error">Error</option>
+              <option value="aceptado">Aceptado</option>
+            </select>
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1">Desde</label>
+            <input type="date" class="form-control form-control-sm" id="f-desde">
+          </div>
+          <div class="col-sm-3">
+            <button class="btn btn-primary btn-sm w-100" id="btn-filtrar"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="text-muted small" id="info-resultados">-</span>
+        <button class="btn btn-warning btn-sm" id="btn-enviar-todos">
+          <i class="bi bi-send me-1"></i>Enviar todos los pendientes
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Comprobante</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th class="text-end">Total</th>
+                <th class="text-center">Estado SUNAT</th>
+                <th>Detalle</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-envios">
+              <tr><td colspan="7" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { ventasApi } from '/src/api/modules.js';
+    import { formatMoneda, formatFecha, badgeEstado } from '/src/components/tabla.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('facturacion-enviar');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('f-desde').value = primerDia;
+
+    async function cargar() {
+      const tbody = document.getElementById('tabla-envios');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await ventasApi.listar({
+          tipo_documento: document.getElementById('f-tipo').value,
+          fecha_desde: document.getElementById('f-desde').value || undefined,
+          limit: 100,
+        });
+        let ventas = Array.isArray(res.data) ? res.data : [];
+
+        const filtroEstado = document.getElementById('f-estado').value;
+        if (filtroEstado) {
+          ventas = ventas.filter((v) => v.estado_sunat === filtroEstado);
+        } else {
+          ventas = ventas.filter((v) => v.estado_sunat !== 'aceptado');
+        }
+        ventas = ventas.filter((v) => v.estado_venta !== 'anulada');
+
+        document.getElementById('info-resultados').textContent = `${ventas.length} documentos`;
+
+        tbody.innerHTML = ventas.length ? ventas.map((v) => `
+          <tr data-id="${v.id}">
+            <td class="fw-semibold small">${v.numero_comprobante}</td>
+            <td class="small">${formatFecha(v.fecha_emision)}</td>
+            <td class="small">${v.cliente?.razon_social || '-'}</td>
+            <td class="text-end small">${formatMoneda(v.total, v.moneda)}</td>
+            <td class="text-center estado-cell">${badgeEstado(v.estado_sunat)}</td>
+            <td class="small text-danger detalle-cell"></td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-warning btn-enviar" data-id="${v.id}">
+                <i class="bi bi-send me-1"></i>Enviar
+              </button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">Sin documentos pendientes 🎉</td></tr>';
+
+        document.querySelectorAll('.btn-enviar').forEach((btn) => {
+          btn.addEventListener('click', () => enviar(btn.dataset.id, btn));
+        });
+      } catch (err) {
+        toastError(err);
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos</td></tr>';
+      }
+    }
+
+    async function enviar(id, btn) {
+      const fila = document.querySelector(`tr[data-id="${id}"]`);
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try {
+        const res = await ventasApi.reenviarSunat(id);
+        const v = res.data || res;
+        const envio = (v.sunat_envios || [])[0];
+        fila.querySelector('.estado-cell').innerHTML = badgeEstado(v.estado_sunat);
+        fila.querySelector('.detalle-cell').textContent = v.estado_sunat === 'aceptado' ? '' : (envio?.error_mensaje || '');
+        if (v.estado_sunat === 'aceptado') {
+          toast(`${v.numero_comprobante} fue aceptado por SUNAT`, 'success');
+          fila.querySelector('.btn-enviar').closest('td').innerHTML = '<span class="text-success small"><i class="bi bi-check-circle me-1"></i>Aceptado</span>';
+        } else {
+          toast(`${v.numero_comprobante} no fue aceptado: ${envio?.error_mensaje || 'ver detalle'}`, 'danger', 6000);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-send me-1"></i>Reintentar';
+        }
+      } catch (err) {
+        toastError(err);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar';
+      }
+    }
+
+    document.getElementById('btn-enviar-todos').addEventListener('click', async () => {
+      const botones = Array.from(document.querySelectorAll('.btn-enviar'));
+      if (botones.length === 0) { toast('No hay documentos pendientes', 'warning'); return; }
+      const btnTodos = document.getElementById('btn-enviar-todos');
+      btnTodos.disabled = true;
+      btnTodos.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+      for (const btn of botones) {
+        if (!btn.isConnected || btn.disabled) continue;
+        await enviar(btn.dataset.id, btn);
+      }
+      btnTodos.disabled = false;
+      btnTodos.innerHTML = '<i class="bi bi-send me-1"></i>Enviar todos los pendientes';
+    });
+
+    document.getElementById('btn-filtrar').addEventListener('click', cargar);
+    cargar();
+  </script>
+</body>
+</html>

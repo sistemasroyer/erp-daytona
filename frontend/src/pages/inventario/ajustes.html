@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ajustes de Inventario — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0"><i class="bi bi-sliders me-2 text-warning"></i>Ajustes de Inventario</h5>
+      <a href="/src/pages/inventario/ajuste-nuevo.html" class="btn btn-warning">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo Ajuste
+      </a>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-4">
+            <label class="form-label small mb-1">Almacén</label>
+            <select class="form-select form-select-sm" id="f-almacen">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small mb-1">Motivo</label>
+            <select class="form-select form-select-sm" id="f-motivo">
+              <option value="">Todos</option>
+              <option value="mermas_mal_estado">Mermas / Mal estado</option>
+              <option value="entrega_trabajadores">Entrega a trabajadores</option>
+              <option value="sobrante_faltante">Sobrante / Faltante de inventario</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <button class="btn btn-primary btn-sm w-100" id="btn-filtrar"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>N° Ajuste</th>
+                <th>Fecha</th>
+                <th>Almacén</th>
+                <th class="text-center">Motivo</th>
+                <th class="text-center">Ítems</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-ajustes">
+              <tr><td colspan="6" class="text-center py-4 text-muted">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="text-muted small" id="info-resultados">-</span>
+        <div id="paginacion"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal detalle -->
+  <div class="modal fade" id="modal-detalle" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Detalle del Ajuste</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="modal-detalle-body">Cargando...</div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { inventarioApi, almacenesApi } from '/src/api/modules.js';
+    import { formatFecha, formatMoneda, renderPaginacion } from '/src/components/tabla.js';
+    import { toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('inventario');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    const MOTIVO_LABEL = {
+      mermas_mal_estado: 'Mermas / Mal estado',
+      entrega_trabajadores: 'Entrega a trabajadores',
+      sobrante_faltante: 'Sobrante / Faltante',
+      otros: 'Otros',
+    };
+
+    let paginaActual = 1;
+    const LIMIT = 20;
+
+    almacenesApi.listar().then((res) => {
+      const alm = Array.isArray(res.data) ? res.data : [];
+      alm.forEach((a) => document.getElementById('f-almacen').add(new Option(a.nombre, a.id)));
+    }).catch(() => {});
+
+    async function cargar(page = 1) {
+      paginaActual = page;
+      const tbody = document.getElementById('tabla-ajustes');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+      try {
+        const res = await inventarioApi.listarAjustes({
+          id_almacen: document.getElementById('f-almacen').value || undefined,
+          motivo: document.getElementById('f-motivo').value || undefined,
+          page,
+          limit: LIMIT,
+        });
+        const ajustes = Array.isArray(res.data) ? res.data : [];
+        const total = res.meta?.total ?? ajustes.length;
+
+        document.getElementById('info-resultados').textContent = `${total} registros`;
+
+        tbody.innerHTML = ajustes.length ? ajustes.map((a) => `
+          <tr style="cursor:pointer" data-id="${a.id}">
+            <td class="fw-semibold">${a.numero_interno}</td>
+            <td>${formatFecha(a.fecha_ajuste)}</td>
+            <td class="small">${a.almacen?.nombre || '-'}</td>
+            <td class="text-center"><span class="badge bg-warning text-dark">${MOTIVO_LABEL[a.motivo] || a.motivo}</span></td>
+            <td class="text-center">${a.detalle?.length ?? 0}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary btn-ver" data-id="${a.id}" title="Ver detalle">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-4">Sin resultados</td></tr>';
+
+        renderPaginacion(document.getElementById('paginacion'), { page, total, limit: LIMIT }, cargar);
+
+        document.querySelectorAll('.btn-ver').forEach((btn) => {
+          btn.addEventListener('click', (e) => { e.stopPropagation(); abrirDetalle(btn.dataset.id); });
+        });
+        document.querySelectorAll('#tabla-ajustes tr[data-id]').forEach((tr) => {
+          tr.addEventListener('click', () => abrirDetalle(tr.dataset.id));
+        });
+      } catch (err) {
+        toastError(err);
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error al cargar datos</td></tr>';
+      }
+    }
+
+    async function abrirDetalle(id) {
+      const modal = new bootstrap.Modal(document.getElementById('modal-detalle'));
+      document.getElementById('modal-detalle-body').innerHTML = '<div class="text-center py-4"><span class="spinner-border"></span></div>';
+      modal.show();
+      try {
+        const res = await inventarioApi.obtenerAjuste(id);
+        const a = res.data || res;
+        const detalle = a.detalle || [];
+
+        document.getElementById('modal-detalle-body').innerHTML = `
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <table class="table table-sm table-borderless">
+                <tr><th class="text-muted" width="40%">N° Ajuste</th><td class="fw-bold">${a.numero_interno}</td></tr>
+                <tr><th class="text-muted">Fecha</th><td>${formatFecha(a.fecha_ajuste)}</td></tr>
+                <tr><th class="text-muted">Almacén</th><td>${a.almacen?.nombre || '-'}</td></tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <table class="table table-sm table-borderless">
+                <tr><th class="text-muted" width="40%">Motivo</th><td>${MOTIVO_LABEL[a.motivo] || a.motivo}</td></tr>
+                ${a.observaciones ? `<tr><th class="text-muted">Observaciones</th><td>${a.observaciones}</td></tr>` : ''}
+              </table>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped">
+              <thead class="table-dark">
+                <tr>
+                  <th>Producto</th>
+                  <th class="text-center">Tipo</th>
+                  <th class="text-end">Cantidad</th>
+                  <th class="text-end">Costo Unit.</th>
+                  <th class="text-end">Costo Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detalle.map((d) => `
+                <tr>
+                  <td>${d.producto?.nombre || d.id_producto} <span class="text-muted small">${d.producto?.codigo || ''}</span></td>
+                  <td class="text-center">
+                    ${d.tipo === 'ajuste_positivo'
+                      ? '<span class="badge bg-success">Entrada (+)</span>'
+                      : '<span class="badge bg-danger">Salida (-)</span>'}
+                  </td>
+                  <td class="text-end">${Number(d.cantidad).toFixed(4)}</td>
+                  <td class="text-end">${formatMoneda(d.costo_unitario)}</td>
+                  <td class="text-end fw-semibold">${formatMoneda(Number(d.cantidad) * Number(d.costo_unitario))}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        document.getElementById('modal-detalle-body').innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+      }
+    }
+
+    document.getElementById('btn-filtrar').addEventListener('click', () => cargar(1));
+
+    cargar();
+  </script>
+</body>
+</html>

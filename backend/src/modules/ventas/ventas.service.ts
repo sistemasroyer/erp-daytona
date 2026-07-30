@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
@@ -24,26 +23,15 @@ const TASA_IGV = 0.18;
 
 @Injectable()
 export class VentasService {
-  private readonly logger = new Logger(VentasService.name);
-
   constructor(
     private prisma: PrismaService,
     private inventarioRepo: InventarioRepository,
     private sunatEnvio: SunatEnvioService,
   ) {}
 
-  private async enviarASunatSiCorresponde(venta: any) {
-    const enviaASunat = ['FACTURA', 'BOLETA', 'NOTA_CREDITO'].includes(venta.tipo_documento);
-    if (!enviaASunat) {
-      return venta;
-    }
-    try {
-      await this.sunatEnvio.procesarEnvio(venta.id);
-    } catch (error) {
-      this.logger.error(`Error enviando venta ${venta.id} a NubeFact/SUNAT: ${error.message}`);
-    }
-    return this.findOne(venta.id);
-  }
+  // El envío a SUNAT ya NO se dispara automáticamente al emitir el documento:
+  // se hace manualmente desde la página "Facturación → Enviar a SUNAT" (ver
+  // reenviarSunat más abajo), o eventualmente vía un job programado.
 
   async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string) {
     return this.prisma.$transaction(async (tx) => {
@@ -265,7 +253,7 @@ export class VentasService {
       maxWait: 15000,
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }).then((venta) => this.enviarASunatSiCorresponde(venta));
+    });
   }
 
   async findAll(pagination: PaginationDto & {
@@ -585,7 +573,7 @@ export class VentasService {
       maxWait: 15000,
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }).then((venta) => this.enviarASunatSiCorresponde(venta));
+    });
   }
 
   async crearNotaCredito(idVentaOriginal: string, dto: CreateNotaCreditoDto, usuarioId: string) {
@@ -769,6 +757,6 @@ export class VentasService {
       maxWait: 15000,
       timeout: 60000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }).then((nc) => this.enviarASunatSiCorresponde(nc));
+    });
   }
 }

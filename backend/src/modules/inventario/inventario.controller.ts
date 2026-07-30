@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { InventarioService, AjusteInventarioDto, InicializarStockDto, TransferenciaInventarioDto } from './inventario.service';
+import { InventarioService, InicializarStockDto, TransferenciaInventarioDto } from './inventario.service';
+import { CreateAjusteInventarioDto } from './dto/ajuste-inventario.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -67,11 +68,31 @@ export class InventarioController {
     return this.service.inicializarStock(dto, userId);
   }
 
-  @Post('ajuste')
+  @Post('ajustes')
   @Permisos('inventario:editar')
-  @ApiOperation({ summary: 'Registrar ajuste de inventario (+/-)' })
-  ajustar(@Body() dto: AjusteInventarioDto, @CurrentUser('sub') userId: string) {
-    return this.service.ajustar(dto, userId);
+  @ApiOperation({ summary: 'Registrar un documento de ajuste de inventario (uno o varios productos)' })
+  crearAjuste(@Body() dto: CreateAjusteInventarioDto, @CurrentUser('sub') userId: string) {
+    return this.service.crearAjuste(dto, userId);
+  }
+
+  @Get('ajustes')
+  @Permisos('inventario:ver')
+  @ApiOperation({ summary: 'Listar documentos de ajuste de inventario' })
+  @ApiQuery({ name: 'id_almacen', required: false })
+  @ApiQuery({ name: 'motivo', required: false })
+  listarAjustes(
+    @Query() pagination: PaginationDto,
+    @Query('id_almacen') id_almacen?: string,
+    @Query('motivo') motivo?: string,
+  ) {
+    return this.service.findAllAjustes({ ...pagination, skip: Number(pagination.skip) || 0, id_almacen, motivo } as any);
+  }
+
+  @Get('ajustes/:id')
+  @Permisos('inventario:ver')
+  @ApiOperation({ summary: 'Detalle de un documento de ajuste de inventario' })
+  obtenerAjuste(@Param('id') id: string) {
+    return this.service.findOneAjuste(id);
   }
 
   @Post('transferencia')

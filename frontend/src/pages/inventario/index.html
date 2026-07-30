@@ -14,7 +14,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="fw-bold mb-0"><i class="bi bi-archive me-2 text-primary"></i>Inventario</h5>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-warning btn-sm" id="btn-ajuste"><i class="bi bi-sliders me-1"></i>Ajuste</button>
+        <a href="/src/pages/inventario/ajustes.html" class="btn btn-outline-warning btn-sm"><i class="bi bi-sliders me-1"></i>Ajustes de Inventario</a>
         <button class="btn btn-outline-info btn-sm" id="btn-transferencia"><i class="bi bi-arrow-left-right me-1"></i>Transferencia</button>
       </div>
     </div>
@@ -70,51 +70,6 @@
       </div>
       <div class="card-footer">
         <span class="text-muted small" id="info-res">-</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal ajuste -->
-  <div class="modal fade" id="modal-ajuste" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Ajuste de Inventario</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Producto <span class="text-danger">*</span></label>
-            <div class="position-relative">
-              <input type="text" class="form-control" id="aj-producto-search" placeholder="Buscar por código o nombre..." autocomplete="off">
-              <div id="aj-producto-resultados" class="list-group position-absolute w-100" style="z-index:1060;display:none;max-height:200px;overflow-y:auto"></div>
-            </div>
-            <input type="hidden" id="aj-id-producto">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Almacén <span class="text-danger">*</span></label>
-            <select class="form-select" id="aj-almacen"></select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tipo ajuste <span class="text-danger">*</span></label>
-            <select class="form-select" id="aj-tipo">
-              <option value="ajuste_positivo">Entrada (+)</option>
-              <option value="ajuste_negativo">Salida (-)</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Cantidad <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="aj-cantidad" min="0.001" step="0.001">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Motivo <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="aj-motivo" placeholder="Ej: Inventario físico, merma, etc.">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button class="btn btn-warning" id="btn-guardar-ajuste">Aplicar Ajuste</button>
-        </div>
       </div>
     </div>
   </div>
@@ -184,11 +139,10 @@
         const res = await almacenesApi.listar();
         almacenes = Array.isArray(res.data) ? res.data : res.data?.almacenes || [];
         const selFiltro = document.getElementById('f-almacen');
-        const selAj = document.getElementById('aj-almacen');
         const selTrO = document.getElementById('tr-origen');
         const selTrD = document.getElementById('tr-destino');
         almacenes.forEach((a) => {
-          [selFiltro, selAj, selTrO, selTrD].forEach((sel) => {
+          [selFiltro, selTrO, selTrD].forEach((sel) => {
             if (sel) sel.add(new Option(a.nombre, a.id));
           });
         });
@@ -238,65 +192,6 @@
         }).join('') : '<tr><td colspan="11" class="text-center text-muted py-4">Sin registros</td></tr>';
       } catch (err) { toastError(err); }
     }
-
-    // Ajuste
-    document.getElementById('btn-ajuste').addEventListener('click', () => {
-      document.getElementById('aj-producto-search').value = '';
-      document.getElementById('aj-id-producto').value = '';
-      document.getElementById('aj-cantidad').value = '';
-      document.getElementById('aj-motivo').value = '';
-      new bootstrap.Modal(document.getElementById('modal-ajuste')).show();
-    });
-
-    let timerAj = null;
-    document.getElementById('aj-producto-search').addEventListener('input', (e) => {
-      clearTimeout(timerAj);
-      const q = e.target.value.trim();
-      document.getElementById('aj-id-producto').value = '';
-      if (q.length < 2) { document.getElementById('aj-producto-resultados').style.display = 'none'; return; }
-      timerAj = setTimeout(async () => {
-        try {
-          const res = await productosApi.listar({ search: q, limit: 8 });
-          const prods = res.data || [];
-          const cont = document.getElementById('aj-producto-resultados');
-          cont.style.display = prods.length ? 'block' : 'none';
-          cont.innerHTML = prods.map((p) => `
-            <button type="button" class="list-group-item list-group-item-action py-1 small" data-id="${p.id}" data-nombre="${p.nombre}">
-              <strong>${p.codigo}</strong> — ${p.nombre}
-            </button>`).join('');
-          cont.querySelectorAll('button').forEach((btn) => {
-            btn.addEventListener('click', () => {
-              document.getElementById('aj-id-producto').value = btn.dataset.id;
-              document.getElementById('aj-producto-search').value = btn.dataset.nombre;
-              cont.style.display = 'none';
-            });
-          });
-        } catch (_) {}
-      }, 300);
-    });
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('#aj-producto-search')) document.getElementById('aj-producto-resultados').style.display = 'none';
-    });
-
-    document.getElementById('btn-guardar-ajuste').addEventListener('click', async () => {
-      const dto = {
-        id_producto: document.getElementById('aj-id-producto').value,
-        id_almacen: document.getElementById('aj-almacen').value,
-        tipo: document.getElementById('aj-tipo').value,
-        cantidad: parseFloat(document.getElementById('aj-cantidad').value),
-        motivo: document.getElementById('aj-motivo').value.trim(),
-      };
-      if (!dto.id_producto) { toast('Busque y seleccione un producto', 'warning'); return; }
-      if (!dto.id_almacen) { toast('Seleccione un almacén', 'warning'); return; }
-      if (!dto.cantidad || dto.cantidad <= 0) { toast('Ingrese una cantidad válida', 'warning'); return; }
-      if (!dto.motivo) { toast('Ingrese el motivo del ajuste', 'warning'); return; }
-      try {
-        await inventarioApi.ajustar(dto);
-        toast('Ajuste aplicado correctamente');
-        bootstrap.Modal.getInstance(document.getElementById('modal-ajuste')).hide();
-        cargar();
-      } catch (err) { toastError(err); }
-    });
 
     // Transferencia
     document.getElementById('btn-transferencia').addEventListener('click', () => {

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datos de la Empresa — ERP Daytona</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <div class="container-fluid p-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-building me-2 text-primary"></i>Datos de la Empresa</h5>
+
+    <form id="form-empresa" style="max-width:800px">
+      <div class="row g-3">
+        <div class="col-lg-4">
+          <div class="card shadow-sm">
+            <div class="card-body text-center">
+              <label class="form-label small fw-semibold d-block">Logo (para tickets y comprobantes)</label>
+              <img id="logo-preview" src="" alt="Logo" class="img-fluid mb-2 d-none" style="max-height:140px">
+              <div id="logo-empty" class="text-muted py-4"><i class="bi bi-image fs-1 d-block mb-2"></i>Sin logo</div>
+              <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml" class="form-control form-control-sm">
+              <button type="button" class="btn btn-sm btn-outline-danger mt-2 d-none" id="btn-quitar-logo">
+                <i class="bi bi-trash me-1"></i>Quitar logo
+              </button>
+              <div class="form-text">PNG o JPG, recomendado fondo transparente o blanco.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-5">
+                  <label class="form-label small fw-semibold">RUC</label>
+                  <input type="text" class="form-control form-control-sm" id="ruc" disabled>
+                </div>
+                <div class="col-md-7">
+                  <label class="form-label small fw-semibold">Régimen tributario</label>
+                  <input type="text" class="form-control form-control-sm" id="regimen_tributario">
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Razón social <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" id="razon_social" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Nombre comercial</label>
+                  <input type="text" class="form-control form-control-sm" id="nombre_comercial">
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Dirección</label>
+                  <input type="text" class="form-control form-control-sm" id="direccion">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Ubigeo</label>
+                  <input type="text" class="form-control form-control-sm" id="ubigeo" maxlength="6">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Departamento</label>
+                  <input type="text" class="form-control form-control-sm" id="departamento">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Provincia</label>
+                  <input type="text" class="form-control form-control-sm" id="provincia">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Distrito</label>
+                  <input type="text" class="form-control form-control-sm" id="distrito">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold">Teléfono</label>
+                  <input type="text" class="form-control form-control-sm" id="telefono">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold">Email</label>
+                  <input type="email" class="form-control form-control-sm" id="email">
+                </div>
+                <div class="col-12">
+                  <label class="form-label small fw-semibold">Sitio web</label>
+                  <input type="text" class="form-control form-control-sm" id="web">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-primary" id="btn-guardar">
+              <i class="bi bi-check-circle me-2"></i>Guardar Cambios
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initLayout } from '/src/components/layout.js';
+    import { api } from '/src/api/client.js';
+    import { empresaApi } from '/src/api/modules.js';
+    import { toast, toastError } from '/src/components/toast.js';
+    import { logout } from '/src/auth/auth.js';
+
+    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    initLayout('config-empresa');
+    document.getElementById('btn-logout').addEventListener('click', () => logout());
+
+    let logoBase64 = null;
+
+    function mostrarLogo(src) {
+      const img = document.getElementById('logo-preview');
+      const empty = document.getElementById('logo-empty');
+      const btnQuitar = document.getElementById('btn-quitar-logo');
+      if (src) {
+        img.src = src;
+        img.classList.remove('d-none');
+        empty.classList.add('d-none');
+        btnQuitar.classList.remove('d-none');
+      } else {
+        img.classList.add('d-none');
+        empty.classList.remove('d-none');
+        btnQuitar.classList.add('d-none');
+      }
+    }
+
+    async function cargar() {
+      try {
+        const res = await empresaApi.obtener();
+        const e = res.data || res;
+        document.getElementById('ruc').value = e.ruc || '';
+        document.getElementById('razon_social').value = e.razon_social || '';
+        document.getElementById('nombre_comercial').value = e.nombre_comercial || '';
+        document.getElementById('direccion').value = e.direccion || '';
+        document.getElementById('ubigeo').value = e.ubigeo || '';
+        document.getElementById('departamento').value = e.departamento || '';
+        document.getElementById('provincia').value = e.provincia || '';
+        document.getElementById('distrito').value = e.distrito || '';
+        document.getElementById('telefono').value = e.telefono || '';
+        document.getElementById('email').value = e.email || '';
+        document.getElementById('web').value = e.web || '';
+        document.getElementById('regimen_tributario').value = e.regimen_tributario || '';
+        logoBase64 = e.logo_base64 || null;
+        mostrarLogo(logoBase64);
+      } catch (err) { toastError(err); }
+    }
+
+    document.getElementById('logo-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 1024 * 1024) {
+        toast('El logo no debe superar 1 MB', 'warning');
+        e.target.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        logoBase64 = reader.result;
+        mostrarLogo(logoBase64);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('btn-quitar-logo').addEventListener('click', () => {
+      logoBase64 = '';
+      document.getElementById('logo-file').value = '';
+      mostrarLogo(null);
+    });
+
+    document.getElementById('form-empresa').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-guardar');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+      const dto = {
+        razon_social: document.getElementById('razon_social').value.trim(),
+        nombre_comercial: document.getElementById('nombre_comercial').value.trim() || undefined,
+        direccion: document.getElementById('direccion').value.trim() || undefined,
+        ubigeo: document.getElementById('ubigeo').value.trim() || undefined,
+        departamento: document.getElementById('departamento').value.trim() || undefined,
+        provincia: document.getElementById('provincia').value.trim() || undefined,
+        distrito: document.getElementById('distrito').value.trim() || undefined,
+        telefono: document.getElementById('telefono').value.trim() || undefined,
+        email: document.getElementById('email').value.trim() || undefined,
+        web: document.getElementById('web').value.trim() || undefined,
+        regimen_tributario: document.getElementById('regimen_tributario').value.trim() || undefined,
+        logo_base64: logoBase64 !== null ? logoBase64 : undefined,
+      };
+
+      try {
+        await empresaApi.actualizar(dto);
+        toast('Datos de la empresa actualizados correctamente', 'success');
+      } catch (err) {
+        toastError(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Guardar Cambios';
+      }
+    });
+
+    cargar();
+  </script>
+</body>
+</html>

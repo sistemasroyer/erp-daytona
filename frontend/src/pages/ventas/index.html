@@ -125,8 +125,11 @@
         </div>
         <div class="modal-body" id="modal-detalle-body">Cargando...</div>
         <div class="modal-footer">
+          <button class="btn btn-outline-dark" id="btn-imprimir-venta">
+            <i class="bi bi-printer me-1"></i>Imprimir
+          </button>
           <button class="btn btn-outline-primary d-none" id="btn-reenviar-sunat">
-            <i class="bi bi-send me-1"></i>Reenviar a SUNAT
+            <i class="bi bi-send me-1"></i>Enviar a SUNAT
           </button>
           <button class="btn btn-success d-none" id="btn-canjear-venta">
             <i class="bi bi-arrow-repeat me-1"></i>Canjear a Boleta/Factura
@@ -488,16 +491,27 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
       try {
-        await ventasApi.reenviarSunat(ventaActual.id);
-        toast('Reenvío a SUNAT encolado correctamente');
+        const res = await ventasApi.reenviarSunat(ventaActual.id);
+        const v = res.data || res;
+        if (v.estado_sunat === 'aceptado') {
+          toast('¡Documento aceptado por SUNAT!', 'success');
+        } else {
+          const envio = (v.sunat_envios || [])[0];
+          toast(`SUNAT no aceptó el documento: ${envio?.error_mensaje || 'ver detalle'}`, 'danger', 6000);
+        }
         await abrirDetalle(ventaActual.id);
         cargarVentas(paginaActual);
       } catch (err) {
         toastError(err);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-send me-1"></i>Reenviar a SUNAT';
+        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar a SUNAT';
       }
+    });
+
+    document.getElementById('btn-imprimir-venta').addEventListener('click', () => {
+      if (!ventaActual) return;
+      window.open(`/src/pages/ventas/imprimir.html?id=${ventaActual.id}`, '_blank');
     });
 
     // ==================== CANJE ====================

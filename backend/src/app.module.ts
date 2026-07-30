@@ -33,6 +33,7 @@ import { ConfigMargenesModule } from './modules/config-margenes/config-margenes.
 import { TiposCambioModule } from './modules/tipos-cambio/tipos-cambio.module';
 import { SeriesDocumentoModule } from './modules/series-documento/series-documento.module';
 import { MetodosPagoModule } from './modules/metodos-pago/metodos-pago.module';
+import { EmpresaModule } from './modules/empresa/empresa.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermisosGuard } from './common/guards/permisos.guard';
@@ -94,6 +95,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     TiposCambioModule,
     SeriesDocumentoModule,
     MetodosPagoModule,
+    EmpresaModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

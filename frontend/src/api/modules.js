@@ -69,13 +69,20 @@ export const proveedoresApi = {
 
 export const inventarioApi = {
   listar: (p) => api.get('/inventario', p),
-  ajustar: (d) => api.post('/inventario/ajuste', d),
   transferir: (d) => api.post('/inventario/transferencia', d),
   stockProducto: (id, almacen) => api.get(`/inventario/producto/${id}`, { id_almacen: almacen }),
+  crearAjuste: (d) => api.post('/inventario/ajustes', d),
+  listarAjustes: (p) => api.get('/inventario/ajustes', p),
+  obtenerAjuste: (id) => api.get(`/inventario/ajustes/${id}`),
 };
 
 export const metodosPagoApi = {
   listar: () => api.get('/metodos-pago'),
+};
+
+export const empresaApi = {
+  obtener: () => api.get('/empresa'),
+  actualizar: (d) => api.patch('/empresa', d),
 };
 
 export const ventasApi = {

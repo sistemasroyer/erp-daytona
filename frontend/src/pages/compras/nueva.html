@@ -376,7 +376,7 @@
     proveedoresApi.listar({ limit: 200 }).then((res) => {
       const provs = Array.isArray(res.data) ? res.data : [];
       provs.forEach((p) => selProveedorFlete.add(new Option(p.razon_social, p.id)));
-    }).catch(() => {});
+    }).catch((err) => toastError(err));
 
     api.get('/config/margenes').then((res) => {
       const m = res.data || res || [];

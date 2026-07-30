@@ -15,7 +15,7 @@ export class PaginationDto {
   @Transform(({ value }) => (value !== undefined && value !== '' ? parseInt(value, 10) : 20))
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit?: number = 20;
 
   @ApiPropertyOptional()

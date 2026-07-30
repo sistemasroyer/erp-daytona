@@ -160,7 +160,7 @@ model tbl_empresas {
   telefono             String?  @db.VarChar(20)
   email                String?  @db.VarChar(150)
   web                  String?  @db.VarChar(200)
-  logo_path            String?  @db.VarChar(500)
+  logo_base64          String?  @db.Text
   cert_path            String?  @db.VarChar(500)
   cert_password        String?  @db.VarChar(200)
   clave_sol_usuario    String?  @db.VarChar(100)
@@ -491,9 +491,10 @@ model tbl_almacenes {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  empresa     tbl_empresas          @relation(fields: [id_empresa], references: [id])
-  inventarios tbl_inventario[]
-  compras     tbl_compras[]
+  empresa           tbl_empresas             @relation(fields: [id_empresa], references: [id])
+  inventarios       tbl_inventario[]
+  compras           tbl_compras[]
+  ajustes_inventario tbl_ajustes_inventario[]
 
   @@index([id_empresa])
   @@map("tbl_almacenes")
@@ -628,6 +629,7 @@ model tbl_productos {
   detalle_compras  tbl_detalle_compras[]
   detalle_ordenes  tbl_detalle_ordenes_compra[]
   codigos_proveedor tbl_producto_codigos_proveedor[]
+  detalle_ajustes_inventario tbl_detalle_ajustes_inventario[]
 
   @@index([codigo])
   @@index([nombre])
@@ -711,6 +713,51 @@ model tbl_kardex {
   @@index([id_producto, id_almacen])
   @@index([fecha])
   @@map("tbl_kardex")
+}
+
+enum MotivoAjusteInventario {
+  mermas_mal_estado
+  entrega_trabajadores
+  sobrante_faltante
+  otros
+}
+
+model tbl_ajustes_inventario {
+  id                   String                 @id @default(uuid())
+  numero_interno       String                 @unique @db.VarChar(20)
+  id_almacen           String
+  motivo               MotivoAjusteInventario
+  observaciones        String?                @db.VarChar(500)
+  fecha_ajuste         DateTime               @default(now())
+  estado               Boolean                @default(true)
+  eliminado            Boolean                @default(false)
+  fecha_creacion       DateTime               @default(now())
+  fecha_modificacion   DateTime               @updatedAt
+  usuario_creacion     String?                @db.VarChar(36)
+  usuario_modificacion String?                @db.VarChar(36)
+
+  almacen tbl_almacenes                     @relation(fields: [id_almacen], references: [id])
+  detalle tbl_detalle_ajustes_inventario[]
+
+  @@index([id_almacen])
+  @@index([fecha_ajuste])
+  @@map("tbl_ajustes_inventario")
+}
+
+model tbl_detalle_ajustes_inventario {
+  id             String                   @id @default(uuid())
+  id_ajuste      String
+  id_producto    String
+  tipo           TipoMovimientoInventario
+  cantidad       Decimal                  @db.Decimal(12, 4)
+  costo_unitario Decimal                  @default(0) @db.Decimal(12, 4)
+
+  ajuste   tbl_ajustes_inventario @relation(fields: [id_ajuste], references: [id])
+  producto tbl_productos          @relation(fields: [id_producto], references: [id])
+
+  @@index([id_ajuste])
+  @@index([id_producto])
+  @@map("tbl_detalle_ajustes_inventario")
 }
 
 // ============================================================

@@ -264,7 +264,7 @@
         categoriasApi.listar().catch(() => ({ data: [] })),
         marcasApi.listar().catch(() => ({ data: [] })),
         unidadesApi.listar().catch(() => ({ data: [] })),
-        proveedoresApi.listar({ limit: 500 }).catch(() => ({ data: [] })),
+        proveedoresApi.listar({ limit: 500 }).catch((err) => { toastError(err); return { data: [] }; }),
         configMargenesApi.listar().catch(() => ({ data: [] })),
       ]);
       categorias = cats.data || [];

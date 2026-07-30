@@ -25,6 +25,12 @@ const MENU = [
     ],
   },
   {
+    header: 'Facturación Electrónica',
+    items: [
+      { key: 'facturacion-enviar', label: 'Enviar a SUNAT', icon: 'bi-cloud-upload', href: '/src/pages/facturacion/enviar.html', perm: 'facturacion:ver' },
+    ],
+  },
+  {
     header: 'Compras',
     items: [
       { key: 'compras', label: 'Compras', icon: 'bi-cart', href: '/src/pages/compras/index.html', perm: 'compras:ver' },
@@ -65,6 +71,7 @@ const MENU = [
       { key: 'config-almacenes', label: 'Almacenes', icon: 'bi-building', href: '/src/pages/configuracion/almacenes.html', perm: 'inventario:ver' },
       { key: 'config-tipos-cambio', label: 'Tipos de Cambio', icon: 'bi-currency-exchange', href: '/src/pages/configuracion/tipos-cambio.html', perm: 'configuracion:ver' },
       { key: 'config-series', label: 'Series / Correlativos', icon: 'bi-list-ol', href: '/src/pages/configuracion/series.html', perm: 'configuracion:ver' },
+      { key: 'config-empresa', label: 'Datos de la Empresa', icon: 'bi-building-gear', href: '/src/pages/configuracion/empresa.html', perm: 'configuracion:ver' },
     ],
   },
 ];
