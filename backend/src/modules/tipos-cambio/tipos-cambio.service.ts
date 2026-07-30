@@ -31,8 +31,11 @@ export class TiposCambioService {
   }
 
   async create(dto: CreateTipoCambioDto, usuarioId: string) {
-    const fecha = new Date(dto.fecha);
-    fecha.setHours(0, 0, 0, 0);
+    // No usar `new Date(dto.fecha)`: para un string "YYYY-MM-DD" el motor de JS lo
+    // interpreta como medianoche UTC, y luego setHours(0,0,0,0) lo reinterpreta en la
+    // zona horaria local del servidor, pudiendo correr la fecha guardada un día hacia atrás.
+    const [anio, mes, dia] = dto.fecha.split('-').map(Number);
+    const fecha = new Date(anio, mes - 1, dia);
 
     const existente = await this.prisma.tbl_tipos_cambio.findFirst({
       where: { fecha, eliminado: false },

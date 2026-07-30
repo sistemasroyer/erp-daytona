@@ -167,7 +167,7 @@
             <td class="fw-semibold">${u.nombre} ${u.apellido}</td>
             <td>${u.email}</td>
             <td class="small">${u.punto_venta?.nombre || '<span class="text-muted">Sin asignar</span>'}</td>
-            <td>${u.roles?.map((r) => `<span class="badge bg-primary me-1">${r.nombre}</span>`).join('') || '-'}</td>
+            <td>${u.roles?.map((r) => `<span class="badge bg-primary me-1">${r.rol?.nombre}</span>`).join('') || '-'}</td>
             <td class="small text-muted">${u.ultimo_acceso ? formatFechaHora(u.ultimo_acceso) : 'Nunca'}</td>
             <td class="text-center">${u.bloqueado_hasta ? '<span class="badge bg-danger">Bloqueado</span>' : '<span class="badge bg-success">No</span>'}</td>
             <td class="text-center">${badgeEstado(u.estado)}</td>
@@ -202,7 +202,7 @@
         ]);
         const u = userRes.data || userRes;
         todosRoles = Array.isArray(rolesRes.data) ? rolesRes.data : rolesRes.data?.roles || [];
-        rolesUsuario = u.roles?.map((r) => r.id) || [];
+        rolesUsuario = u.roles?.map((r) => r.id_rol) || [];
         usuarioEditando = u;
 
         document.getElementById('modal-titulo').textContent = 'Editar Usuario';

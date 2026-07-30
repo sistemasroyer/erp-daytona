@@ -58,15 +58,25 @@ export class VentasController {
 
   @Get(':id')
   @Permisos('ventas:ver')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.findOne(id, idPuntoVenta, esSuperadmin);
   }
 
   @Patch(':id/anular')
   @Permisos('ventas:anular')
   @ApiOperation({ summary: 'Anular venta (solo admin/supervisor con permiso anular)' })
-  anular(@Param('id') id: string, @Body() dto: AnularVentaDto, @CurrentUser('sub') userId: string) {
-    return this.service.anular(id, dto, userId);
+  anular(
+    @Param('id') id: string,
+    @Body() dto: AnularVentaDto,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.anular(id, dto, userId, idPuntoVenta, esSuperadmin);
   }
 
   @Post(':id/nota-credito')
@@ -76,16 +86,22 @@ export class VentasController {
     @Param('id') id: string,
     @Body() dto: CreateNotaCreditoDto,
     @CurrentUser('sub') userId: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.crearNotaCredito(id, dto, userId);
+    return this.service.crearNotaCredito(id, dto, userId, idPuntoVenta, esSuperadmin);
   }
 
   @Post(':id/reenviar-sunat')
   @Permisos('facturacion:crear')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reenviar venta a SUNAT manualmente' })
-  reenviarSunat(@Param('id') id: string) {
-    return this.service.reenviarSunat(id);
+  reenviarSunat(
+    @Param('id') id: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.reenviarSunat(id, idPuntoVenta, esSuperadmin);
   }
 
   @Post(':id/canjear')
@@ -96,7 +112,8 @@ export class VentasController {
     @Body() dto: CanjearVentaDto,
     @CurrentUser('sub') userId: string,
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.canjear(id, dto, userId, idPuntoVenta);
+    return this.service.canjear(id, dto, userId, idPuntoVenta, esSuperadmin);
   }
 }

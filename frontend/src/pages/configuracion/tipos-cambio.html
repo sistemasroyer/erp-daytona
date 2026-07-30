@@ -131,7 +131,7 @@
       }
 
       tbody.innerHTML = items.map(tc => {
-        const fecha = new Date(tc.fecha + 'T00:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
+        const fecha = new Date(tc.fecha.split('T')[0] + 'T00:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
         const esHoy = hoy && hoy.id === tc.id;
         return `<tr ${esHoy ? 'class="table-success"' : ''}>
           <td>${fecha} ${esHoy ? '<span class="badge bg-success">HOY</span>' : ''}</td>

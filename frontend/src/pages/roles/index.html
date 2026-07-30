@@ -132,7 +132,7 @@
 
     function renderPermisos() {
       const panel = document.getElementById('panel-permisos');
-      const permisosRol = rolSeleccionado.permisos?.map((p) => p.id) || [];
+      const permisosRol = rolSeleccionado.permisos?.map((p) => p.id_permiso) || [];
 
       // Agrupar permisos por módulo
       const porModulo = {};
@@ -165,7 +165,7 @@
 
       panel.querySelectorAll('.btn-toggle-all').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const checks = panel.querySelectorAll(`.perm-check`);
+          const checks = btn.closest('.mb-3').querySelectorAll('.perm-check');
           const allChecked = [...checks].every((c) => c.checked);
           checks.forEach((c) => { c.checked = !allChecked; });
         });

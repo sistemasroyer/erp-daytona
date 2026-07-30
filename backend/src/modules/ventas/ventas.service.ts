@@ -29,6 +29,19 @@ export class VentasService {
     private sunatEnvio: SunatEnvioService,
   ) {}
 
+  /** Verifica que el punto de venta de la venta coincida con el del usuario (salvo superadmin). */
+  private assertMismoPuntoVenta(
+    idPuntoVentaVenta: string | null,
+    idPuntoVentaUsuario?: string,
+    esSuperadmin?: boolean,
+  ) {
+    if (esSuperadmin) return;
+    if (!idPuntoVentaVenta) return;
+    if (!idPuntoVentaUsuario || idPuntoVentaVenta !== idPuntoVentaUsuario) {
+      throw new ForbiddenException('No tiene acceso a ventas de otro punto de venta');
+    }
+  }
+
   // El envío a SUNAT ya NO se dispara automáticamente al emitir el documento:
   // se hace manualmente desde la página "Facturación → Enviar a SUNAT" (ver
   // reenviarSunat más abajo), o eventualmente vía un job programado.
@@ -303,7 +316,7 @@ export class VentasService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
     const venta = await this.prisma.tbl_ventas.findFirst({
       where: { id, eliminado: false },
       include: {
@@ -329,11 +342,12 @@ export class VentasService {
     });
 
     if (!venta) throw new NotFoundException('Venta no encontrada');
+    this.assertMismoPuntoVenta(venta.id_punto_venta, idPuntoVenta, esSuperadmin);
     return venta;
   }
 
-  async anular(id: string, dto: AnularVentaDto, usuarioId: string) {
-    const venta = await this.findOne(id);
+  async anular(id: string, dto: AnularVentaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const venta = await this.findOne(id, idPuntoVenta, esSuperadmin);
 
     if (venta.estado_venta === 'anulada') {
       throw new BadRequestException('La venta ya está anulada');
@@ -396,19 +410,19 @@ export class VentasService {
     });
   }
 
-  async reenviarSunat(id: string) {
-    const venta = await this.findOne(id);
+  async reenviarSunat(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const venta = await this.findOne(id, idPuntoVenta, esSuperadmin);
 
     if (venta.estado_venta === 'anulada') {
       throw new BadRequestException('No se puede reenviar una venta anulada');
     }
 
     await this.sunatEnvio.procesarEnvio(id);
-    return this.findOne(id);
+    return this.findOne(id, idPuntoVenta, esSuperadmin);
   }
 
-  async canjear(id: string, dto: CanjearVentaDto, usuarioId: string, idPuntoVenta?: string) {
-    const origen = await this.findOne(id);
+  async canjear(id: string, dto: CanjearVentaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const origen = await this.findOne(id, idPuntoVenta, esSuperadmin);
 
     if (origen.tipo_documento !== 'NOTA_VENTA' && origen.tipo_documento !== 'COTIZACION') {
       throw new BadRequestException('Solo se puede canjear una Nota de Venta o una Cotización');
@@ -576,13 +590,20 @@ export class VentasService {
     });
   }
 
-  async crearNotaCredito(idVentaOriginal: string, dto: CreateNotaCreditoDto, usuarioId: string) {
+  async crearNotaCredito(
+    idVentaOriginal: string,
+    dto: CreateNotaCreditoDto,
+    usuarioId: string,
+    idPuntoVenta?: string,
+    esSuperadmin?: boolean,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_ventas.findFirst({
         where: { id: idVentaOriginal, eliminado: false },
         include: { detalle: true },
       });
       if (!original) throw new NotFoundException('Venta original no encontrada');
+      this.assertMismoPuntoVenta(original.id_punto_venta, idPuntoVenta, esSuperadmin);
 
       if (original.tipo_documento !== 'FACTURA' && original.tipo_documento !== 'BOLETA') {
         throw new BadRequestException('Solo se puede emitir una Nota de Crédito sobre una Factura o Boleta');

@@ -181,7 +181,7 @@ export const rolesApi = {
 };
 
 export const permisosApi = {
-  listar: () => api.get('/permisos'),
+  listar: () => api.get('/permisos/flat'),
 };
 
 export const configMargenesApi = {
