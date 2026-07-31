@@ -58,9 +58,9 @@
   <script type="module">
     import { initLayout } from '/src/components/layout.js';
     import { almacenesApi } from '/src/api/modules.js';
-    import { requireAuth } from '/src/auth/auth.js';
+    import { requirePermiso } from '/src/auth/auth.js';
 
-    requireAuth();
+    requirePermiso('inventario:editar');
     initLayout('config-almacenes');
 
     const modal = new bootstrap.Modal('#modalAlmacen');

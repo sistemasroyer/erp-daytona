@@ -28,6 +28,19 @@ export function hasPermiso(permiso) {
   return user.permisos?.includes(permiso) ?? false;
 }
 
+// Bloquea el acceso a una pantalla completa (no solo botones/menú) cuando el usuario
+// no tiene el permiso indicado — evita que alguien entre escribiendo la URL directamente
+// aunque el ítem del menú esté oculto. El endpoint que respalda la pantalla debe exigir
+// el mismo permiso en el backend cuando sea sensible (esto es solo la barrera de UI).
+export function requirePermiso(permiso) {
+  if (!requireAuth()) return false;
+  if (!hasPermiso(permiso)) {
+    window.location.href = '/src/pages/dashboard.html';
+    return false;
+  }
+  return true;
+}
+
 export async function logout() {
   try {
     await authApi.logout();

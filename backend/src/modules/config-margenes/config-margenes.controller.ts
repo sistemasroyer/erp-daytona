@@ -33,6 +33,7 @@ export class ConfigMargenesController {
   constructor(private readonly service: ConfigMargenesService) {}
 
   @Get()
+  @Permisos('configuracion:ver')
   @ApiOperation({ summary: 'Listar márgenes de precios configurados' })
   findAll() {
     return this.service.findAll();

@@ -125,9 +125,9 @@
   <script type="module">
     import { initLayout } from '/src/components/layout.js';
     import { seriesApi } from '/src/api/modules.js';
-    import { requireAuth } from '/src/auth/auth.js';
+    import { requirePermiso } from '/src/auth/auth.js';
 
-    requireAuth();
+    requirePermiso('configuracion:ver');
     initLayout('config-series');
 
     const TIPOS = {

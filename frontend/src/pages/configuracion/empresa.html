@@ -103,9 +103,9 @@
     import { api } from '/src/api/client.js';
     import { empresaApi } from '/src/api/modules.js';
     import { toast, toastError } from '/src/components/toast.js';
-    import { logout } from '/src/auth/auth.js';
+    import { logout, requirePermiso } from '/src/auth/auth.js';
 
-    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    requirePermiso('configuracion:ver');
     initLayout('config-empresa');
     document.getElementById('btn-logout').addEventListener('click', () => logout());
 

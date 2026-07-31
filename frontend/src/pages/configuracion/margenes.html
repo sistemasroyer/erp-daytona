@@ -63,8 +63,9 @@
     import { api } from '/src/api/client.js';
     import { configMargenesApi } from '/src/api/modules.js';
     import { toast, toastError } from '/src/components/toast.js';
+    import { requirePermiso } from '/src/auth/auth.js';
 
-    if (!api.getToken()) window.location.href = '/src/pages/login.html';
+    requirePermiso('configuracion:ver');
     initLayout('config-margenes');
 
     let margenes = [];

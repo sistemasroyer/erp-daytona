@@ -39,6 +39,9 @@
                 <button class="btn btn-outline-secondary" type="button" id="btn-cliente-generico" title="Usar cliente genérico">
                   <i class="bi bi-person-fill"></i>
                 </button>
+                <button class="btn btn-outline-secondary" type="button" id="btn-cliente-nuevo" title="Nuevo cliente (consulta SUNAT/RENIEC)">
+                  <i class="bi bi-person-plus-fill"></i>
+                </button>
               </div>
               <div id="cliente-resultados" class="list-group mt-1 position-absolute" style="z-index:1000;width:100%;display:none"></div>
               <input type="hidden" id="id_cliente">
@@ -165,6 +168,56 @@
     </form>
   </div>
 
+  <!-- Modal nuevo cliente (con consulta SUNAT/RENIEC) -->
+  <div class="modal fade" id="modal-cliente-nuevo" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Nuevo Cliente</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Tipo documento</label>
+              <select class="form-select" id="nc-tipo">
+                <option value="RUC">RUC</option>
+                <option value="DNI" selected>DNI</option>
+                <option value="CE">Carné extranjería</option>
+                <option value="PASAPORTE">Pasaporte</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Número documento <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="nc-documento">
+                <button class="btn btn-outline-secondary" type="button" id="btn-nc-consultar" title="Consultar SUNAT/RENIEC">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Nombre / Razón social <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nc-razon">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="nc-telefono">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="nc-direccion">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btn-nc-guardar">Guardar y usar en la venta</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
@@ -188,10 +241,10 @@
     };
 
     const TIPOS_DOC_HINT = {
-      FACTURA: 'Documento oficial. Afecta stock y se envía a SUNAT. Requiere pago completo.',
-      BOLETA: 'Documento oficial. Afecta stock y se envía a SUNAT. Requiere pago completo.',
-      NOTA_VENTA: 'Documento interno. Afecta stock, pero no se envía a SUNAT. El pago es opcional.',
-      COTIZACION: 'Documento interno. No afecta stock ni requiere pago. Se puede canjear luego a Boleta/Factura.',
+      FACTURA: '',
+      BOLETA: '',
+      NOTA_VENTA: '',
+      COTIZACION: '',
     };
 
     let idPuntoVenta = null;
@@ -317,6 +370,51 @@
       if (!e.target.closest('#cliente-search') && !e.target.closest('#cliente-resultados')) {
         document.getElementById('cliente-resultados').style.display = 'none';
       }
+    });
+
+    // ==================== NUEVO CLIENTE (consulta SUNAT/RENIEC) ====================
+    const modalClienteNuevo = new bootstrap.Modal('#modal-cliente-nuevo');
+
+    document.getElementById('btn-cliente-nuevo').addEventListener('click', () => {
+      ['nc-documento', 'nc-razon', 'nc-telefono', 'nc-direccion'].forEach((id) => document.getElementById(id).value = '');
+      document.getElementById('nc-tipo').value = 'DNI';
+      modalClienteNuevo.show();
+      setTimeout(() => document.getElementById('nc-documento').focus(), 200);
+    });
+
+    document.getElementById('btn-nc-consultar').addEventListener('click', async () => {
+      const tipo = document.getElementById('nc-tipo').value;
+      const num = document.getElementById('nc-documento').value.trim();
+      if (!num) { toast('Ingrese el número de documento', 'warning'); return; }
+      if (tipo !== 'DNI' && tipo !== 'RUC') { toast('Solo se puede consultar DNI o RUC', 'warning'); return; }
+      try {
+        const res = await clientesApi.consultarDocumento(tipo.toLowerCase(), num);
+        const d = res.data || res;
+        document.getElementById('nc-razon').value = d.razon_social || d.nombre_completo || '';
+        document.getElementById('nc-direccion').value = d.direccion || '';
+        toast('Datos obtenidos correctamente', 'success');
+      } catch (err) { toastError(err); }
+    });
+
+    document.getElementById('btn-nc-guardar').addEventListener('click', async () => {
+      const dto = {
+        tipo_documento: document.getElementById('nc-tipo').value,
+        numero_documento: document.getElementById('nc-documento').value.trim(),
+        razon_social: document.getElementById('nc-razon').value.trim(),
+        telefono: document.getElementById('nc-telefono').value.trim() || undefined,
+        direccion: document.getElementById('nc-direccion').value.trim() || undefined,
+      };
+      if (!dto.numero_documento || !dto.razon_social) {
+        toast('Complete número de documento y nombre/razón social', 'warning');
+        return;
+      }
+      try {
+        const res = await clientesApi.crear(dto);
+        const nuevo = res.data || res;
+        seleccionarCliente(nuevo);
+        modalClienteNuevo.hide();
+        toast('Cliente creado y seleccionado', 'success');
+      } catch (err) { toastError(err); }
     });
 
     // ==================== PRODUCTOS (fila de entrada, 100% teclado) ====================
