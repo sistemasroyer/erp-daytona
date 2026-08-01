@@ -24,6 +24,7 @@ import { ProductosModule } from './modules/productos/productos.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { ComprasModule } from './modules/compras/compras.module';
+import { GastosModule } from './modules/gastos/gastos.module';
 import { OrdenesCompraModule } from './modules/ordenes-compra/ordenes-compra.module';
 import { CajaModule } from './modules/caja/caja.module';
 import { FacturacionModule } from './modules/facturacion/facturacion.module';
@@ -86,6 +87,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     InventarioModule,
     VentasModule,
     ComprasModule,
+    GastosModule,
     OrdenesCompraModule,
     CajaModule,
     FacturacionModule,

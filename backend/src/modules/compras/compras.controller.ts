@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ComprasService } from './compras.service';
 import { CompraXmlService } from './compra-xml.service';
-import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
+import { CreateCompraDto } from './dto/create-compra.dto';
 import { CreateNotaCreditoCompraDto } from './dto/create-nota-credito-compra.dto';
 import { ImportarXmlCompraDto } from './dto/importar-xml.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -59,13 +59,6 @@ export class ComprasController {
   @ApiOperation({ summary: 'Anular compra y revertir stock' })
   anular(@Param('id') id: string, @Body() body: { motivo: string }, @CurrentUser('sub') userId: string) {
     return this.service.anular(id, body.motivo, userId);
-  }
-
-  @Patch(':id/flete/pagar')
-  @Permisos('compras:editar')
-  @ApiOperation({ summary: 'Registrar el pago del flete de una compra' })
-  pagarFlete(@Param('id') id: string, @Body() dto: PagarFleteDto, @CurrentUser('sub') userId: string) {
-    return this.service.pagarFlete(id, dto, userId);
   }
 
   @Post(':id/nota-credito')

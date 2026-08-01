@@ -5,7 +5,7 @@ const COLORES_DEFAULT: Record<string, string> = {
   vigente: 'success', anulada: 'error', anulado: 'error', canjeada: 'blue',
   no_aplica: 'default', pendiente: 'warning', aceptado: 'success', rechazado: 'error',
   enviado: 'blue', borrador: 'default', aprobado: 'blue', convertido: 'success',
-  abierta: 'success', cerrada: 'default', activo: 'success', inactivo: 'default', registrada: 'success',
+  abierta: 'success', cerrada: 'default', activo: 'success', inactivo: 'default', registrada: 'success', registrado: 'success',
 };
 
 /** Equivalente a badgeEstado() de components/tabla.js: un Tag coloreado según el valor

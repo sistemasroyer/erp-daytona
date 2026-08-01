@@ -47,10 +47,6 @@ export interface Compra {
   flete_monto_pen: string;
   flete_tipo_prorrateo: TipoProrrateoFlete;
   id_proveedor_flete: string | null;
-  flete_pagado: boolean;
-  flete_fecha_pago: string | null;
-  flete_id_metodo_pago: string | null;
-  flete_referencia_pago: string | null;
   estado: EstadoCompra;
   observaciones: string | null;
   id_compra_original: string | null;
@@ -58,7 +54,6 @@ export interface Compra {
   codigo_motivo_nota: string | null;
   proveedor?: { razon_social: string; ruc: string };
   proveedor_flete?: { id: string; razon_social: string; ruc: string };
-  metodo_pago_flete?: { nombre: string };
   almacen?: { id: string; nombre: string };
   usuario?: { nombre: string; apellido: string };
   detalle?: DetalleCompra[];
@@ -103,12 +98,6 @@ export interface CreateCompraDto {
   id_proveedor_flete?: string;
   observaciones?: string;
   detalle: DetalleCompraDto[];
-}
-
-export interface PagarFleteDto {
-  id_metodo_pago: string;
-  referencia?: string;
-  id_caja_apertura?: string;
 }
 
 export interface DetalleImportadoXml {

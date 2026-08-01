@@ -3,7 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { ConfigMargenesService } from '../config-margenes/config-margenes.service';
-import { CreateCompraDto, PagarFleteDto } from './dto/create-compra.dto';
+import { CreateCompraDto } from './dto/create-compra.dto';
 import { CreateNotaCreditoCompraDto } from './dto/create-nota-credito-compra.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils/numero-documento.util';
@@ -274,7 +274,6 @@ export class ComprasService {
       include: {
         proveedor: true,
         proveedor_flete: { select: { id: true, razon_social: true, ruc: true } },
-        metodo_pago_flete: { select: { nombre: true } },
         almacen: { select: { id: true, nombre: true } },
         usuario: { select: { nombre: true, apellido: true } },
         detalle: { include: { producto: { select: { codigo: true, nombre: true, unidad_medida: { select: { simbolo: true } } } } } },
@@ -311,52 +310,6 @@ export class ComprasService {
       }
 
       return tx.tbl_compras.findFirst({ where: { id } });
-    });
-  }
-
-  async pagarFlete(id: string, dto: PagarFleteDto, usuarioId: string) {
-    const compra = await this.findOne(id);
-
-    if (Number(compra.flete_monto) <= 0) {
-      throw new BadRequestException('Esta compra no tiene flete registrado');
-    }
-    if (compra.flete_pagado) {
-      throw new BadRequestException('El flete de esta compra ya fue marcado como pagado');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.tbl_compras.update({
-        where: { id },
-        data: {
-          flete_pagado: true,
-          flete_fecha_pago: new Date(),
-          flete_id_metodo_pago: dto.id_metodo_pago,
-          flete_referencia_pago: dto.referencia,
-          usuario_modificacion: usuarioId,
-        },
-      });
-
-      if (dto.id_caja_apertura) {
-        await tx.tbl_movimientos_caja.create({
-          data: {
-            id_caja_apertura: dto.id_caja_apertura,
-            tipo: 'egreso',
-            concepto: `Pago de flete - Compra ${compra.numero_interno}`,
-            monto: compra.flete_monto_pen,
-            id_referencia: id,
-            tipo_referencia: 'flete_compra',
-            id_usuario: usuarioId,
-          },
-        });
-      }
-
-      return tx.tbl_compras.findFirst({
-        where: { id },
-        include: {
-          proveedor_flete: { select: { razon_social: true, ruc: true } },
-          metodo_pago_flete: { select: { nombre: true } },
-        },
-      });
     });
   }
 

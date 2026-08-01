@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography, Select, Input } from 'antd';
-import { FileExcelOutlined, CloseCircleOutlined, CarOutlined } from '@ant-design/icons';
+import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography } from 'antd';
+import { FileExcelOutlined, CloseCircleOutlined, CarOutlined, FileAddOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { comprasApi } from '@/api/compras';
-import { metodosPagoApi } from '@/api/metodos-pago';
 import { ApiError } from '@/api/types';
 import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
-import type { Compra, DetalleCompra } from '@/types/compra';
+import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
+import type { DetalleCompra } from '@/types/compra';
 
 interface Props {
   id: string | null;
@@ -22,7 +22,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   const { confirmar } = useConfirmar();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [modalFlete, setModalFlete] = useState(false);
+  const [modalGastoFlete, setModalGastoFlete] = useState(false);
 
   const { data, isFetching } = useQuery({
     queryKey: ['compra', id],
@@ -75,7 +75,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   }
 
   const puedeAnular = compra.estado === 'registrada';
-  const puedePagarFlete = compra.estado === 'registrada' && Number(compra.flete_monto) > 0 && !compra.flete_pagado;
+  const tieneFlete = Number(compra.flete_monto) > 0;
   const puedeNotaCredito = compra.estado === 'registrada' && compra.tipo_documento !== 'nota_credito';
   const numero = compra.serie ? `${compra.serie}-${compra.numero}` : compra.numero;
 
@@ -88,7 +88,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         width={950}
         footer={
           <Space wrap>
-            {puedePagarFlete && <Button icon={<CarOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalFlete(true)}>Registrar pago de flete</Button>}
+            {tieneFlete && <Button icon={<FileAddOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalGastoFlete(true)}>Registrar factura de flete</Button>}
             {puedeNotaCredito && <Button style={{ background: '#faad14', borderColor: '#faad14', color: '#fff' }} icon={<FileExcelOutlined />} onClick={() => navigate(`/compras/nueva-nota-credito?compra=${compra.id}`)}>Nota de Crédito</Button>}
             {puedeAnular && <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>}
           </Space>
@@ -129,7 +129,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           )}
         />
 
-        {Number(compra.flete_monto) > 0 && (
+        {tieneFlete && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', borderRadius: 8, padding: 12, marginTop: 12 }}>
             <div>
               <Typography.Text strong><CarOutlined /> Flete (gasto aparte, no incluido en el total de arriba)</Typography.Text>
@@ -138,14 +138,9 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
                 {compra.proveedor_flete ? ` · Transportista: ${compra.proveedor_flete.razon_social}` : ''}
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              {compra.flete_pagado ? (
-                <>
-                  <Typography.Text type="success" strong>Pagado{compra.metodo_pago_flete ? ` (${compra.metodo_pago_flete.nombre})` : ''}</Typography.Text>
-                  {compra.flete_fecha_pago && <div style={{ fontSize: 12, color: '#8c8c8c' }}>{new Date(compra.flete_fecha_pago).toLocaleDateString('es-PE')}</div>}
-                </>
-              ) : <Typography.Text type="warning" strong>Pendiente de pago</Typography.Text>}
-            </div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Registra la factura real del flete y su pago en "Registrar factura de flete" (queda como un Gasto vinculado a esta compra).
+            </Typography.Text>
           </div>
         )}
 
@@ -157,61 +152,20 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered />
       </Modal>
 
-      <PagarFleteModal open={modalFlete} compra={compra} onClose={() => setModalFlete(false)} onPagado={() => { setModalFlete(false); recargar(); }} />
+      <GastoFormModal
+        open={modalGastoFlete}
+        inicial={{
+          categoria: 'flete',
+          compra: { id: compra.id, label: numero || compra.numero_interno },
+          proveedor: compra.proveedor_flete
+            ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true }
+            : undefined,
+          monto: Number(compra.flete_monto),
+          moneda: compra.flete_moneda,
+        }}
+        onClose={() => setModalGastoFlete(false)}
+        onSaved={() => { setModalGastoFlete(false); message.success('Factura de flete registrada como Gasto'); }}
+      />
     </>
-  );
-}
-
-function PagarFleteModal({ open, compra, onClose, onPagado }: { open: boolean; compra: Compra | undefined; onClose: () => void; onPagado: () => void }) {
-  const { message } = App.useApp();
-  const [idMetodoPago, setIdMetodoPago] = useState<string | undefined>(undefined);
-  const [referencia, setReferencia] = useState('');
-  const [enviando, setEnviando] = useState(false);
-
-  const { data: metodosData } = useQuery({ queryKey: ['metodos-pago'], queryFn: metodosPagoApi.listar, enabled: open });
-
-  const confirmarPago = async () => {
-    if (!compra) return;
-    if (!idMetodoPago) { message.warning('Seleccione un método de pago'); return; }
-    setEnviando(true);
-    try {
-      await comprasApi.pagarFlete(compra.id, { id_metodo_pago: idMetodoPago, referencia: referencia.trim() || undefined });
-      message.success('Pago de flete registrado');
-      setIdMetodoPago(undefined);
-      setReferencia('');
-      onPagado();
-    } catch (err) {
-      message.error(err instanceof ApiError ? err.message : 'Error al registrar el pago de flete');
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  if (!compra) return null;
-
-  return (
-    <Modal
-      title={<><CarOutlined /> Registrar pago de flete</>}
-      open={open}
-      onCancel={onClose}
-      onOk={confirmarPago}
-      confirmLoading={enviando}
-      okText="Confirmar Pago"
-      cancelText="Cancelar"
-      destroyOnHidden
-    >
-      <Alert
-        type="info" showIcon style={{ marginBottom: 16 }}
-        title={<>Flete de <strong>{formatMoneda(compra.flete_monto, compra.flete_moneda)}</strong>{compra.proveedor_flete ? <> a <strong>{compra.proveedor_flete.razon_social}</strong></> : null} — Compra {compra.serie ? `${compra.serie}-${compra.numero}` : compra.numero}</>}
-      />
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Método de pago *</Typography.Text>
-      <Select
-        value={idMetodoPago} onChange={setIdMetodoPago} style={{ width: '100%', marginBottom: 12 }}
-        placeholder="Seleccione"
-        options={(metodosData?.data || []).map((m) => ({ value: m.id, label: m.nombre }))}
-      />
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Referencia (opcional)</Typography.Text>
-      <Input value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="N° operación, voucher, etc." />
-    </Modal>
   );
 }

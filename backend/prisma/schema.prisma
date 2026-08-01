@@ -114,6 +114,22 @@ enum CondicionPago {
   credito
 }
 
+enum CategoriaGasto {
+  flete
+  alquiler
+  servicios
+  comida_viaticos
+  honorarios
+  utiles_oficina
+  mantenimiento
+  otros
+}
+
+enum EstadoGasto {
+  registrado
+  anulado
+}
+
 enum EstadoCaja {
   abierta
   cerrada
@@ -195,10 +211,11 @@ model tbl_puntos_venta {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  empresa         tbl_empresas          @relation(fields: [id_empresa], references: [id])
-  series          tbl_series_documento[]
-  cajas           tbl_cajas[]
-  usuarios        tbl_usuarios[]
+  empresa  tbl_empresas           @relation(fields: [id_empresa], references: [id])
+  series   tbl_series_documento[]
+  cajas    tbl_cajas[]
+  usuarios tbl_usuarios[]
+  gastos   tbl_gastos[]
 
   @@index([id_empresa])
   @@map("tbl_puntos_venta")
@@ -239,8 +256,8 @@ model tbl_roles {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  permisos  tbl_roles_permisos[]
-  usuarios  tbl_usuarios_roles[]
+  permisos tbl_roles_permisos[]
+  usuarios tbl_usuarios_roles[]
 
   @@map("tbl_roles")
 }
@@ -305,17 +322,18 @@ model tbl_usuarios {
   usuario_creacion     String?   @db.VarChar(36)
   usuario_modificacion String?   @db.VarChar(36)
 
-  punto_venta  tbl_puntos_venta?   @relation(fields: [id_punto_venta], references: [id])
+  punto_venta  tbl_puntos_venta?      @relation(fields: [id_punto_venta], references: [id])
   roles        tbl_usuarios_roles[]
   dispositivos tbl_dispositivos[]
   logs_acceso  tbl_logs_acceso[]
   ventas       tbl_ventas[]
   compras      tbl_compras[]
-  ordenes      tbl_ordenes_compra[] @relation("solicitante")
-  aprobaciones tbl_ordenes_compra[] @relation("aprobador")
+  ordenes      tbl_ordenes_compra[]   @relation("solicitante")
+  aprobaciones tbl_ordenes_compra[]   @relation("aprobador")
   cajas        tbl_cajas_aperturas[]
   mov_caja     tbl_movimientos_caja[]
   auditoria    tbl_auditoria[]
+  gastos       tbl_gastos[]
 
   @@index([email])
   @@index([id_punto_venta])
@@ -366,15 +384,15 @@ model tbl_dispositivos {
 }
 
 model tbl_logs_acceso {
-  id          String   @id @default(uuid())
-  id_usuario  String?
-  email       String?  @db.VarChar(150)
-  ip          String   @db.VarChar(45)
-  accion      String   @db.VarChar(100)
-  resultado   String   @db.VarChar(20)
-  detalle     String?  @db.VarChar(500)
-  user_agent  String?  @db.VarChar(500)
-  fecha       DateTime @default(now())
+  id         String   @id @default(uuid())
+  id_usuario String?
+  email      String?  @db.VarChar(150)
+  ip         String   @db.VarChar(45)
+  accion     String   @db.VarChar(100)
+  resultado  String   @db.VarChar(20)
+  detalle    String?  @db.VarChar(500)
+  user_agent String?  @db.VarChar(500)
+  fecha      DateTime @default(now())
 
   usuario tbl_usuarios? @relation(fields: [id_usuario], references: [id])
 
@@ -436,7 +454,7 @@ model tbl_subcategorias {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  categoria tbl_categorias @relation(fields: [id_categoria], references: [id])
+  categoria tbl_categorias  @relation(fields: [id_categoria], references: [id])
   productos tbl_productos[]
 
   @@unique([id_categoria, nombre])
@@ -491,9 +509,9 @@ model tbl_almacenes {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  empresa           tbl_empresas             @relation(fields: [id_empresa], references: [id])
-  inventarios       tbl_inventario[]
-  compras           tbl_compras[]
+  empresa            tbl_empresas             @relation(fields: [id_empresa], references: [id])
+  inventarios        tbl_inventario[]
+  compras            tbl_compras[]
   ajustes_inventario tbl_ajustes_inventario[]
 
   @@index([id_empresa])
@@ -532,33 +550,34 @@ model tbl_clientes {
 }
 
 model tbl_proveedores {
-  id                   String   @id @default(uuid())
-  ruc                  String   @unique @db.VarChar(11)
-  razon_social         String   @db.VarChar(250)
-  nombre_comercial     String?  @db.VarChar(250)
-  direccion            String?  @db.VarChar(500)
-  ubigeo               String?  @db.VarChar(6)
-  departamento         String?  @db.VarChar(100)
-  provincia            String?  @db.VarChar(100)
-  distrito             String?  @db.VarChar(100)
-  email                String?  @db.VarChar(150)
-  telefono             String?  @db.VarChar(20)
-  contacto             String?  @db.VarChar(150)
-  cuenta_detraccion    String?  @db.VarChar(50)
-  banco_detraccion     String?  @db.VarChar(100)
+  id                    String   @id @default(uuid())
+  ruc                   String   @unique @db.VarChar(11)
+  razon_social          String   @db.VarChar(250)
+  nombre_comercial      String?  @db.VarChar(250)
+  direccion             String?  @db.VarChar(500)
+  ubigeo                String?  @db.VarChar(6)
+  departamento          String?  @db.VarChar(100)
+  provincia             String?  @db.VarChar(100)
+  distrito              String?  @db.VarChar(100)
+  email                 String?  @db.VarChar(150)
+  telefono              String?  @db.VarChar(20)
+  contacto              String?  @db.VarChar(150)
+  cuenta_detraccion     String?  @db.VarChar(50)
+  banco_detraccion      String?  @db.VarChar(100)
   porcentaje_detraccion Decimal? @db.Decimal(5, 2)
-  dias_credito         Int      @default(0)
-  estado               Boolean  @default(true)
-  eliminado            Boolean  @default(false)
-  fecha_creacion       DateTime @default(now())
-  fecha_modificacion   DateTime @updatedAt
-  usuario_creacion     String?  @db.VarChar(36)
-  usuario_modificacion String?  @db.VarChar(36)
+  dias_credito          Int      @default(0)
+  estado                Boolean  @default(true)
+  eliminado             Boolean  @default(false)
+  fecha_creacion        DateTime @default(now())
+  fecha_modificacion    DateTime @updatedAt
+  usuario_creacion      String?  @db.VarChar(36)
+  usuario_modificacion  String?  @db.VarChar(36)
 
-  compras tbl_compras[]
-  compras_flete tbl_compras[] @relation("FleteProveedor")
-  ordenes tbl_ordenes_compra[]
+  compras          tbl_compras[]
+  compras_flete    tbl_compras[]                    @relation("FleteProveedor")
+  ordenes          tbl_ordenes_compra[]
   codigos_producto tbl_producto_codigos_proveedor[]
+  gastos           tbl_gastos[]
 
   @@index([ruc])
   @@index([razon_social])
@@ -582,53 +601,53 @@ model tbl_producto_codigos_proveedor {
 }
 
 model tbl_productos {
-  id                    String   @id @default(uuid())
-  codigo                String   @unique @db.VarChar(50)
-  codigo_barras         String?  @db.VarChar(50)
-  codigo_sunat          String?  @db.VarChar(20)
-  nombre                String   @db.VarChar(250)
-  descripcion           String?  @db.Text
+  id                    String    @id @default(uuid())
+  codigo                String    @unique @db.VarChar(50)
+  codigo_barras         String?   @db.VarChar(50)
+  codigo_sunat          String?   @db.VarChar(20)
+  nombre                String    @db.VarChar(250)
+  descripcion           String?   @db.Text
   id_categoria          String?
   id_subcategoria       String?
   id_marca              String?
   id_unidad_medida      String
-  ubicacion             String?  @db.VarChar(100)
-  tipo_existencia       String?  @db.VarChar(10)
-  afecta_igv            Boolean  @default(true)
-  tiene_serie           Boolean  @default(false)
-  tiene_lote            Boolean  @default(false)
-  stock_actual          Decimal  @default(0) @db.Decimal(12, 4)
-  stock_minimo          Decimal  @default(0) @db.Decimal(12, 4)
-  stock_maximo          Decimal  @default(0) @db.Decimal(12, 4)
-  precio_compra_sin_igv Decimal  @default(0) @db.Decimal(12, 4)
-  precio_compra_con_igv Decimal  @default(0) @db.Decimal(12, 4)
-  precio_venta_1        Decimal  @default(0) @db.Decimal(12, 4)
-  precio_venta_2        Decimal  @default(0) @db.Decimal(12, 4)
-  precio_venta_3        Decimal  @default(0) @db.Decimal(12, 4)
-  precio_venta_4        Decimal  @default(0) @db.Decimal(12, 4)
-  precio_venta_5        Decimal  @default(0) @db.Decimal(12, 4)
-  costo_promedio        Decimal  @default(0) @db.Decimal(12, 4)
+  ubicacion             String?   @db.VarChar(100)
+  tipo_existencia       String?   @db.VarChar(10)
+  afecta_igv            Boolean   @default(true)
+  tiene_serie           Boolean   @default(false)
+  tiene_lote            Boolean   @default(false)
+  stock_actual          Decimal   @default(0) @db.Decimal(12, 4)
+  stock_minimo          Decimal   @default(0) @db.Decimal(12, 4)
+  stock_maximo          Decimal   @default(0) @db.Decimal(12, 4)
+  precio_compra_sin_igv Decimal   @default(0) @db.Decimal(12, 4)
+  precio_compra_con_igv Decimal   @default(0) @db.Decimal(12, 4)
+  precio_venta_1        Decimal   @default(0) @db.Decimal(12, 4)
+  precio_venta_2        Decimal   @default(0) @db.Decimal(12, 4)
+  precio_venta_3        Decimal   @default(0) @db.Decimal(12, 4)
+  precio_venta_4        Decimal   @default(0) @db.Decimal(12, 4)
+  precio_venta_5        Decimal   @default(0) @db.Decimal(12, 4)
+  costo_promedio        Decimal   @default(0) @db.Decimal(12, 4)
   fecha_ultima_compra   DateTime?
-  version               Int      @default(0)
-  imagen_path           String?  @db.VarChar(500)
-  estado               Boolean  @default(true)
-  eliminado            Boolean  @default(false)
-  fecha_creacion       DateTime @default(now())
-  fecha_modificacion   DateTime @updatedAt
-  usuario_creacion     String?  @db.VarChar(36)
-  usuario_modificacion String?  @db.VarChar(36)
+  version               Int       @default(0)
+  imagen_path           String?   @db.VarChar(500)
+  estado                Boolean   @default(true)
+  eliminado             Boolean   @default(false)
+  fecha_creacion        DateTime  @default(now())
+  fecha_modificacion    DateTime  @updatedAt
+  usuario_creacion      String?   @db.VarChar(36)
+  usuario_modificacion  String?   @db.VarChar(36)
 
-  categoria        tbl_categorias?     @relation(fields: [id_categoria], references: [id])
-  subcategoria     tbl_subcategorias?  @relation(fields: [id_subcategoria], references: [id])
-  marca            tbl_marcas?         @relation(fields: [id_marca], references: [id])
-  unidad_medida    tbl_unidades_medida @relation(fields: [id_unidad_medida], references: [id])
-  inventarios      tbl_inventario[]
-  movimientos      tbl_movimientos_inventario[]
-  kardex           tbl_kardex[]
-  detalle_ventas   tbl_detalle_ventas[]
-  detalle_compras  tbl_detalle_compras[]
-  detalle_ordenes  tbl_detalle_ordenes_compra[]
-  codigos_proveedor tbl_producto_codigos_proveedor[]
+  categoria                  tbl_categorias?                  @relation(fields: [id_categoria], references: [id])
+  subcategoria               tbl_subcategorias?               @relation(fields: [id_subcategoria], references: [id])
+  marca                      tbl_marcas?                      @relation(fields: [id_marca], references: [id])
+  unidad_medida              tbl_unidades_medida              @relation(fields: [id_unidad_medida], references: [id])
+  inventarios                tbl_inventario[]
+  movimientos                tbl_movimientos_inventario[]
+  kardex                     tbl_kardex[]
+  detalle_ventas             tbl_detalle_ventas[]
+  detalle_compras            tbl_detalle_compras[]
+  detalle_ordenes            tbl_detalle_ordenes_compra[]
+  codigos_proveedor          tbl_producto_codigos_proveedor[]
   detalle_ajustes_inventario tbl_detalle_ajustes_inventario[]
 
   @@index([codigo])
@@ -655,8 +674,8 @@ model tbl_inventario {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  producto  tbl_productos  @relation(fields: [id_producto], references: [id])
-  almacen   tbl_almacenes  @relation(fields: [id_almacen], references: [id])
+  producto tbl_productos @relation(fields: [id_producto], references: [id])
+  almacen  tbl_almacenes @relation(fields: [id_almacen], references: [id])
 
   @@unique([id_producto, id_almacen])
   @@index([id_producto])
@@ -665,19 +684,19 @@ model tbl_inventario {
 }
 
 model tbl_movimientos_inventario {
-  id               String                   @id @default(uuid())
-  id_producto      String
-  id_almacen       String
-  tipo             TipoMovimientoInventario
-  motivo           String?                  @db.VarChar(300)
-  cantidad         Decimal                  @db.Decimal(12, 4)
-  stock_antes      Decimal                  @db.Decimal(12, 4)
-  stock_despues    Decimal                  @db.Decimal(12, 4)
-  costo_unitario   Decimal                  @default(0) @db.Decimal(12, 4)
-  id_referencia    String?                  @db.VarChar(36)
-  tipo_referencia  TipoReferenciaMovimiento?
-  id_usuario       String?                  @db.VarChar(36)
-  fecha            DateTime                 @default(now())
+  id              String                    @id @default(uuid())
+  id_producto     String
+  id_almacen      String
+  tipo            TipoMovimientoInventario
+  motivo          String?                   @db.VarChar(300)
+  cantidad        Decimal                   @db.Decimal(12, 4)
+  stock_antes     Decimal                   @db.Decimal(12, 4)
+  stock_despues   Decimal                   @db.Decimal(12, 4)
+  costo_unitario  Decimal                   @default(0) @db.Decimal(12, 4)
+  id_referencia   String?                   @db.VarChar(36)
+  tipo_referencia TipoReferenciaMovimiento?
+  id_usuario      String?                   @db.VarChar(36)
+  fecha           DateTime                  @default(now())
 
   producto tbl_productos @relation(fields: [id_producto], references: [id])
   kardex   tbl_kardex[]
@@ -690,22 +709,22 @@ model tbl_movimientos_inventario {
 }
 
 model tbl_kardex {
-  id                String          @id @default(uuid())
-  id_producto       String
-  id_almacen        String
-  id_movimiento     String
-  fecha             DateTime
-  tipo_movimiento   String          @db.VarChar(50)
-  cantidad_entrada  Decimal         @default(0) @db.Decimal(12, 4)
-  cantidad_salida   Decimal         @default(0) @db.Decimal(12, 4)
-  costo_unitario    Decimal         @default(0) @db.Decimal(12, 4)
-  costo_total       Decimal         @default(0) @db.Decimal(12, 4)
-  stock_resultante  Decimal         @db.Decimal(12, 4)
-  metodo_valuacion  MetodoValuacion @default(promedio)
-  id_referencia     String?         @db.VarChar(36)
-  tipo_referencia   String?         @db.VarChar(50)
-  descripcion       String?         @db.VarChar(300)
-  fecha_creacion    DateTime        @default(now())
+  id               String          @id @default(uuid())
+  id_producto      String
+  id_almacen       String
+  id_movimiento    String
+  fecha            DateTime
+  tipo_movimiento  String          @db.VarChar(50)
+  cantidad_entrada Decimal         @default(0) @db.Decimal(12, 4)
+  cantidad_salida  Decimal         @default(0) @db.Decimal(12, 4)
+  costo_unitario   Decimal         @default(0) @db.Decimal(12, 4)
+  costo_total      Decimal         @default(0) @db.Decimal(12, 4)
+  stock_resultante Decimal         @db.Decimal(12, 4)
+  metodo_valuacion MetodoValuacion @default(promedio)
+  id_referencia    String?         @db.VarChar(36)
+  tipo_referencia  String?         @db.VarChar(50)
+  descripcion      String?         @db.VarChar(300)
+  fecha_creacion   DateTime        @default(now())
 
   producto   tbl_productos              @relation(fields: [id_producto], references: [id])
   movimiento tbl_movimientos_inventario @relation(fields: [id_movimiento], references: [id])
@@ -736,7 +755,7 @@ model tbl_ajustes_inventario {
   usuario_creacion     String?                @db.VarChar(36)
   usuario_modificacion String?                @db.VarChar(36)
 
-  almacen tbl_almacenes                     @relation(fields: [id_almacen], references: [id])
+  almacen tbl_almacenes                    @relation(fields: [id_almacen], references: [id])
   detalle tbl_detalle_ajustes_inventario[]
 
   @@index([id_almacen])
@@ -777,8 +796,8 @@ model tbl_metodos_pago {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  pagos tbl_pagos[]
-  compras_flete tbl_compras[]
+  pagos  tbl_pagos[]
+  gastos tbl_gastos[]
 
   @@map("tbl_metodos_pago")
 }
@@ -863,12 +882,12 @@ model tbl_detalle_ventas {
 }
 
 model tbl_pagos {
-  id              String   @id @default(uuid())
-  id_venta        String
-  id_metodo_pago  String
-  monto           Decimal  @db.Decimal(12, 2)
-  referencia      String?  @db.VarChar(100)
-  fecha           DateTime @default(now())
+  id             String   @id @default(uuid())
+  id_venta       String
+  id_metodo_pago String
+  monto          Decimal  @db.Decimal(12, 2)
+  referencia     String?  @db.VarChar(100)
+  fecha          DateTime @default(now())
 
   venta       tbl_ventas       @relation(fields: [id_venta], references: [id])
   metodo_pago tbl_metodos_pago @relation(fields: [id_metodo_pago], references: [id])
@@ -882,51 +901,46 @@ model tbl_pagos {
 // ============================================================
 
 model tbl_compras {
-  id                     String             @id @default(uuid())
-  numero_interno         String             @unique @db.VarChar(20)
-  tipo_documento         String             @db.VarChar(30)
-  serie                  String?            @db.VarChar(4)
-  numero                 String?            @db.VarChar(10)
-  id_proveedor           String
-  id_almacen             String
-  id_usuario             String
-  id_orden_compra        String?            @db.VarChar(36)
-  fecha_emision          DateTime
-  fecha_vencimiento      DateTime?
-  condicion_pago         CondicionPago      @default(contado)
-  moneda                 Moneda             @default(PEN)
-  tipo_cambio            Decimal            @default(1) @db.Decimal(10, 4)
-  subtotal               Decimal            @db.Decimal(12, 2)
-  igv                    Decimal            @db.Decimal(12, 2)
-  total                  Decimal            @db.Decimal(12, 2)
-  flete_monto            Decimal            @default(0) @db.Decimal(12, 2)
-  flete_moneda           Moneda             @default(PEN)
-  flete_tipo_cambio      Decimal            @default(1) @db.Decimal(10, 4)
-  flete_monto_pen        Decimal            @default(0) @db.Decimal(12, 2)
-  flete_tipo_prorrateo   TipoProrrateoFlete @default(precio)
-  id_proveedor_flete     String?
-  flete_pagado           Boolean            @default(false)
-  flete_fecha_pago       DateTime?
-  flete_id_metodo_pago   String?
-  flete_referencia_pago  String?            @db.VarChar(100)
-  estado                 EstadoCompra       @default(borrador)
-  observaciones          String?            @db.VarChar(500)
-  id_compra_original     String?            @db.VarChar(36)
-  motivo_nota            String?            @db.VarChar(300)
-  codigo_motivo_nota     String?            @db.VarChar(5)
-  estado_registro        Boolean            @default(true)
-  eliminado              Boolean            @default(false)
-  fecha_creacion         DateTime           @default(now())
-  fecha_modificacion     DateTime           @updatedAt
-  usuario_creacion       String?            @db.VarChar(36)
-  usuario_modificacion   String?            @db.VarChar(36)
+  id                   String             @id @default(uuid())
+  numero_interno       String             @unique @db.VarChar(20)
+  tipo_documento       String             @db.VarChar(30)
+  serie                String?            @db.VarChar(4)
+  numero               String?            @db.VarChar(10)
+  id_proveedor         String
+  id_almacen           String
+  id_usuario           String
+  id_orden_compra      String?            @db.VarChar(36)
+  fecha_emision        DateTime
+  fecha_vencimiento    DateTime?
+  condicion_pago       CondicionPago      @default(contado)
+  moneda               Moneda             @default(PEN)
+  tipo_cambio          Decimal            @default(1) @db.Decimal(10, 4)
+  subtotal             Decimal            @db.Decimal(12, 2)
+  igv                  Decimal            @db.Decimal(12, 2)
+  total                Decimal            @db.Decimal(12, 2)
+  flete_monto          Decimal            @default(0) @db.Decimal(12, 2)
+  flete_moneda         Moneda             @default(PEN)
+  flete_tipo_cambio    Decimal            @default(1) @db.Decimal(10, 4)
+  flete_monto_pen      Decimal            @default(0) @db.Decimal(12, 2)
+  flete_tipo_prorrateo TipoProrrateoFlete @default(precio)
+  id_proveedor_flete   String?
+  estado               EstadoCompra       @default(borrador)
+  observaciones        String?            @db.VarChar(500)
+  id_compra_original   String?            @db.VarChar(36)
+  motivo_nota          String?            @db.VarChar(300)
+  codigo_motivo_nota   String?            @db.VarChar(5)
+  estado_registro      Boolean            @default(true)
+  eliminado            Boolean            @default(false)
+  fecha_creacion       DateTime           @default(now())
+  fecha_modificacion   DateTime           @updatedAt
+  usuario_creacion     String?            @db.VarChar(36)
+  usuario_modificacion String?            @db.VarChar(36)
 
-  proveedor         tbl_proveedores      @relation(fields: [id_proveedor], references: [id])
-  proveedor_flete   tbl_proveedores?     @relation("FleteProveedor", fields: [id_proveedor_flete], references: [id])
-  metodo_pago_flete tbl_metodos_pago?    @relation(fields: [flete_id_metodo_pago], references: [id])
-  almacen   tbl_almacenes        @relation(fields: [id_almacen], references: [id])
-  usuario   tbl_usuarios         @relation(fields: [id_usuario], references: [id])
-  detalle   tbl_detalle_compras[]
+  proveedor       tbl_proveedores       @relation(fields: [id_proveedor], references: [id])
+  proveedor_flete tbl_proveedores?      @relation("FleteProveedor", fields: [id_proveedor_flete], references: [id])
+  almacen         tbl_almacenes         @relation(fields: [id_almacen], references: [id])
+  usuario         tbl_usuarios          @relation(fields: [id_usuario], references: [id])
+  detalle         tbl_detalle_compras[]
 
   @@index([id_proveedor])
   @@index([id_proveedor_flete])
@@ -936,20 +950,20 @@ model tbl_compras {
 }
 
 model tbl_detalle_compras {
-  id                        String  @id @default(uuid())
-  id_compra                 String
-  id_producto               String
-  descripcion               String? @db.VarChar(300)
-  cantidad                  Decimal @db.Decimal(12, 4)
-  importe_linea             Decimal @default(0) @db.Decimal(12, 4)
-  precio_unitario           Decimal @db.Decimal(12, 4)
-  precio_unitario_pen       Decimal @db.Decimal(12, 4)
-  costo_flete_prorrateado   Decimal @default(0) @db.Decimal(12, 4)
-  costo_unitario_total      Decimal @db.Decimal(12, 4)
-  subtotal                  Decimal @db.Decimal(12, 2)
-  igv                       Decimal @db.Decimal(12, 2)
-  total                     Decimal @db.Decimal(12, 2)
-  afecta_igv                Boolean @default(true)
+  id                      String  @id @default(uuid())
+  id_compra               String
+  id_producto             String
+  descripcion             String? @db.VarChar(300)
+  cantidad                Decimal @db.Decimal(12, 4)
+  importe_linea           Decimal @default(0) @db.Decimal(12, 4)
+  precio_unitario         Decimal @db.Decimal(12, 4)
+  precio_unitario_pen     Decimal @db.Decimal(12, 4)
+  costo_flete_prorrateado Decimal @default(0) @db.Decimal(12, 4)
+  costo_unitario_total    Decimal @db.Decimal(12, 4)
+  subtotal                Decimal @db.Decimal(12, 2)
+  igv                     Decimal @db.Decimal(12, 2)
+  total                   Decimal @db.Decimal(12, 2)
+  afecta_igv              Boolean @default(true)
 
   compra   tbl_compras   @relation(fields: [id_compra], references: [id])
   producto tbl_productos @relation(fields: [id_producto], references: [id])
@@ -960,34 +974,87 @@ model tbl_detalle_compras {
 }
 
 // ============================================================
+// GASTOS
+// ============================================================
+
+model tbl_gastos {
+  id                    String         @id @default(uuid())
+  numero_interno        String         @unique @db.VarChar(20)
+  categoria             CategoriaGasto
+  tipo_documento        String         @db.VarChar(30)
+  serie                 String?        @db.VarChar(4)
+  numero                String?        @db.VarChar(10)
+  ruc_emisor            String?        @db.VarChar(11)
+  razon_social_emisor   String         @db.VarChar(200)
+  id_proveedor          String?
+  id_compra_relacionada String?        @db.VarChar(36)
+  id_punto_venta        String?
+  id_usuario            String
+  fecha_emision         DateTime
+  condicion_pago        CondicionPago  @default(contado)
+  fecha_vencimiento     DateTime?
+  moneda                Moneda         @default(PEN)
+  tipo_cambio           Decimal        @default(1) @db.Decimal(10, 4)
+  afecta_igv            Boolean        @default(true)
+  subtotal              Decimal        @db.Decimal(12, 2)
+  igv                   Decimal        @db.Decimal(12, 2)
+  total                 Decimal        @db.Decimal(12, 2)
+  total_pen             Decimal        @default(0) @db.Decimal(12, 2)
+  pagado                Boolean        @default(false)
+  fecha_pago            DateTime?
+  id_metodo_pago        String?
+  referencia_pago       String?        @db.VarChar(100)
+  estado                EstadoGasto    @default(registrado)
+  observaciones         String?        @db.VarChar(500)
+  estado_registro       Boolean        @default(true)
+  eliminado             Boolean        @default(false)
+  fecha_creacion        DateTime       @default(now())
+  fecha_modificacion    DateTime       @updatedAt
+  usuario_creacion      String?        @db.VarChar(36)
+  usuario_modificacion  String?        @db.VarChar(36)
+
+  proveedor   tbl_proveedores?  @relation(fields: [id_proveedor], references: [id])
+  punto_venta tbl_puntos_venta? @relation(fields: [id_punto_venta], references: [id])
+  usuario     tbl_usuarios      @relation(fields: [id_usuario], references: [id])
+  metodo_pago tbl_metodos_pago? @relation(fields: [id_metodo_pago], references: [id])
+
+  @@index([id_proveedor])
+  @@index([id_punto_venta])
+  @@index([fecha_emision])
+  @@index([categoria])
+  @@index([estado])
+  @@map("tbl_gastos")
+}
+
+// ============================================================
 // ÓRDENES DE COMPRA
 // ============================================================
 
 model tbl_ordenes_compra {
-  id                   String            @id @default(uuid())
-  numero               String            @unique @db.VarChar(20)
-  id_proveedor         String
+  id                     String            @id @default(uuid())
+  numero                 String            @unique @db.VarChar(20)
+  id_proveedor           String
   id_usuario_solicitante String
-  id_usuario_aprobador String?
-  fecha_solicitud      DateTime          @default(now())
-  fecha_aprobacion     DateTime?
-  fecha_requerida      DateTime?
-  moneda               Moneda            @default(PEN)
-  total_estimado       Decimal           @default(0) @db.Decimal(12, 2)
-  estado               EstadoOrdenCompra @default(borrador)
-  observaciones        String?           @db.VarChar(500)
-  id_compra_generada   String?           @db.VarChar(36)
-  estado_registro      Boolean           @default(true)
-  eliminado            Boolean           @default(false)
-  fecha_creacion       DateTime          @default(now())
-  fecha_modificacion   DateTime          @updatedAt
-  usuario_creacion     String?           @db.VarChar(36)
-  usuario_modificacion String?           @db.VarChar(36)
+  id_usuario_aprobador   String?
+  fecha_solicitud        DateTime          @default(now())
+  fecha_aprobacion       DateTime?
+  fecha_requerida        DateTime?
+  moneda                 Moneda            @default(PEN)
+  total_estimado         Decimal           @default(0) @db.Decimal(12, 2)
+  estado                 EstadoOrdenCompra @default(borrador)
+  observaciones          String?           @db.VarChar(500)
+  id_compra_generada     String?           @db.VarChar(36)
+  estado_registro        Boolean           @default(true)
+  eliminado              Boolean           @default(false)
+  fecha_creacion         DateTime          @default(now())
+  fecha_modificacion     DateTime          @updatedAt
+  usuario_creacion       String?           @db.VarChar(36)
+  usuario_modificacion   String?           @db.VarChar(36)
 
-  proveedor  tbl_proveedores            @relation(fields: [id_proveedor], references: [id])
-  solicitante tbl_usuarios              @relation("solicitante", fields: [id_usuario_solicitante], references: [id])
-  aprobador   tbl_usuarios?             @relation("aprobador", fields: [id_usuario_aprobador], references: [id])
-  detalle    tbl_detalle_ordenes_compra[]
+  proveedor   tbl_proveedores              @relation(fields: [id_proveedor], references: [id])
+  solicitante tbl_usuarios                 @relation("solicitante", fields: [id_usuario_solicitante], references: [id])
+  aprobador   tbl_usuarios?                @relation("aprobador", fields: [id_usuario_aprobador], references: [id])
+  detalle     tbl_detalle_ordenes_compra[]
 
   @@index([id_proveedor])
   @@index([estado])
@@ -995,13 +1062,13 @@ model tbl_ordenes_compra {
 }
 
 model tbl_detalle_ordenes_compra {
-  id                String  @id @default(uuid())
-  id_orden          String
-  id_producto       String
-  descripcion       String? @db.VarChar(300)
-  cantidad          Decimal @db.Decimal(12, 4)
+  id                 String  @id @default(uuid())
+  id_orden           String
+  id_producto        String
+  descripcion        String? @db.VarChar(300)
+  cantidad           Decimal @db.Decimal(12, 4)
   precio_referencial Decimal @default(0) @db.Decimal(12, 4)
-  subtotal_estimado Decimal @default(0) @db.Decimal(12, 2)
+  subtotal_estimado  Decimal @default(0) @db.Decimal(12, 2)
 
   orden    tbl_ordenes_compra @relation(fields: [id_orden], references: [id])
   producto tbl_productos      @relation(fields: [id_producto], references: [id])
@@ -1053,8 +1120,8 @@ model tbl_cajas_aperturas {
   usuario_creacion     String?    @db.VarChar(36)
   usuario_modificacion String?    @db.VarChar(36)
 
-  caja       tbl_cajas              @relation(fields: [id_caja], references: [id])
-  usuario    tbl_usuarios           @relation(fields: [id_usuario], references: [id])
+  caja        tbl_cajas              @relation(fields: [id_caja], references: [id])
+  usuario     tbl_usuarios           @relation(fields: [id_usuario], references: [id])
   movimientos tbl_movimientos_caja[]
 
   @@index([id_caja])
@@ -1064,15 +1131,15 @@ model tbl_cajas_aperturas {
 }
 
 model tbl_movimientos_caja {
-  id                   String             @id @default(uuid())
-  id_caja_apertura     String
-  tipo                 TipoMovimientoCaja
-  concepto             String             @db.VarChar(300)
-  monto                Decimal            @db.Decimal(12, 2)
-  id_referencia        String?            @db.VarChar(36)
-  tipo_referencia      String?            @db.VarChar(50)
-  id_usuario           String
-  fecha                DateTime           @default(now())
+  id               String             @id @default(uuid())
+  id_caja_apertura String
+  tipo             TipoMovimientoCaja
+  concepto         String             @db.VarChar(300)
+  monto            Decimal            @db.Decimal(12, 2)
+  id_referencia    String?            @db.VarChar(36)
+  tipo_referencia  String?            @db.VarChar(50)
+  id_usuario       String
+  fecha            DateTime           @default(now())
 
   caja_apertura tbl_cajas_aperturas @relation(fields: [id_caja_apertura], references: [id])
   usuario       tbl_usuarios        @relation(fields: [id_usuario], references: [id])
@@ -1141,12 +1208,12 @@ model tbl_personal {
 // ============================================================
 
 model tbl_config_margenes {
-  id          String   @id @default(uuid())
-  numero      Int      @unique
-  nombre      String   @db.VarChar(60)
-  margen      Decimal  @db.Decimal(8, 4)
-  activo      Boolean  @default(true)
-  descripcion String?  @db.VarChar(200)
+  id          String  @id @default(uuid())
+  numero      Int     @unique
+  nombre      String  @db.VarChar(60)
+  margen      Decimal @db.Decimal(8, 4)
+  activo      Boolean @default(true)
+  descripcion String? @db.VarChar(200)
 
   fecha_creacion       DateTime @default(now())
   fecha_modificacion   DateTime @updatedAt
@@ -1180,7 +1247,7 @@ model tbl_sunat_envios {
   usuario_creacion     String?     @db.VarChar(36)
   usuario_modificacion String?     @db.VarChar(36)
 
-  venta     tbl_ventas              @relation(fields: [id_venta], references: [id])
+  venta      tbl_ventas             @relation(fields: [id_venta], references: [id])
   respuestas tbl_sunat_respuestas[]
 
   @@index([id_venta])

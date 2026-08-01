@@ -127,19 +127,3 @@ export class CreateCompraDto {
   @Type(() => DetalleCompraDto)
   detalle: DetalleCompraDto[];
 }
-
-export class PagarFleteDto {
-  @ApiProperty()
-  @IsString() @IsNotEmpty()
-  id_metodo_pago: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  referencia?: string;
-
-  @ApiPropertyOptional({ description: 'Si se envía, registra el egreso en esa apertura de caja' })
-  @IsOptional()
-  @IsString()
-  id_caja_apertura?: string;
-}

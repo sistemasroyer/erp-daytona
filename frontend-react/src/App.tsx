@@ -33,6 +33,7 @@ import { ComprasPage } from '@/pages/compras/ComprasPage';
 import { NotaCreditoCompraPage } from '@/pages/compras/NotaCreditoCompraPage';
 import { NuevaCompraPage } from '@/pages/compras/NuevaCompraPage';
 import { FacturacionEnviarPage } from '@/pages/facturacion/FacturacionEnviarPage';
+import { GastosPage } from '@/pages/gastos/GastosPage';
 import { VentasPage } from '@/pages/ventas/VentasPage';
 import { NuevaVentaPage } from '@/pages/ventas/NuevaVentaPage';
 import { ImprimirPage } from '@/pages/ventas/ImprimirPage';
@@ -143,6 +144,10 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="facturacion:ver" />}>
                       <Route path="/facturacion/enviar" element={<FacturacionEnviarPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermiso perm="gastos:ver" />}>
+                      <Route path="/gastos" element={<GastosPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="ventas:ver" />}>

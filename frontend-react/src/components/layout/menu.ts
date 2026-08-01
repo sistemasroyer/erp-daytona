@@ -48,6 +48,12 @@ export const MENU: MenuGroupDef[] = [
     ],
   },
   {
+    header: 'Gastos',
+    items: [
+      { key: 'gastos', label: 'Gastos', icon: 'DollarOutlined', href: '/gastos', perm: 'gastos:ver' },
+    ],
+  },
+  {
     header: 'Inventario',
     items: [
       { key: 'productos', label: 'Productos', icon: 'InboxOutlined', href: '/productos', perm: 'productos:ver' },

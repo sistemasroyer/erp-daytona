@@ -108,7 +108,7 @@ async function main() {
   console.log('🔐 Creando permisos...');
   const modulos = [
     'auth', 'usuarios', 'roles', 'clientes', 'proveedores', 'productos',
-    'inventario', 'ventas', 'compras', 'ordenes_compra', 'caja',
+    'inventario', 'ventas', 'compras', 'gastos', 'ordenes_compra', 'caja',
     'facturacion', 'reportes', 'rrhh', 'seguridad', 'configuracion',
   ];
   const acciones = ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'anular'] as const;
@@ -179,6 +179,7 @@ async function main() {
     'clientes:ver', 'clientes:crear', 'clientes:editar',
     'productos:ver', 'inventario:ver',
     'caja:ver', 'caja:crear', 'caja:editar',
+    'gastos:ver', 'gastos:crear',
     'reportes:ver',
   ];
 
@@ -208,6 +209,7 @@ async function main() {
 
   const permisosCompras = [
     'compras:ver', 'compras:crear', 'compras:editar', 'compras:anular',
+    'gastos:ver', 'gastos:crear', 'gastos:editar', 'gastos:anular',
     'ordenes_compra:ver', 'ordenes_compra:crear', 'ordenes_compra:editar',
     'ordenes_compra:aprobar', 'ordenes_compra:anular',
     'proveedores:ver', 'proveedores:crear', 'proveedores:editar',
