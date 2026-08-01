@@ -153,10 +153,10 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
           <Form.Item label="Serie">
-            <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" />
+            <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" maxLength={4} />
           </Form.Item>
           <Form.Item label="Número">
-            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="00001234" />
+            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="00001234" maxLength={10} />
           </Form.Item>
           <Form.Item label="Fecha de emisión *">
             <DatePicker value={fechaEmision} onChange={(v) => v && setFechaEmision(v)} format="DD/MM/YYYY" style={{ width: '100%' }} />

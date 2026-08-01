@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, Min, IsDateString, Length } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, Min, IsDateString, Length, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const CATEGORIAS = ['flete', 'alquiler', 'servicios', 'comida_viaticos', 'honorarios', 'utiles_oficina', 'mantenimiento', 'otros'] as const;
@@ -9,15 +9,15 @@ export class CreateGastoDto {
   categoria: typeof CATEGORIAS[number];
 
   @ApiProperty({ description: 'Tipo: factura, boleta, recibo_honorarios, ticket, otros' })
-  @IsString() @IsNotEmpty()
+  @IsString() @IsNotEmpty() @MaxLength(30)
   tipo_documento: string;
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @IsOptional() @IsString() @MaxLength(4)
   serie?: string;
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @IsOptional() @IsString() @MaxLength(10)
   numero?: string;
 
   @ApiPropertyOptional()
@@ -25,7 +25,7 @@ export class CreateGastoDto {
   ruc_emisor?: string;
 
   @ApiProperty()
-  @IsString() @IsNotEmpty()
+  @IsString() @IsNotEmpty() @MaxLength(200)
   razon_social_emisor: string;
 
   @ApiPropertyOptional({ description: 'Proveedor ya registrado en el catálogo, si aplica' })
@@ -77,6 +77,6 @@ export class CreateGastoDto {
   total: number;
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @IsOptional() @IsString() @MaxLength(500)
   observaciones?: string;
 }

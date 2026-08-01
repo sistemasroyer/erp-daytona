@@ -1,6 +1,6 @@
 import {
   IsString, IsNotEmpty, IsUUID, IsEnum, IsOptional,
-  IsArray, ValidateNested, IsNumber, Min, IsDateString,
+  IsArray, ValidateNested, IsNumber, Min, IsDateString, MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -40,16 +40,19 @@ export class CreateCompraDto {
   @ApiProperty({ description: 'Tipo: factura, boleta, nota, otros' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(30)
   tipo_documento: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(4)
   serie?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   numero?: string;
 
   @ApiProperty()

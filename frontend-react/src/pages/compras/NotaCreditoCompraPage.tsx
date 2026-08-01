@@ -207,11 +207,11 @@ export function NotaCreditoCompraPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Serie (del proveedor)</Typography.Text>
-            <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="Opcional" />
+            <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="Opcional" maxLength={4} />
           </div>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Número (del proveedor) *</Typography.Text>
-            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="N° de la NC del proveedor" />
+            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="N° de la NC del proveedor" maxLength={10} />
           </div>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Fecha de emisión *</Typography.Text>

@@ -1,5 +1,5 @@
 import {
-  IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, ValidateNested, IsNumber, Min, IsIn, IsDateString,
+  IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, ValidateNested, IsNumber, Min, IsIn, IsDateString, MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -28,11 +28,13 @@ export class CreateNotaCreditoCompraDto {
   @ApiPropertyOptional({ description: 'Serie del documento tal como la emitió el proveedor' })
   @IsOptional()
   @IsString()
+  @MaxLength(4)
   serie?: string;
 
   @ApiPropertyOptional({ description: 'Número del documento tal como lo emitió el proveedor' })
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   numero?: string;
 
   @ApiProperty({ example: '2026-01-15', description: 'Fecha de emisión del documento del proveedor' })

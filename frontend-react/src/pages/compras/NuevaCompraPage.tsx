@@ -285,11 +285,11 @@ export function NuevaCompraPage() {
               </div>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Serie</Typography.Text>
-                <Input size="small" value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" />
+                <Input size="small" value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" maxLength={4} />
               </div>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Número *</Typography.Text>
-                <Input size="small" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="00001234" />
+                <Input size="small" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="00001234" maxLength={10} />
               </div>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Fecha emisión</Typography.Text>
