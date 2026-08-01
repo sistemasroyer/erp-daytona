@@ -1,0 +1,33 @@
+@page { size: 80mm auto; margin: 0; }
+
+body { background: #e9ecef; }
+
+.ticket {
+  width: 80mm;
+  margin: 16px auto;
+  background: #fff;
+  padding: 4mm;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #000;
+  line-height: 1.35;
+}
+
+.ticket img.logo { max-width: 55mm; max-height: 20mm; display: block; margin: 0 auto 4px; }
+.ticket h1 { font-size: 13px; font-weight: 700; text-align: center; margin: 0; }
+.ticket .center { text-align: center; }
+.ticket .right { text-align: right; }
+.ticket .bold { font-weight: 700; }
+.ticket .divider { border-top: 1px dashed #000; margin: 5px 0; }
+.ticket table.items { width: 100%; border-collapse: collapse; font-size: 10px; }
+.ticket table.items th, .ticket table.items td { padding: 1px 2px; vertical-align: top; }
+.ticket table.items th { border-bottom: 1px solid #000; text-align: left; }
+.ticket .qr-wrap { text-align: center; margin-top: 6px; }
+.ticket .qr-wrap canvas { margin: 0 auto; }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .ticket { box-shadow: none; margin: 0 auto; }
+}

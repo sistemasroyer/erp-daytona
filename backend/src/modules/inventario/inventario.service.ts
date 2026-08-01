@@ -72,7 +72,8 @@ export class InventarioService {
             select: {
               id: true, codigo: true, nombre: true,
               stock_minimo: true, stock_maximo: true,
-              precio_venta_1: true,
+              precio_venta_1: true, costo_promedio: true,
+              categoria: { select: { nombre: true } },
               unidad_medida: { select: { simbolo: true } },
             },
           },
