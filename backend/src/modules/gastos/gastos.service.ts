@@ -76,7 +76,7 @@ export class GastosService {
 
   async findAll(pagination: PaginationDto & {
     categoria?: string; estado?: string; pagado?: string;
-    fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string;
+    fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string; sin_vincular?: string; id_compra_relacionada?: string;
   }) {
     const where: any = { eliminado: false };
 
@@ -84,6 +84,8 @@ export class GastosService {
     if (pagination.estado) where.estado = pagination.estado;
     if (pagination.pagado !== undefined && pagination.pagado !== '') where.pagado = pagination.pagado === 'true';
     if (pagination.id_proveedor) where.id_proveedor = pagination.id_proveedor;
+    if (pagination.sin_vincular === 'true') where.id_compra_relacionada = null;
+    if (pagination.id_compra_relacionada) where.id_compra_relacionada = pagination.id_compra_relacionada;
 
     if (pagination.search) {
       where.OR = [

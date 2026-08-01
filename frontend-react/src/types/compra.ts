@@ -96,6 +96,7 @@ export interface CreateCompraDto {
   flete_tipo_cambio?: number;
   flete_tipo_prorrateo?: TipoProrrateoFlete;
   id_proveedor_flete?: string;
+  id_gasto_flete?: string;
   observaciones?: string;
   detalle: DetalleCompraDto[];
 }

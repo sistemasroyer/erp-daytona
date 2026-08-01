@@ -119,6 +119,11 @@ export class CreateCompraDto {
   @IsString()
   id_proveedor_flete?: string;
 
+  @ApiPropertyOptional({ description: 'Gasto (categoría Flete, sin compra vinculada aún) del que se toma el monto/moneda/transportista del flete, en vez de indicarlos a mano' })
+  @IsOptional()
+  @IsString()
+  id_gasto_flete?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

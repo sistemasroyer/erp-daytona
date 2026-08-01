@@ -56,6 +56,8 @@ export interface ListarGastosParams {
   fecha_desde?: string;
   fecha_hasta?: string;
   id_proveedor?: string;
+  sin_vincular?: string;
+  id_compra_relacionada?: string;
 }
 
 export interface CreateGastoDto {

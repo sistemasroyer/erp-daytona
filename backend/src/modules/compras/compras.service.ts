@@ -44,14 +44,23 @@ export class ComprasService {
       if (!proveedorFlete) throw new NotFoundException('Proveedor/transportista del flete no encontrado');
     }
 
+    let gastoFlete: { id: string; total: unknown; moneda: string; tipo_cambio: unknown; id_proveedor: string | null } | null = null;
+    if (dto.id_gasto_flete) {
+      gastoFlete = await this.prisma.tbl_gastos.findFirst({ where: { id: dto.id_gasto_flete, eliminado: false } });
+      if (!gastoFlete) throw new NotFoundException('La factura de flete indicada no existe');
+      if ((gastoFlete as any).categoria !== 'flete') throw new BadRequestException('El gasto seleccionado no es de categoría Flete');
+      if ((gastoFlete as any).estado !== 'registrado') throw new BadRequestException('La factura de flete seleccionada está anulada');
+      if ((gastoFlete as any).id_compra_relacionada) throw new BadRequestException('Esa factura de flete ya está vinculada a otra compra');
+    }
+
     const margenes = await this.configMargenes.findActivos();
 
     return this.prisma.$transaction(async (tx) => {
       const moneda = dto.moneda || 'PEN';
       const tipoCambio = moneda === 'USD' ? (dto.tipo_cambio || 1) : 1;
-      const fleteMonto = dto.flete_monto || 0;
-      const fleteMoneda = dto.flete_moneda || 'PEN';
-      const fleteTipoCambio = dto.flete_tipo_cambio || 1;
+      const fleteMonto = gastoFlete ? Number(gastoFlete.total) : (dto.flete_monto || 0);
+      const fleteMoneda = gastoFlete ? gastoFlete.moneda : (dto.flete_moneda || 'PEN');
+      const fleteTipoCambio = gastoFlete ? Number(gastoFlete.tipo_cambio) : (dto.flete_tipo_cambio || 1);
       const fleteMontoPen = redondear2(fleteMonto * (fleteMoneda === 'USD' ? fleteTipoCambio : 1));
 
       // Motor de cálculo: importe_linea como fuente primaria
@@ -149,12 +158,19 @@ export class ComprasService {
           flete_tipo_cambio: fleteTipoCambio,
           flete_monto_pen: fleteMontoPen,
           flete_tipo_prorrateo: (dto.flete_tipo_prorrateo || 'precio') as any,
-          id_proveedor_flete: dto.id_proveedor_flete || null,
+          id_proveedor_flete: (gastoFlete?.id_proveedor || dto.id_proveedor_flete) ?? null,
           estado: 'registrada',
           observaciones: dto.observaciones,
           usuario_creacion: usuarioId,
         },
       });
+
+      if (gastoFlete) {
+        await tx.tbl_gastos.update({
+          where: { id: gastoFlete.id },
+          data: { id_compra_relacionada: compra.id, usuario_modificacion: usuarioId },
+        });
+      }
 
       // Guardar detalle (sin campo auxiliar _costoUnitarioSinIgvPen)
       await tx.tbl_detalle_compras.createMany({

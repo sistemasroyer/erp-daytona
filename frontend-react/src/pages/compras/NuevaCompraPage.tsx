@@ -2,17 +2,23 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Switch, DatePicker, Space, Alert, Empty } from 'antd';
-import { UploadOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { proveedoresApi } from '@/api/proveedores';
 import { productosApi } from '@/api/productos';
 import { almacenesApi } from '@/api/almacenes';
+import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
 import type { Proveedor } from '@/types/proveedor';
 import type { DetalleImportadoXml } from '@/types/compra';
+import type { Gasto } from '@/types/gasto';
+
+function labelGastoFlete(g: Gasto) {
+  return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
+}
 
 type ModoIngreso = 'precio_sin_igv' | 'precio_con_igv' | 'total_sin_igv' | 'total_con_igv';
 
@@ -102,6 +108,8 @@ export function NuevaCompraPage() {
   const [fleteMoneda, setFleteMoneda] = useState<'PEN' | 'USD'>('PEN');
   const [fleteTipoProrrateo, setFleteTipoProrrateo] = useState<'precio' | 'cantidad'>('precio');
   const [proveedorFlete, setProveedorFlete] = useState<Proveedor | null>(null);
+  const [gastoFlete, setGastoFlete] = useState<Gasto | null>(null);
+  const [gastoFleteTexto, setGastoFleteTexto] = useState('');
 
   const [modoIngreso, setModoIngreso] = useState<ModoIngreso>('total_sin_igv');
   const [items, setItems] = useState<ItemCompra[]>([]);
@@ -131,6 +139,28 @@ export function NuevaCompraPage() {
 
   const actualizarItem = (idx: number, cambios: Partial<ItemCompra>) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...cambios } : it)));
   const quitarItem = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  const vincularGastoFlete = (g: Gasto) => {
+    setGastoFlete(g);
+    setGastoFleteTexto(labelGastoFlete(g));
+    setFleteMonto(Number(g.total));
+    setFleteMoneda(g.moneda);
+    if (g.id_proveedor) {
+      setProveedorFlete({
+        id: g.id_proveedor, ruc: g.proveedor?.ruc || '', razon_social: g.proveedor?.razon_social || g.razon_social_emisor,
+        nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true,
+      });
+    } else {
+      setProveedorFlete(null);
+    }
+  };
+
+  const quitarVinculoGastoFlete = () => {
+    setGastoFlete(null);
+    setGastoFleteTexto('');
+    setFleteMonto(0);
+    setProveedorFlete(null);
+  };
 
   const totales = useMemo(() => {
     const tc = moneda === 'USD' ? tipoCambio : 1;
@@ -239,6 +269,7 @@ export function NuevaCompraPage() {
         flete_moneda: tieneFlete ? fleteMoneda : undefined,
         flete_tipo_prorrateo: tieneFlete ? fleteTipoProrrateo : undefined,
         id_proveedor_flete: tieneFlete ? (proveedorFlete?.id || undefined) : undefined,
+        id_gasto_flete: tieneFlete ? (gastoFlete?.id || undefined) : undefined,
         detalle: items.map((i) => ({
           id_producto: i.producto.id,
           cantidad: i.cantidad,
@@ -347,17 +378,40 @@ export function NuevaCompraPage() {
             <Input size="small" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="N° orden, referencias, notas..." />
           </Card>
 
-          <Card size="small" style={{ marginBottom: 12 }} title={<><Switch size="small" checked={tieneFlete} onChange={setTieneFlete} style={{ marginRight: 8 }} />Incluir flete / transporte</>}>
+          <Card
+            size="small" style={{ marginBottom: 12 }}
+            title={<><Switch size="small" checked={tieneFlete} onChange={(v) => { setTieneFlete(v); if (!v) quitarVinculoGastoFlete(); }} style={{ marginRight: 8 }} />Incluir flete / transporte</>}
+          >
             {tieneFlete && (
               <>
+                <div style={{ marginBottom: 12 }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Vincular a una factura de flete ya registrada (opcional)</Typography.Text>
+                  {gastoFlete ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, padding: '6px 10px' }}>
+                      <LinkOutlined style={{ color: '#389e0d' }} />
+                      <Typography.Text style={{ flex: 1 }}>{labelGastoFlete(gastoFlete)}</Typography.Text>
+                      <Button size="small" type="text" danger icon={<CloseCircleOutlined />} onClick={quitarVinculoGastoFlete}>Quitar vínculo</Button>
+                    </div>
+                  ) : (
+                    <Autocomplete<Gasto>
+                      placeholder="Buscar por proveedor o N° de gasto..."
+                      value={gastoFleteTexto}
+                      buscar={async (q) => (await gastosApi.listar({ categoria: 'flete', sin_vincular: 'true', search: q, limit: 8 })).data}
+                      getLabel={labelGastoFlete}
+                      renderOpcion={(g) => <>{labelGastoFlete(g)}</>}
+                      onSelect={vincularGastoFlete}
+                    />
+                  )}
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Monto flete</Typography.Text>
-                    <InputNumber size="small" value={fleteMonto} onChange={(v) => setFleteMonto(v ?? 0)} min={0} step={0.01} style={{ width: '100%' }} />
+                    <InputNumber size="small" value={fleteMonto} onChange={(v) => setFleteMonto(v ?? 0)} min={0} step={0.01} style={{ width: '100%' }} disabled={!!gastoFlete} />
                   </div>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Moneda flete</Typography.Text>
-                    <Select size="small" value={fleteMoneda} onChange={setFleteMoneda} style={{ width: '100%' }} options={[{ value: 'PEN', label: 'PEN' }, { value: 'USD', label: 'USD' }]} />
+                    <Select size="small" value={fleteMoneda} onChange={setFleteMoneda} style={{ width: '100%' }} disabled={!!gastoFlete} options={[{ value: 'PEN', label: 'PEN' }, { value: 'USD', label: 'USD' }]} />
                   </div>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Prorratear por</Typography.Text>
@@ -367,17 +421,23 @@ export function NuevaCompraPage() {
                   </div>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Transportista</Typography.Text>
-                    <Autocomplete<Proveedor>
-                      placeholder="Sin especificar"
-                      buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
-                      getLabel={(p) => p.razon_social}
-                      renderOpcion={(p) => <>{p.razon_social}</>}
-                      onSelect={setProveedorFlete}
-                    />
+                    {gastoFlete ? (
+                      <Input size="small" disabled value={proveedorFlete?.razon_social || gastoFlete.razon_social_emisor} />
+                    ) : (
+                      <Autocomplete<Proveedor>
+                        placeholder="Sin especificar"
+                        buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
+                        getLabel={(p) => p.razon_social}
+                        renderOpcion={(p) => <>{p.razon_social}</>}
+                        onSelect={setProveedorFlete}
+                      />
+                    )}
                   </div>
                 </div>
                 <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-                  El flete es un gasto aparte de la factura del proveedor: no se suma al total a pagar por la mercadería, solo aumenta el costo del inventario. Se registra como una obligación de pago independiente (podrás marcarlo como pagado luego, desde el detalle de la compra).
+                  {gastoFlete
+                    ? 'Monto y transportista tomados de la factura vinculada — la registrarás como pagada desde el módulo Gastos.'
+                    : 'El flete es un gasto aparte de la factura del proveedor: no se suma al total a pagar por la mercadería, solo aumenta el costo del inventario. Si todavía no tenés la factura, escribí el monto estimado — luego podés registrarla como Gasto desde el detalle de esta compra.'}
                 </Typography.Paragraph>
               </>
             )}

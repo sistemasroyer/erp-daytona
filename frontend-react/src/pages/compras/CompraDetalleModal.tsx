@@ -4,6 +4,7 @@ import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography } fro
 import { FileExcelOutlined, CloseCircleOutlined, CarOutlined, FileAddOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { comprasApi } from '@/api/compras';
+import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
@@ -31,8 +32,16 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   });
   const compra = data?.data;
 
+  const { data: gastosFleteData } = useQuery({
+    queryKey: ['gastos-de-compra', id],
+    queryFn: () => gastosApi.listar({ id_compra_relacionada: id!, limit: 1 }),
+    enabled: !!id && Number(compra?.flete_monto) > 0,
+  });
+  const gastoFleteVinculado = gastosFleteData?.data?.[0];
+
   const recargar = () => {
     queryClient.invalidateQueries({ queryKey: ['compra', id] });
+    queryClient.invalidateQueries({ queryKey: ['gastos-de-compra', id] });
     onCambiado();
   };
 
@@ -88,7 +97,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         width={950}
         footer={
           <Space wrap>
-            {tieneFlete && <Button icon={<FileAddOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalGastoFlete(true)}>Registrar factura de flete</Button>}
+            {tieneFlete && !gastoFleteVinculado && <Button icon={<FileAddOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalGastoFlete(true)}>Registrar factura de flete</Button>}
             {puedeNotaCredito && <Button style={{ background: '#faad14', borderColor: '#faad14', color: '#fff' }} icon={<FileExcelOutlined />} onClick={() => navigate(`/compras/nueva-nota-credito?compra=${compra.id}`)}>Nota de Crédito</Button>}
             {puedeAnular && <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>}
           </Space>
@@ -138,9 +147,15 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
                 {compra.proveedor_flete ? ` · Transportista: ${compra.proveedor_flete.razon_social}` : ''}
               </div>
             </div>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Registra la factura real del flete y su pago en "Registrar factura de flete" (queda como un Gasto vinculado a esta compra).
-            </Typography.Text>
+            {gastoFleteVinculado ? (
+              <Typography.Text type="success" style={{ fontSize: 12 }}>
+                Factura vinculada: {gastoFleteVinculado.numero_interno} — {gastoFleteVinculado.pagado ? 'pagada' : 'pendiente de pago'} (verla en Gastos)
+              </Typography.Text>
+            ) : (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Registra la factura real del flete y su pago en "Registrar factura de flete" (queda como un Gasto vinculado a esta compra).
+              </Typography.Text>
+            )}
           </div>
         )}
 

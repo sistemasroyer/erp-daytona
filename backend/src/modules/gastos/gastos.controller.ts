@@ -28,6 +28,8 @@ export class GastosController {
   @ApiQuery({ name: 'fecha_desde', required: false })
   @ApiQuery({ name: 'fecha_hasta', required: false })
   @ApiQuery({ name: 'id_proveedor', required: false })
+  @ApiQuery({ name: 'sin_vincular', required: false, description: 'true = solo gastos sin compra vinculada (id_compra_relacionada IS NULL)' })
+  @ApiQuery({ name: 'id_compra_relacionada', required: false })
   findAll(
     @Query() pagination: PaginationDto,
     @Query('categoria') categoria?: string,
@@ -36,10 +38,12 @@ export class GastosController {
     @Query('fecha_desde') fecha_desde?: string,
     @Query('fecha_hasta') fecha_hasta?: string,
     @Query('id_proveedor') id_proveedor?: string,
+    @Query('sin_vincular') sin_vincular?: string,
+    @Query('id_compra_relacionada') id_compra_relacionada?: string,
   ) {
     return this.service.findAll({
       ...pagination, skip: Number(pagination.skip) || 0,
-      categoria, estado, pagado, fecha_desde, fecha_hasta, id_proveedor,
+      categoria, estado, pagado, fecha_desde, fecha_hasta, id_proveedor, sin_vincular, id_compra_relacionada,
     } as any);
   }
 
