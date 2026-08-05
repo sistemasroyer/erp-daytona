@@ -12,6 +12,18 @@ export const CATEGORIAS_GASTO_LABEL: Record<CategoriaGasto, string> = {
   otros: 'Otros',
 };
 
+export interface DetalleGasto {
+  id: string;
+  id_gasto: string;
+  descripcion: string;
+  cantidad: string;
+  precio_unitario: string | null;
+  subtotal: string;
+  igv: string;
+  total: string;
+  afecta_igv: boolean;
+}
+
 export interface Gasto {
   id: string;
   numero_interno: string;
@@ -21,7 +33,7 @@ export interface Gasto {
   numero: string | null;
   ruc_emisor: string | null;
   razon_social_emisor: string;
-  id_proveedor: string | null;
+  id_proveedor: string;
   id_compra_relacionada: string | null;
   id_punto_venta: string | null;
   fecha_emision: string;
@@ -29,7 +41,6 @@ export interface Gasto {
   fecha_vencimiento: string | null;
   moneda: 'PEN' | 'USD';
   tipo_cambio: string;
-  afecta_igv: boolean;
   subtotal: string;
   igv: string;
   total: string;
@@ -44,6 +55,7 @@ export interface Gasto {
   punto_venta?: { nombre: string };
   usuario?: { nombre: string; apellido: string };
   metodo_pago?: { nombre: string };
+  detalle?: DetalleGasto[];
 }
 
 export interface ListarGastosParams {
@@ -60,14 +72,19 @@ export interface ListarGastosParams {
   id_compra_relacionada?: string;
 }
 
+export interface DetalleGastoDto {
+  descripcion: string;
+  cantidad?: number;
+  importe_linea: number;
+  afecta_igv?: boolean;
+}
+
 export interface CreateGastoDto {
   categoria: CategoriaGasto;
   tipo_documento: string;
   serie?: string;
   numero?: string;
-  ruc_emisor?: string;
-  razon_social_emisor: string;
-  id_proveedor?: string;
+  id_proveedor: string;
   id_compra_relacionada?: string;
   id_punto_venta?: string;
   fecha_emision: string;
@@ -75,15 +92,33 @@ export interface CreateGastoDto {
   fecha_vencimiento?: string;
   moneda?: 'PEN' | 'USD';
   tipo_cambio?: number;
-  afecta_igv?: boolean;
-  subtotal: number;
-  igv: number;
-  total: number;
   observaciones?: string;
+  detalle: DetalleGastoDto[];
 }
 
 export interface PagarGastoDto {
   id_metodo_pago: string;
   referencia?: string;
   id_caja_apertura?: string;
+}
+
+export interface DetalleImportadoXmlGasto {
+  codigo_proveedor: string;
+  descripcion: string;
+  cantidad: number;
+  unidad_codigo: string;
+  valor_unitario: number;
+  importe_linea: number;
+  afecta_igv: boolean;
+}
+
+export interface ImportarXmlGastoResult {
+  tipo_documento: 'factura' | 'boleta';
+  serie: string;
+  numero: string;
+  fecha_emision: string;
+  moneda: string;
+  totales: { subtotal: number; igv: number; total: number };
+  proveedor: { encontrado: true; id: string; ruc: string; razon_social: string } | { encontrado: false; ruc: string | null; razon_social: string | null };
+  detalle: DetalleImportadoXmlGasto[];
 }

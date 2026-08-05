@@ -175,7 +175,8 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           proveedor: compra.proveedor_flete
             ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true }
             : undefined,
-          monto: Number(compra.flete_monto),
+          descripcionLinea: 'Flete',
+          montoLinea: Number(compra.flete_monto),
           moneda: compra.flete_moneda,
         }}
         onClose={() => setModalGastoFlete(false)}

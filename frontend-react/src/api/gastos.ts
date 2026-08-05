@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { Gasto, ListarGastosParams, CreateGastoDto, PagarGastoDto } from '@/types/gasto';
+import type { Gasto, ListarGastosParams, CreateGastoDto, PagarGastoDto, ImportarXmlGastoResult } from '@/types/gasto';
 
 export const gastosApi = {
   listar: (params: ListarGastosParams) => api.get<Gasto[]>('/gastos', params),
@@ -7,4 +7,5 @@ export const gastosApi = {
   crear: (dto: CreateGastoDto) => api.post<Gasto>('/gastos', dto),
   anular: (id: string, motivo: string) => api.patch<Gasto>(`/gastos/${id}/anular`, { motivo }),
   pagar: (id: string, dto: PagarGastoDto) => api.patch<Gasto>(`/gastos/${id}/pagar`, dto),
+  importarXml: (xml: string) => api.post<ImportarXmlGastoResult>('/gastos/importar-xml', { xml }),
 };

@@ -411,17 +411,25 @@ export function NuevaVentaPage() {
                     autoComplete="off"
                   />
                   {sugerencias.length > 0 && (
-                    <div style={{ position: 'absolute', zIndex: 1000, width: 340, background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, marginTop: 4, maxHeight: 280, overflowY: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                      {sugerencias.map((p, i) => (
-                        <div
-                          key={p.id}
-                          onMouseDown={(e) => { e.preventDefault(); seleccionarProductoEntrada(p); }}
-                          style={{ padding: '6px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#e6f4ff' : '#fff' }}
-                        >
-                          <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{p.codigo}</Typography.Text> {p.nombre}</div>
-                          <div style={{ fontSize: 12, color: '#8c8c8c' }}>Stock: {Number(p.stock_actual || 0).toFixed(0)}</div>
-                        </div>
-                      ))}
+                    <div style={{ position: 'absolute', zIndex: 1000, width: 520, background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, marginTop: 4, maxHeight: 320, overflowY: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                      {sugerencias.map((p, i) => {
+                        const precios = preciosDisponibles(p);
+                        return (
+                          <div
+                            key={p.id}
+                            onMouseDown={(e) => { e.preventDefault(); seleccionarProductoEntrada(p); }}
+                            style={{ padding: '6px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#e6f4ff' : '#fff' }}
+                          >
+                            <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{p.codigo}</Typography.Text> {p.nombre}{p.marca ? <Typography.Text type="secondary" style={{ fontSize: 12 }}> · {p.marca.nombre}</Typography.Text> : null}</div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c', display: 'flex', gap: 12 }}>
+                              <span>Stock: {Number(p.stock_actual || 0).toFixed(0)}</span>
+                              {precios.length > 0 && (
+                                <span>{precios.map((pr) => `P${pr.numero}: ${formatMoneda(pr.valor)}`).join('  ·  ')}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </td>

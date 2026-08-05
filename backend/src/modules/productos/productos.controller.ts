@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestj
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ProductosService } from './productos.service';
 import { CreateProductoDto } from './dto/create-producto.dto';
+import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -57,6 +58,13 @@ export class ProductosController {
   @Permisos('productos:editar')
   update(@Param('id') id: string, @Body() dto: Partial<CreateProductoDto>, @CurrentUser('sub') userId: string) {
     return this.service.update(id, dto, userId);
+  }
+
+  @Post(':id/codigos-proveedor')
+  @Permisos('productos:editar')
+  @ApiOperation({ summary: 'Agregar o actualizar el código que un proveedor usa para este producto' })
+  agregarCodigoProveedor(@Param('id') id: string, @Body() dto: AgregarCodigoProveedorDto) {
+    return this.service.agregarCodigoProveedor(id, dto);
   }
 
   @Delete(':id')

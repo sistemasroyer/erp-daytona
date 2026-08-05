@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Switch, DatePicker, Space, Alert, Empty } from 'antd';
-import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined, TagOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { proveedoresApi } from '@/api/proveedores';
@@ -15,6 +15,7 @@ import { formatMoneda } from '@/utils/format';
 import type { Proveedor } from '@/types/proveedor';
 import type { DetalleImportadoXml } from '@/types/compra';
 import type { Gasto } from '@/types/gasto';
+import type { CodigoProveedor } from '@/types/producto';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -28,10 +29,14 @@ interface ProductoItem {
   nombre: string;
   afecta_igv: boolean;
   precio_compra_sin_igv?: string;
+  codigos_proveedor: CodigoProveedor[];
 }
 
 interface ItemCompra {
   producto: ProductoItem;
+  codigoProveedorInput: string;
+  codigoProveedorGuardado: boolean;
+  mostrarCodigoProveedor: boolean;
   cantidad: number;
   valor: number;
   afecta_igv: boolean;
@@ -134,11 +139,28 @@ export function NuevaCompraPage() {
         case 'total_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * 1.18) : ultimoCosto; break;
       }
     }
-    setItems((prev) => [...prev, { producto: { id: p.id, codigo: p.codigo, nombre: p.nombre, afecta_igv: afectaIgv, precio_compra_sin_igv: p.precio_compra_sin_igv }, cantidad: 1, valor: valorInicial, afecta_igv: afectaIgv }]);
+    setItems((prev) => [...prev, {
+      producto: { id: p.id, codigo: p.codigo, nombre: p.nombre, afecta_igv: afectaIgv, precio_compra_sin_igv: p.precio_compra_sin_igv, codigos_proveedor: p.codigos_proveedor || [] },
+      codigoProveedorInput: '', codigoProveedorGuardado: false, mostrarCodigoProveedor: false,
+      cantidad: 1, valor: valorInicial, afecta_igv: afectaIgv,
+    }]);
   };
 
   const actualizarItem = (idx: number, cambios: Partial<ItemCompra>) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...cambios } : it)));
   const quitarItem = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  const guardarCodigoProveedor = async (idx: number) => {
+    const item = items[idx];
+    if (!proveedor) { message.warning('Seleccione primero el proveedor de la factura'); return; }
+    if (!item.codigoProveedorInput.trim()) { message.warning('Ingrese el código'); return; }
+    try {
+      await productosApi.agregarCodigoProveedor(item.producto.id, { id_proveedor: proveedor.id, codigo_alterno: item.codigoProveedorInput.trim() });
+      actualizarItem(idx, { codigoProveedorGuardado: true, mostrarCodigoProveedor: false });
+      message.success('Código de proveedor guardado');
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : 'Error al guardar el código de proveedor');
+    }
+  };
 
   const vincularGastoFlete = (g: Gasto) => {
     setGastoFlete(g);
@@ -216,7 +238,8 @@ export function NuevaCompraPage() {
       for (const linea of data.detalle) {
         if (linea.producto) {
           nuevosItems.push({
-            producto: { id: linea.producto.id, codigo: linea.producto.codigo, nombre: linea.producto.nombre, afecta_igv: linea.afecta_igv, precio_compra_sin_igv: linea.producto.precio_compra_sin_igv },
+            producto: { id: linea.producto.id, codigo: linea.producto.codigo, nombre: linea.producto.nombre, afecta_igv: linea.afecta_igv, precio_compra_sin_igv: linea.producto.precio_compra_sin_igv, codigos_proveedor: [] },
+            codigoProveedorInput: linea.codigo_proveedor || '', codigoProveedorGuardado: false, mostrarCodigoProveedor: !!linea.codigo_proveedor,
             cantidad: linea.cantidad,
             valor: linea.importe_linea,
             afecta_igv: linea.afecta_igv,
@@ -473,10 +496,23 @@ export function NuevaCompraPage() {
               const importeLineaPen = getImporteLinea(item, modoIngreso) * tc;
               const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
               const igv = item.afecta_igv ? importeLineaPen - base : 0;
+              const codigoExistente = proveedor ? item.producto.codigos_proveedor.find((c) => c.id_proveedor === proveedor.id) : undefined;
               return (
                 <div key={item.producto.id} style={{ background: '#fafafa', borderRadius: 8, padding: 12, marginBottom: 8, border: '1px solid #f0f0f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <div><strong>{item.producto.nombre}</strong> <Typography.Text type="secondary" style={{ fontSize: 12 }}>{item.producto.codigo}</Typography.Text></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <strong>{item.producto.nombre}</strong> <Typography.Text type="secondary" style={{ fontSize: 12 }}>{item.producto.codigo}</Typography.Text>
+                      {(codigoExistente || item.codigoProveedorGuardado) && (
+                        <Typography.Text type="success" style={{ fontSize: 12, marginLeft: 8 }}><TagOutlined /> {codigoExistente?.codigo_alterno || item.codigoProveedorInput}</Typography.Text>
+                      )}
+                    </div>
+                    <Button
+                      size="small" icon={<TagOutlined />}
+                      onClick={() => actualizarItem(idx, { mostrarCodigoProveedor: !item.mostrarCodigoProveedor })}
+                      title="Código de este producto para el proveedor de la factura"
+                    >
+                      Código proveedor
+                    </Button>
                     <Button size="small" danger icon={<DeleteOutlined />} onClick={() => quitarItem(idx)} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 90px 130px 130px 1fr', gap: 12, alignItems: 'end' }}>
@@ -508,6 +544,19 @@ export function NuevaCompraPage() {
                       {moneda === 'USD' ? `= S/ ${importeLineaPen.toFixed(2)} | ` : ''}Base: S/ {base.toFixed(2)}, IGV: S/ {igv.toFixed(2)}
                     </div>
                   </div>
+                  {item.mostrarCodigoProveedor && (
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {proveedor ? (
+                        <>
+                          <Typography.Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>Código de {proveedor.razon_social} para este producto:</Typography.Text>
+                          <Input size="small" style={{ maxWidth: 160 }} value={item.codigoProveedorInput} onChange={(e) => actualizarItem(idx, { codigoProveedorInput: e.target.value })} placeholder="Ej: PROV-123" />
+                          <Button size="small" type="primary" onClick={() => guardarCodigoProveedor(idx)}>Guardar</Button>
+                        </>
+                      ) : (
+                        <Typography.Text type="warning" style={{ fontSize: 11 }}>Seleccione primero el proveedor de la factura, arriba.</Typography.Text>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

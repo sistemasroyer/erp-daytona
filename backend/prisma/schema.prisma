@@ -986,7 +986,7 @@ model tbl_gastos {
   numero                String?        @db.VarChar(10)
   ruc_emisor            String?        @db.VarChar(11)
   razon_social_emisor   String         @db.VarChar(200)
-  id_proveedor          String?
+  id_proveedor          String
   id_compra_relacionada String?        @db.VarChar(36)
   id_punto_venta        String?
   id_usuario            String
@@ -1013,10 +1013,11 @@ model tbl_gastos {
   usuario_creacion      String?        @db.VarChar(36)
   usuario_modificacion  String?        @db.VarChar(36)
 
-  proveedor   tbl_proveedores?  @relation(fields: [id_proveedor], references: [id])
-  punto_venta tbl_puntos_venta? @relation(fields: [id_punto_venta], references: [id])
-  usuario     tbl_usuarios      @relation(fields: [id_usuario], references: [id])
-  metodo_pago tbl_metodos_pago? @relation(fields: [id_metodo_pago], references: [id])
+  proveedor   tbl_proveedores      @relation(fields: [id_proveedor], references: [id])
+  punto_venta tbl_puntos_venta?    @relation(fields: [id_punto_venta], references: [id])
+  usuario     tbl_usuarios         @relation(fields: [id_usuario], references: [id])
+  metodo_pago tbl_metodos_pago?    @relation(fields: [id_metodo_pago], references: [id])
+  detalle     tbl_detalle_gastos[]
 
   @@index([id_proveedor])
   @@index([id_punto_venta])
@@ -1024,6 +1025,23 @@ model tbl_gastos {
   @@index([categoria])
   @@index([estado])
   @@map("tbl_gastos")
+}
+
+model tbl_detalle_gastos {
+  id              String   @id @default(uuid())
+  id_gasto        String
+  descripcion     String   @db.VarChar(300)
+  cantidad        Decimal  @default(1) @db.Decimal(12, 4)
+  precio_unitario Decimal? @db.Decimal(12, 4)
+  subtotal        Decimal  @db.Decimal(12, 2)
+  igv             Decimal  @db.Decimal(12, 2)
+  total           Decimal  @db.Decimal(12, 2)
+  afecta_igv      Boolean  @default(true)
+
+  gasto tbl_gastos @relation(fields: [id_gasto], references: [id])
+
+  @@index([id_gasto])
+  @@map("tbl_detalle_gastos")
 }
 
 // ============================================================

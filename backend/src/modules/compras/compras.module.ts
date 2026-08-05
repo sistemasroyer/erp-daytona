@@ -9,6 +9,6 @@ import { ConfigMargenesModule } from '../config-margenes/config-margenes.module'
   imports: [InventarioModule, ConfigMargenesModule],
   controllers: [ComprasController],
   providers: [ComprasService, CompraXmlService],
-  exports: [ComprasService],
+  exports: [ComprasService, CompraXmlService],
 })
 export class ComprasModule {}

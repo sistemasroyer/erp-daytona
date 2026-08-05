@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateProductoDto } from './dto/create-producto.dto';
+import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
 import { calcularIgv, redondear4 } from '../../common/utils/numero-documento.util';
 
 @Injectable()
@@ -209,6 +210,22 @@ export class ProductosService {
           include: { proveedor: { select: { id: true, razon_social: true } } },
         },
       },
+    });
+  }
+
+  async agregarCodigoProveedor(idProducto: string, dto: AgregarCodigoProveedorDto) {
+    await this.findOne(idProducto);
+
+    const proveedor = await this.prisma.tbl_proveedores.findFirst({
+      where: { id: dto.id_proveedor, eliminado: false },
+    });
+    if (!proveedor) throw new NotFoundException('Proveedor no encontrado');
+
+    return this.prisma.tbl_producto_codigos_proveedor.upsert({
+      where: { id_producto_id_proveedor: { id_producto: idProducto, id_proveedor: dto.id_proveedor } },
+      update: { codigo_alterno: dto.codigo_alterno },
+      create: { id_producto: idProducto, id_proveedor: dto.id_proveedor, codigo_alterno: dto.codigo_alterno },
+      include: { proveedor: { select: { id: true, razon_social: true } } },
     });
   }
 

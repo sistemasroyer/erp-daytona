@@ -6,6 +6,8 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2 } from '../../common/utils/numero-documento.util';
 import { finDeDia } from '../../common/utils/fecha.util';
 
+const TASA_IGV = 0.18;
+
 const INCLUDE_DETALLE = {
   proveedor: { select: { razon_social: true, ruc: true } },
   punto_venta: { select: { nombre: true } },
@@ -18,60 +20,82 @@ export class GastosService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateGastoDto, usuarioId: string) {
-    if (dto.id_proveedor) {
-      const proveedor = await this.prisma.tbl_proveedores.findFirst({
-        where: { id: dto.id_proveedor, eliminado: false },
-      });
-      if (!proveedor) throw new NotFoundException('Proveedor no encontrado');
-    }
+    const proveedor = await this.prisma.tbl_proveedores.findFirst({
+      where: { id: dto.id_proveedor, eliminado: false },
+    });
+    if (!proveedor) throw new NotFoundException('Proveedor no encontrado');
 
     const condicionPago = dto.condicion_pago || 'contado';
     if (condicionPago === 'credito' && !dto.fecha_vencimiento) {
       throw new BadRequestException('Debe indicar la fecha de vencimiento para gastos al crédito');
     }
 
-    if (Math.abs(dto.total - (dto.subtotal + dto.igv)) > 0.05) {
-      throw new BadRequestException('El total no coincide con subtotal + IGV');
+    if (!dto.detalle || dto.detalle.length === 0) {
+      throw new BadRequestException('Debe incluir al menos una línea de detalle');
     }
 
     const moneda = dto.moneda || 'PEN';
     const tipoCambio = moneda === 'USD' ? (dto.tipo_cambio || 1) : 1;
-    const totalPen = redondear2(dto.total * tipoCambio);
+
+    const detalleCalculado = dto.detalle.map((item) => {
+      const cantidad = item.cantidad || 1;
+      const afectaIgv = item.afecta_igv !== false;
+      const subtotal = afectaIgv ? redondear2(item.importe_linea / (1 + TASA_IGV)) : redondear2(item.importe_linea);
+      const igv = afectaIgv ? redondear2(item.importe_linea - subtotal) : 0;
+      return {
+        descripcion: item.descripcion,
+        cantidad,
+        precio_unitario: redondear2(item.importe_linea / cantidad),
+        subtotal,
+        igv,
+        total: redondear2(subtotal + igv),
+        afecta_igv: afectaIgv,
+      };
+    });
+
+    const subtotalGasto = redondear2(detalleCalculado.reduce((s, d) => s + d.subtotal, 0));
+    const igvGasto = redondear2(detalleCalculado.reduce((s, d) => s + d.igv, 0));
+    const totalGasto = redondear2(subtotalGasto + igvGasto);
+    const totalPen = redondear2(totalGasto * tipoCambio);
 
     const totalGastos = await this.prisma.tbl_gastos.count();
     const numeroInterno = generarNumeroInterno('GAS', totalGastos + 1);
 
-    const gasto = await this.prisma.tbl_gastos.create({
-      data: {
-        numero_interno: numeroInterno,
-        categoria: dto.categoria,
-        tipo_documento: dto.tipo_documento,
-        serie: dto.serie,
-        numero: dto.numero,
-        ruc_emisor: dto.ruc_emisor,
-        razon_social_emisor: dto.razon_social_emisor,
-        id_proveedor: dto.id_proveedor || null,
-        id_compra_relacionada: dto.id_compra_relacionada || null,
-        id_punto_venta: dto.id_punto_venta || null,
-        id_usuario: usuarioId,
-        fecha_emision: new Date(dto.fecha_emision),
-        condicion_pago: condicionPago as any,
-        fecha_vencimiento: dto.fecha_vencimiento ? new Date(dto.fecha_vencimiento) : null,
-        moneda: moneda as any,
-        tipo_cambio: tipoCambio,
-        afecta_igv: dto.afecta_igv !== false,
-        subtotal: dto.subtotal,
-        igv: dto.igv,
-        total: dto.total,
-        total_pen: totalPen,
-        estado: 'registrado',
-        observaciones: dto.observaciones,
-        usuario_creacion: usuarioId,
-      },
-      include: INCLUDE_DETALLE,
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const gasto = await tx.tbl_gastos.create({
+        data: {
+          numero_interno: numeroInterno,
+          categoria: dto.categoria,
+          tipo_documento: dto.tipo_documento,
+          serie: dto.serie,
+          numero: dto.numero,
+          ruc_emisor: proveedor.ruc,
+          razon_social_emisor: proveedor.razon_social,
+          id_proveedor: proveedor.id,
+          id_compra_relacionada: dto.id_compra_relacionada || null,
+          id_punto_venta: dto.id_punto_venta || null,
+          id_usuario: usuarioId,
+          fecha_emision: new Date(dto.fecha_emision),
+          condicion_pago: condicionPago as any,
+          fecha_vencimiento: dto.fecha_vencimiento ? new Date(dto.fecha_vencimiento) : null,
+          moneda: moneda as any,
+          tipo_cambio: tipoCambio,
+          subtotal: subtotalGasto,
+          igv: igvGasto,
+          total: totalGasto,
+          total_pen: totalPen,
+          estado: 'registrado',
+          observaciones: dto.observaciones,
+          usuario_creacion: usuarioId,
+        },
+      });
 
-    return gasto;
+      await tx.tbl_detalle_gastos.createMany({
+        data: detalleCalculado.map((d) => ({ id_gasto: gasto.id, ...d })),
+      });
+
+      return tx.tbl_gastos.findFirst({ where: { id: gasto.id }, include: { ...INCLUDE_DETALLE, detalle: true } });
+    });
   }
 
   async findAll(pagination: PaginationDto & {
@@ -119,7 +143,7 @@ export class GastosService {
   async findOne(id: string) {
     const gasto = await this.prisma.tbl_gastos.findFirst({
       where: { id, eliminado: false },
-      include: INCLUDE_DETALLE,
+      include: { ...INCLUDE_DETALLE, detalle: true },
     });
     if (!gasto) throw new NotFoundException('Gasto no encontrado');
     return gasto;

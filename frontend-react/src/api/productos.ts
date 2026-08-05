@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { Producto, CreateProductoDto } from '@/types/producto';
+import type { Producto, CreateProductoDto, CodigoProveedor } from '@/types/producto';
 
 export interface ListarProductosParams {
   page?: number;
@@ -14,4 +14,6 @@ export const productosApi = {
   crear: (dto: CreateProductoDto) => api.post<Producto>('/productos', dto),
   actualizar: (id: string, dto: Partial<CreateProductoDto>) => api.patch<Producto>(`/productos/${id}`, dto),
   eliminar: (id: string) => api.delete<Producto>(`/productos/${id}`),
+  agregarCodigoProveedor: (id: string, dto: { id_proveedor: string; codigo_alterno: string }) =>
+    api.post<CodigoProveedor>(`/productos/${id}/codigos-proveedor`, dto),
 };

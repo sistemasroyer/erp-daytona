@@ -6,12 +6,24 @@ import { PagarGastoDto } from './dto/pagar-gasto.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
+import { CompraXmlService } from '../compras/compra-xml.service';
+import { ImportarXmlCompraDto } from '../compras/dto/importar-xml.dto';
 
 @ApiTags('Gastos')
 @ApiBearerAuth()
 @Controller('gastos')
 export class GastosController {
-  constructor(private readonly service: GastosService) {}
+  constructor(
+    private readonly service: GastosService,
+    private readonly xmlService: CompraXmlService,
+  ) {}
+
+  @Post('importar-xml')
+  @Permisos('gastos:crear')
+  @ApiOperation({ summary: 'Leer un XML UBL de factura/boleta y proponer los datos para un gasto' })
+  importarXml(@Body() dto: ImportarXmlCompraDto) {
+    return this.xmlService.parsear(dto.xml);
+  }
 
   @Post()
   @Permisos('gastos:crear')

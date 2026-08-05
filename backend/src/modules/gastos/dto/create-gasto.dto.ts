@@ -1,7 +1,29 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, Min, IsDateString, Length, MaxLength } from 'class-validator';
+import {
+  IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, Min, IsDateString, MaxLength,
+  IsArray, ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const CATEGORIAS = ['flete', 'alquiler', 'servicios', 'comida_viaticos', 'honorarios', 'utiles_oficina', 'mantenimiento', 'otros'] as const;
+
+export class DetalleGastoDto {
+  @ApiProperty()
+  @IsString() @IsNotEmpty() @MaxLength(300)
+  descripcion: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional() @IsNumber() @Min(0.0001)
+  cantidad?: number;
+
+  @ApiProperty({ description: 'Importe total de la línea (incluye IGV si aplica)' })
+  @IsNumber() @Min(0)
+  importe_linea: number;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  afecta_igv?: boolean;
+}
 
 export class CreateGastoDto {
   @ApiProperty({ enum: CATEGORIAS })
@@ -20,17 +42,9 @@ export class CreateGastoDto {
   @IsOptional() @IsString() @MaxLength(10)
   numero?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional() @IsString() @Length(11, 11)
-  ruc_emisor?: string;
-
-  @ApiProperty()
-  @IsString() @IsNotEmpty() @MaxLength(200)
-  razon_social_emisor: string;
-
-  @ApiPropertyOptional({ description: 'Proveedor ya registrado en el catálogo, si aplica' })
-  @IsOptional() @IsString()
-  id_proveedor?: string;
+  @ApiProperty({ description: 'Proveedor emisor del comprobante, buscado en el catálogo de Proveedores' })
+  @IsString() @IsNotEmpty()
+  id_proveedor: string;
 
   @ApiPropertyOptional({ description: 'Compra a la que está vinculado este gasto (ej. la factura real del flete de esa compra)' })
   @IsOptional() @IsString()
@@ -60,23 +74,13 @@ export class CreateGastoDto {
   @IsOptional() @IsNumber() @Min(0)
   tipo_cambio?: number;
 
-  @ApiPropertyOptional({ default: true })
-  @IsOptional()
-  afecta_igv?: boolean;
-
-  @ApiProperty()
-  @IsNumber() @Min(0)
-  subtotal: number;
-
-  @ApiProperty()
-  @IsNumber() @Min(0)
-  igv: number;
-
-  @ApiProperty()
-  @IsNumber() @Min(0)
-  total: number;
-
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(500)
   observaciones?: string;
+
+  @ApiProperty({ type: [DetalleGastoDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DetalleGastoDto)
+  detalle: DetalleGastoDto[];
 }

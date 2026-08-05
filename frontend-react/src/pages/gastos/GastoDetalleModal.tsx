@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Modal, Descriptions, Button, Alert, Space, Typography, Select, Input } from 'antd';
+import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography, Select, Input } from 'antd';
 import { CloseCircleOutlined, DollarOutlined } from '@ant-design/icons';
 import { gastosApi } from '@/api/gastos';
 import { metodosPagoApi } from '@/api/metodos-pago';
@@ -10,7 +10,7 @@ import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import { CATEGORIAS_GASTO_LABEL } from '@/types/gasto';
-import type { Gasto } from '@/types/gasto';
+import type { Gasto, DetalleGasto } from '@/types/gasto';
 
 interface Props {
   id: string | null;
@@ -59,6 +59,14 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
   const puedeAnular = gasto.estado === 'registrado' && !gasto.pagado;
   const puedePagar = gasto.estado === 'registrado' && !gasto.pagado;
 
+  const columns = [
+    { title: 'Descripción', dataIndex: 'descripcion' },
+    { title: 'Cant.', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => Number(d.cantidad).toFixed(2) },
+    { title: 'Subtotal', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => formatMoneda(d.subtotal, gasto.moneda) },
+    { title: 'IGV', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => formatMoneda(d.igv, gasto.moneda) },
+    { title: 'Total', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => <strong>{formatMoneda(d.total, gasto.moneda)}</strong> },
+  ];
+
   return (
     <>
       <Modal
@@ -82,12 +90,30 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="RUC emisor">{gasto.ruc_emisor || '-'}</Descriptions.Item>
           <Descriptions.Item label="Proveedor vinculado">{gasto.proveedor?.razon_social || '-'}</Descriptions.Item>
           <Descriptions.Item label="Condición de pago">{gasto.condicion_pago === 'credito' ? `Crédito${gasto.fecha_vencimiento ? ` (vence ${new Date(gasto.fecha_vencimiento).toLocaleDateString('es-PE')})` : ''}` : 'Contado'}</Descriptions.Item>
-          <Descriptions.Item label="Subtotal">{formatMoneda(gasto.subtotal, gasto.moneda)}</Descriptions.Item>
-          <Descriptions.Item label="IGV">{formatMoneda(gasto.igv, gasto.moneda)}</Descriptions.Item>
-          <Descriptions.Item label="Total"><strong>{formatMoneda(gasto.total, gasto.moneda)}</strong></Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={gasto.estado} /></Descriptions.Item>
           {gasto.observaciones && <Descriptions.Item label="Observaciones" span={2}>{gasto.observaciones}</Descriptions.Item>}
         </Descriptions>
+
+        <Typography.Title level={5}>Detalle</Typography.Title>
+        <Table
+          size="small" rowKey={(d) => d.id} pagination={false} dataSource={gasto.detalle} columns={columns}
+          summary={() => (
+            <>
+              <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={2} align="right">Subtotal:</Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(gasto.subtotal, gasto.moneda)}</Table.Summary.Cell>
+              </Table.Summary.Row>
+              <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={2} align="right">IGV:</Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(gasto.igv, gasto.moneda)}</Table.Summary.Cell>
+              </Table.Summary.Row>
+              <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={2} align="right"><strong>TOTAL:</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right"><strong>{formatMoneda(gasto.total, gasto.moneda)}</strong></Table.Summary.Cell>
+              </Table.Summary.Row>
+            </>
+          )}
+        />
 
         <Alert
           style={{ marginTop: 16 }}

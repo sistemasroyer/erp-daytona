@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { GastosService } from './gastos.service';
 import { GastosController } from './gastos.controller';
+import { ComprasModule } from '../compras/compras.module';
 
 @Module({
+  imports: [ComprasModule],
   controllers: [GastosController],
   providers: [GastosService],
   exports: [GastosService],
