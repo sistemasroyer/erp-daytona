@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Card, Select, Input, Button, Typography, InputNumber, Space, Collapse } from 'antd';
+import { App, Card, Select, Input, Button, Typography, InputNumber, Space, Collapse, Modal } from 'antd';
 import { CheckOutlined, UserAddOutlined, UserOutlined, DeleteOutlined } from '@ant-design/icons';
 import { ventasApi } from '@/api/ventas';
 import { clientesApi } from '@/api/clientes';
@@ -82,6 +82,8 @@ export function NuevaVentaPage() {
   const [pagos, setPagos] = useState<PagoState[]>([]);
 
   const [guardando, setGuardando] = useState(false);
+  const [modalImpresionOpen, setModalImpresionOpen] = useState(false);
+  const [ventaReciente, setVentaReciente] = useState<{ id: string; tipo_documento: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -268,6 +270,15 @@ export function NuevaVentaPage() {
     setTipoDocumento('BOLETA');
   };
 
+  const finalizarVenta = (opcion: 'imprimir' | 'sin_imprimir' | 'nueva') => {
+    setModalImpresionOpen(false);
+    if (opcion === 'imprimir' && ventaReciente) {
+      window.open(`/ventas/imprimir?id=${ventaReciente.id}`, '_blank', 'noopener,noreferrer');
+    }
+    resetearFormulario();
+    setVentaReciente(null);
+  };
+
   const guardar = async () => {
     const esOficial = tipoDocumento === 'FACTURA' || tipoDocumento === 'BOLETA';
     if (!cliente) { message.warning('Seleccione un cliente'); return; }
@@ -298,8 +309,8 @@ export function NuevaVentaPage() {
       message.success(ventaEsOficial
         ? '¡Documento emitido! Recuerda enviarlo a SUNAT desde "Facturación → Enviar a SUNAT".'
         : '¡Documento emitido correctamente!');
-      window.open(`/ventas/imprimir?id=${venta.id}`, '_blank');
-      resetearFormulario();
+      setVentaReciente(venta);
+      setModalImpresionOpen(true);
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar la venta');
     } finally {
@@ -411,20 +422,32 @@ export function NuevaVentaPage() {
                     autoComplete="off"
                   />
                   {sugerencias.length > 0 && (
-                    <div style={{ position: 'absolute', zIndex: 1000, width: 520, background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, marginTop: 4, maxHeight: 320, overflowY: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                    <div style={{ position: 'absolute', zIndex: 1000, width: 560, background: '#fff', border: '1px solid #d9d9d9', borderRadius: 10, marginTop: 6, maxHeight: 360, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
                       {sugerencias.map((p, i) => {
                         const precios = preciosDisponibles(p);
                         return (
                           <div
                             key={p.id}
                             onMouseDown={(e) => { e.preventDefault(); seleccionarProductoEntrada(p); }}
-                            style={{ padding: '6px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#e6f4ff' : '#fff' }}
+                            style={{ padding: '10px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#f0f7ff' : '#fff', borderBottom: i < sugerencias.length - 1 ? '1px solid #f0f0f0' : undefined }}
                           >
-                            <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{p.codigo}</Typography.Text> {p.nombre}{p.marca ? <Typography.Text type="secondary" style={{ fontSize: 12 }}> · {p.marca.nombre}</Typography.Text> : null}</div>
-                            <div style={{ fontSize: 12, color: '#8c8c8c', display: 'flex', gap: 12 }}>
-                              <span>Stock: {Number(p.stock_actual || 0).toFixed(0)}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>{p.codigo}</Typography.Text>
+                              <span style={{ fontWeight: 700, fontSize: 14 }}>{p.nombre}</span>
+                              {p.marca ? <Typography.Text type="secondary" style={{ fontSize: 12 }}>· {p.marca.nombre}</Typography.Text> : null}
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 13, color: '#595959', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, color: '#1f1f1f', background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 999, padding: '3px 10px' }}>
+                                Stock: {Number(p.stock_actual || 0).toFixed(0)}
+                              </span>
                               {precios.length > 0 && (
-                                <span>{precios.map((pr) => `P${pr.numero}: ${formatMoneda(pr.valor)}`).join('  ·  ')}</span>
+                                <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                  {precios.map((pr) => (
+                                    <span key={pr.numero} style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 999, padding: '3px 10px', fontSize: 12, color: '#389e0d', fontWeight: 700 }}>
+                                      P{pr.numero}: {formatMoneda(pr.valor)}
+                                    </span>
+                                  ))}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -505,6 +528,36 @@ export function NuevaVentaPage() {
           </Space>
         </div>
       </div>
+
+      <Modal
+        open={modalImpresionOpen}
+        title="Documento emitido"
+        onCancel={() => finalizarVenta('sin_imprimir')}
+        footer={[
+          <Button key="sin-imprimir" onClick={() => finalizarVenta('sin_imprimir')}>
+            No imprimir
+          </Button>,
+          <Button key="nueva" type="primary" onClick={() => finalizarVenta('nueva')}>
+            Nueva venta
+          </Button>,
+          <Button key="imprimir" type="primary" onClick={() => finalizarVenta('imprimir')}>
+            Imprimir
+          </Button>,
+        ]}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Typography.Text>
+            El documento se registró correctamente. Puedes revisar la vista previa antes de imprimir.
+          </Typography.Text>
+          {ventaReciente && (
+            <iframe
+              title="Vista previa del documento"
+              src={`/ventas/imprimir?id=${ventaReciente.id}`}
+              style={{ width: '100%', height: 420, border: '1px solid #f0f0f0', borderRadius: 8, background: '#fff' }}
+            />
+          )}
+        </div>
+      </Modal>
 
       <ClienteNuevoModal
         open={modalClienteNuevo}

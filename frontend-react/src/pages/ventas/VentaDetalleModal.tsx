@@ -24,6 +24,7 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
   const queryClient = useQueryClient();
   const [enviando, setEnviando] = useState(false);
   const [modalCanje, setModalCanje] = useState(false);
+  const [mostrarPreview, setMostrarPreview] = useState(false);
 
   const { data, isFetching } = useQuery({
     queryKey: ['venta', id],
@@ -105,6 +106,7 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
         footer={
           <Space wrap>
             <Button icon={<PrinterOutlined />} onClick={() => window.open(`/ventas/imprimir?id=${venta.id}`, '_blank')}>Imprimir</Button>
+            <Button onClick={() => setMostrarPreview((v) => !v)}>{mostrarPreview ? 'Ocultar vista previa' : 'Vista previa'}</Button>
             {puedeReenviar && <Button icon={<SendOutlined />} loading={enviando} onClick={reenviarSunat}>Enviar a SUNAT</Button>}
             {puedeCanjear && <Button type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} icon={<RetweetOutlined />} onClick={() => setModalCanje(true)}>Canjear a Boleta/Factura</Button>}
             {puedeNotaCredito && <Button style={{ background: '#faad14', borderColor: '#faad14', color: '#fff' }} icon={<FileExcelOutlined />} onClick={() => navigate(`/ventas/nueva-nota-credito?venta=${venta.id}`)}>Nota de Crédito</Button>}
@@ -125,6 +127,16 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
         </Descriptions>
 
         <Typography.Title level={5}>Detalle de productos</Typography.Title>
+        {mostrarPreview && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Title level={5} style={{ marginBottom: 8 }}>Vista previa del documento</Typography.Title>
+            <iframe
+              title="Vista previa del documento"
+              src={`/ventas/imprimir?id=${venta.id}`}
+              style={{ width: '100%', height: 420, border: '1px solid #f0f0f0', borderRadius: 8, background: '#fff' }}
+            />
+          </div>
+        )}
         <Table
           size="small" rowKey="id" pagination={false} dataSource={venta.detalle} columns={columns}
           summary={() => (
