@@ -187,6 +187,8 @@ export class GastosService {
             monto: gasto.total_pen,
             id_referencia: id,
             tipo_referencia: 'gasto',
+            id_metodo_pago: dto.id_metodo_pago,
+            numero_comprobante: gasto.numero_interno,
             id_usuario: usuarioId,
           },
         });

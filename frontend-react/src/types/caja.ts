@@ -12,6 +12,9 @@ export interface MovimientoCaja {
   tipo: 'ingreso' | 'egreso';
   concepto: string;
   monto: string;
+  id_metodo_pago: string | null;
+  numero_comprobante: string | null;
+  metodo_pago?: { nombre: string };
 }
 
 export interface CajaApertura {
@@ -28,6 +31,13 @@ export interface CajaApertura {
   movimientos?: MovimientoCaja[];
 }
 
+export interface ResumenPorMetodoPago {
+  id_metodo_pago: string;
+  nombre: string;
+  ingresos: number;
+  egresos: number;
+}
+
 export interface ResumenCaja {
   apertura: CajaApertura;
   resumen: {
@@ -37,6 +47,7 @@ export interface ResumenCaja {
     saldo_actual: number;
     cantidad_ingresos: number;
     cantidad_egresos: number;
+    por_metodo_pago: ResumenPorMetodoPago[];
   };
   movimientos: MovimientoCaja[];
 }
@@ -54,4 +65,5 @@ export interface MovimientoCajaDto {
   tipo: 'ingreso' | 'egreso';
   concepto: string;
   monto: number;
+  id_metodo_pago?: string;
 }

@@ -217,18 +217,20 @@ export class VentasService {
         });
       }
 
-      // 11. Registrar movimiento caja si aplica
-      if (dto.id_caja_apertura && totalPagos > 0) {
-        await tx.tbl_movimientos_caja.create({
-          data: {
-            id_caja_apertura: dto.id_caja_apertura,
-            tipo: 'ingreso',
+      // 11. Registrar movimiento de caja: una fila por cada pago, para no perder el desglose por método
+      if (dto.id_caja_apertura && pagos.length > 0) {
+        await tx.tbl_movimientos_caja.createMany({
+          data: pagos.map((p) => ({
+            id_caja_apertura: dto.id_caja_apertura!,
+            tipo: 'ingreso' as const,
             concepto: `Venta ${numeroComprobante}`,
-            monto: totalPagos,
+            monto: p.monto,
             id_referencia: venta.id,
             tipo_referencia: 'venta',
+            id_metodo_pago: p.id_metodo_pago,
+            numero_comprobante: numeroComprobante,
             id_usuario: usuarioId,
-          },
+          })),
         });
       }
 
@@ -533,17 +535,19 @@ export class VentasService {
         });
       }
 
-      if (origen.id_caja_apertura && totalPagos > 0) {
-        await tx.tbl_movimientos_caja.create({
-          data: {
-            id_caja_apertura: origen.id_caja_apertura,
-            tipo: 'ingreso',
+      if (origen.id_caja_apertura && pagos.length > 0) {
+        await tx.tbl_movimientos_caja.createMany({
+          data: pagos.map((p) => ({
+            id_caja_apertura: origen.id_caja_apertura!,
+            tipo: 'ingreso' as const,
             concepto: `Canje ${origen.numero_comprobante} → ${numeroComprobante}`,
-            monto: totalPagos,
+            monto: p.monto,
             id_referencia: nueva.id,
             tipo_referencia: 'venta',
+            id_metodo_pago: p.id_metodo_pago,
+            numero_comprobante: numeroComprobante,
             id_usuario: usuarioId,
-          },
+          })),
         });
       }
 

@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { UnlockOutlined, LockOutlined, PlusCircleOutlined, MinusCircleOutlined, ReloadOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { cajaApi } from '@/api/caja';
+import { metodosPagoApi } from '@/api/metodos-pago';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import type { MovimientoCaja } from '@/types/caja';
@@ -39,6 +40,8 @@ export function CajaPage() {
     { title: 'Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('HH:mm:ss') },
     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={v === 'ingreso' ? 'success' : 'error'}>{v}</Tag> },
     { title: 'Concepto', dataIndex: 'concepto' },
+    { title: 'Comprobante', render: (_, m) => m.numero_comprobante || '-' },
+    { title: 'Método', render: (_, m) => m.metodo_pago?.nombre || '-' },
     {
       title: 'Monto', align: 'right',
       render: (_, m) => (
@@ -104,6 +107,25 @@ export function CajaPage() {
           </Card>
         </Col>
       </Row>
+
+      {!!resumen?.resumen.por_metodo_pago.length && (
+        <Card title="Resumen por método de pago" style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            {resumen.resumen.por_metodo_pago.map((m) => (
+              <Col span={6} key={m.id_metodo_pago}>
+                <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 12, textAlign: 'center' }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>{m.nombre}</Typography.Text>
+                  <Typography.Title level={5} style={{ margin: '4px 0' }}>{formatMoneda(m.ingresos - m.egresos)}</Typography.Title>
+                  <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                    {m.ingresos > 0 && <>+{formatMoneda(m.ingresos)} </>}
+                    {m.egresos > 0 && <>-{formatMoneda(m.egresos)}</>}
+                  </Typography.Text>
+                </div>
+              </Col>
+            ))}
+          </Row>
+        </Card>
+      )}
 
       <Card
         title={<><WalletOutlined style={{ marginRight: 8 }} />Movimientos de caja</>}
@@ -209,15 +231,18 @@ function MovimientoModal({ tipo, idApertura, onClose, onSaved }: {
   const { message } = App.useApp();
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState<number | null>(null);
+  const [idMetodoPago, setIdMetodoPago] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+
+  const { data: metodosData } = useQuery({ queryKey: ['metodos-pago'], queryFn: metodosPagoApi.listar, enabled: !!tipo });
 
   const confirmar = async () => {
     if (!concepto.trim() || !monto) { message.warning('Complete concepto y monto'); return; }
     setSaving(true);
     try {
-      await cajaApi.movimiento(idApertura, { tipo: tipo!, concepto: concepto.trim(), monto });
+      await cajaApi.movimiento(idApertura, { tipo: tipo!, concepto: concepto.trim(), monto, id_metodo_pago: idMetodoPago });
       message.success('Movimiento registrado');
-      setConcepto(''); setMonto(null);
+      setConcepto(''); setMonto(null); setIdMetodoPago(undefined);
       onSaved();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar el movimiento');
@@ -234,7 +259,13 @@ function MovimientoModal({ tipo, idApertura, onClose, onSaved }: {
       <Typography.Text strong>Concepto</Typography.Text>
       <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Descripción del movimiento" style={{ margin: '4px 0 12px' }} autoFocus />
       <Typography.Text strong>Monto (S/)</Typography.Text>
-      <InputNumber value={monto} onChange={setMonto} min={0.01} step={0.01} style={{ width: '100%', marginTop: 4 }} />
+      <InputNumber value={monto} onChange={setMonto} min={0.01} step={0.01} style={{ width: '100%', marginTop: 4, marginBottom: 12 }} />
+      <Typography.Text strong>Método de pago (opcional)</Typography.Text>
+      <Select
+        value={idMetodoPago} onChange={setIdMetodoPago} allowClear style={{ width: '100%', marginTop: 4 }}
+        placeholder="Sin especificar"
+        options={(metodosData?.data || []).map((m) => ({ value: m.id, label: m.nombre }))}
+      />
     </Modal>
   );
 }

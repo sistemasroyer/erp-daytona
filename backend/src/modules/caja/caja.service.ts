@@ -20,6 +20,7 @@ export class MovimientoCajaDto {
   @IsNumber() @Min(0.01) monto: number;
   @IsOptional() @IsString() id_referencia?: string;
   @IsOptional() @IsString() tipo_referencia?: string;
+  @IsOptional() @IsString() id_metodo_pago?: string;
 }
 
 @Injectable()
@@ -119,9 +120,11 @@ export class CajaService {
         monto: dto.monto,
         id_referencia: dto.id_referencia,
         tipo_referencia: dto.tipo_referencia,
+        id_metodo_pago: dto.id_metodo_pago,
         id_usuario: usuarioId,
         fecha: new Date(),
       },
+      include: { metodo_pago: { select: { nombre: true } } },
     });
   }
 
@@ -148,7 +151,7 @@ export class CajaService {
     if (!apertura) throw new NotFoundException('Apertura no encontrada');
     this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
 
-    const [ingresos, egresos, movimientos] = await Promise.all([
+    const [ingresos, egresos, movimientos, porMetodo, metodosPago] = await Promise.all([
       this.prisma.tbl_movimientos_caja.aggregate({
         where: { id_caja_apertura: idApertura, tipo: 'ingreso' },
         _sum: { monto: true },
@@ -162,12 +165,31 @@ export class CajaService {
       this.prisma.tbl_movimientos_caja.findMany({
         where: { id_caja_apertura: idApertura },
         orderBy: { fecha: 'desc' },
+        include: { metodo_pago: { select: { nombre: true } } },
       }),
+      this.prisma.tbl_movimientos_caja.groupBy({
+        by: ['id_metodo_pago', 'tipo'],
+        where: { id_caja_apertura: idApertura, id_metodo_pago: { not: null } },
+        _sum: { monto: true },
+      }),
+      this.prisma.tbl_metodos_pago.findMany({ select: { id: true, nombre: true } }),
     ]);
 
     const totalIngresos = Number(ingresos._sum.monto || 0);
     const totalEgresos = Number(egresos._sum.monto || 0);
     const saldoActual = redondear2(Number(apertura.monto_apertura) + totalIngresos - totalEgresos);
+
+    const nombresPorId = new Map(metodosPago.map((m) => [m.id, m.nombre]));
+    const porMetodoMap = new Map<string, { id_metodo_pago: string; nombre: string; ingresos: number; egresos: number }>();
+    for (const fila of porMetodo) {
+      const idMetodo = fila.id_metodo_pago as string;
+      if (!porMetodoMap.has(idMetodo)) {
+        porMetodoMap.set(idMetodo, { id_metodo_pago: idMetodo, nombre: nombresPorId.get(idMetodo) || 'Desconocido', ingresos: 0, egresos: 0 });
+      }
+      const entrada = porMetodoMap.get(idMetodo)!;
+      if (fila.tipo === 'ingreso') entrada.ingresos = Number(fila._sum.monto || 0);
+      else entrada.egresos = Number(fila._sum.monto || 0);
+    }
 
     return {
       apertura,
@@ -178,6 +200,7 @@ export class CajaService {
         saldo_actual: saldoActual,
         cantidad_ingresos: ingresos._count,
         cantidad_egresos: egresos._count,
+        por_metodo_pago: Array.from(porMetodoMap.values()),
       },
       movimientos,
     };

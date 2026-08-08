@@ -796,8 +796,9 @@ model tbl_metodos_pago {
   usuario_creacion     String?  @db.VarChar(36)
   usuario_modificacion String?  @db.VarChar(36)
 
-  pagos  tbl_pagos[]
-  gastos tbl_gastos[]
+  pagos            tbl_pagos[]
+  gastos           tbl_gastos[]
+  movimientos_caja tbl_movimientos_caja[]
 
   @@map("tbl_metodos_pago")
 }
@@ -1149,18 +1150,21 @@ model tbl_cajas_aperturas {
 }
 
 model tbl_movimientos_caja {
-  id               String             @id @default(uuid())
-  id_caja_apertura String
-  tipo             TipoMovimientoCaja
-  concepto         String             @db.VarChar(300)
-  monto            Decimal            @db.Decimal(12, 2)
-  id_referencia    String?            @db.VarChar(36)
-  tipo_referencia  String?            @db.VarChar(50)
-  id_usuario       String
-  fecha            DateTime           @default(now())
+  id                 String             @id @default(uuid())
+  id_caja_apertura   String
+  tipo               TipoMovimientoCaja
+  concepto           String             @db.VarChar(300)
+  monto              Decimal            @db.Decimal(12, 2)
+  id_referencia      String?            @db.VarChar(36)
+  tipo_referencia    String?            @db.VarChar(50)
+  id_metodo_pago     String?
+  numero_comprobante String?            @db.VarChar(20)
+  id_usuario         String
+  fecha              DateTime           @default(now())
 
   caja_apertura tbl_cajas_aperturas @relation(fields: [id_caja_apertura], references: [id])
   usuario       tbl_usuarios        @relation(fields: [id_usuario], references: [id])
+  metodo_pago   tbl_metodos_pago?   @relation(fields: [id_metodo_pago], references: [id])
 
   @@index([id_caja_apertura])
   @@index([fecha])
