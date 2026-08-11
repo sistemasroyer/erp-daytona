@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { Layout, Menu, Dropdown, Avatar, Button, Drawer, Grid, type MenuProps } from 'antd';
-import { UserOutlined, LogoutOutlined, MenuOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useAuth } from '@/auth/AuthContext';
 import { MENU } from './menu';
 import { ICONS } from './icons';
@@ -62,7 +62,7 @@ export function AppLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       {!esMobile && (
         <Sider
-          collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark" width={250}
+          collapsible collapsed={collapsed} onCollapse={setCollapsed} trigger={null} theme="dark" width={250}
           style={{ position: 'sticky', insetInlineStart: 0, top: 0, height: '100vh', overflow: 'auto' }}
         >
           <div style={{ color: '#fff', padding: '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden' }}>
@@ -72,9 +72,14 @@ export function AppLayout() {
         </Sider>
       )}
       <Layout>
-        <Header style={{ position: 'sticky', top: 0, zIndex: 10, width: '100%', background: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: esMobile ? 'space-between' : 'flex-end', padding: '0 16px' }}>
-          {esMobile && (
+        <Header style={{ position: 'sticky', top: 0, zIndex: 10, width: '100%', background: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+          {esMobile ? (
             <Button type="text" icon={<MenuOutlined style={{ color: '#fff' }} />} onClick={() => setDrawerAbierto(true)} />
+          ) : (
+            <Button
+              type="text" onClick={() => setCollapsed(!collapsed)}
+              icon={collapsed ? <MenuUnfoldOutlined style={{ color: '#fff' }} /> : <MenuFoldOutlined style={{ color: '#fff' }} />}
+            />
           )}
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <div style={{ color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
