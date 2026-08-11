@@ -7,6 +7,7 @@ export interface DetalleTomaInventario {
   stock_sistema: string;
   cantidad_contada: string;
   diferencia: string;
+  observaciones: string | null;
   fecha_conteo: string;
   producto?: { codigo: string; nombre: string; ubicacion: string | null; unidad_medida?: { simbolo: string } };
 }
@@ -27,6 +28,7 @@ export interface TomaInventario {
 export interface AgregarItemTomaDto {
   id_producto: string;
   cantidad_contada: number;
+  observaciones?: string;
 }
 
 export interface ListarTomasInventarioParams {

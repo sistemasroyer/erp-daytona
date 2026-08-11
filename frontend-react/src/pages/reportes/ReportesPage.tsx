@@ -112,6 +112,8 @@ export function ReportesPage() {
         return <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'}>{dif > 0 ? '+' : ''}{dif.toFixed(2)}</Typography.Text>;
       },
     },
+    { title: 'Responsable', render: (_, d) => d.toma.usuario ? `${d.toma.usuario.nombre} ${d.toma.usuario.apellido}` : '-' },
+    { title: 'Observaciones', render: (_, d) => d.observaciones || '-' },
   ];
 
   const columnsAuditoria: ColumnsType<RegistroAuditoria> = [

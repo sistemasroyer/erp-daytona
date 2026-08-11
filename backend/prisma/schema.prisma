@@ -822,6 +822,7 @@ model tbl_detalle_tomas_inventario {
   stock_sistema    Decimal  @db.Decimal(12, 4)
   cantidad_contada Decimal  @db.Decimal(12, 4)
   diferencia       Decimal  @db.Decimal(12, 4)
+  observaciones    String?  @db.VarChar(500)
   fecha_conteo     DateTime @default(now())
 
   toma     tbl_tomas_inventario @relation(fields: [id_toma], references: [id])

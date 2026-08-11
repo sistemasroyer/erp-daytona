@@ -80,16 +80,18 @@ export class TomaInventarioService {
 
     const stockSistema = Number(producto.stock_actual);
     const diferencia = dto.cantidad_contada - stockSistema;
+    const observaciones = dto.observaciones?.trim() || null;
 
     await this.prisma.tbl_detalle_tomas_inventario.upsert({
       where: { id_toma_id_producto: { id_toma: toma.id, id_producto: dto.id_producto } },
-      update: { cantidad_contada: dto.cantidad_contada, stock_sistema: stockSistema, diferencia, fecha_conteo: new Date() },
+      update: { cantidad_contada: dto.cantidad_contada, stock_sistema: stockSistema, diferencia, observaciones, fecha_conteo: new Date() },
       create: {
         id_toma: toma.id,
         id_producto: dto.id_producto,
         stock_sistema: stockSistema,
         cantidad_contada: dto.cantidad_contada,
         diferencia,
+        observaciones,
       },
     });
 

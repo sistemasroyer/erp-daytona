@@ -59,6 +59,7 @@ export interface ItemReporteTomaInventario {
   stock_sistema: string;
   cantidad_contada: string;
   diferencia: string;
+  observaciones: string | null;
   fecha_conteo: string;
   producto: { codigo: string; nombre: string; ubicacion: string | null; unidad_medida?: { simbolo: string } };
   toma: { numero_interno: string; estado: string; fecha_inicio: string; usuario?: { nombre: string; apellido: string } };

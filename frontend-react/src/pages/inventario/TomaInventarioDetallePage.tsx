@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Card, Typography, Button, InputNumber, Input, Space, Empty, Tag } from 'antd';
@@ -10,7 +10,7 @@ import { Autocomplete } from '@/components/Autocomplete';
 import { EstadoTag } from '@/components/EstadoTag';
 import { useConfirmar } from '@/components/ConfirmModal';
 import { ApiError } from '@/api/types';
-import type { DetalleTomaInventario } from '@/types/toma-inventario';
+import type { DetalleTomaInventario, TomaInventario } from '@/types/toma-inventario';
 import type { Producto } from '@/types/producto';
 
 function fmtCantidad(v: string | number) {
@@ -25,13 +25,9 @@ export function TomaInventarioDetallePage() {
   const queryClient = useQueryClient();
 
   const [productoEntrada, setProductoEntrada] = useState<Producto | null>(null);
-  const [cantidadEntrada, setCantidadEntrada] = useState(0);
+  const [cantidadEntrada, setCantidadEntrada] = useState<number | null>(null);
   const [agregando, setAgregando] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
-  const [editandoUbicacion, setEditandoUbicacion] = useState<string | null>(null);
-  const [ubicacionInput, setUbicacionInput] = useState('');
-  const [guardandoUbicacion, setGuardandoUbicacion] = useState(false);
-  const editTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const { data, isFetching } = useQuery({
     queryKey: ['toma-inventario', id],
@@ -45,62 +41,21 @@ export function TomaInventarioDetallePage() {
 
   const seleccionarProducto = (p: Producto) => {
     setProductoEntrada(p);
-    setCantidadEntrada(Number(p.stock_actual));
+    setCantidadEntrada(null); // el conteo tiene que arrancar vacío, sin sugerir el stock del sistema
   };
 
   const agregarProducto = async () => {
-    if (!productoEntrada || !toma) return;
+    if (!productoEntrada || !toma || cantidadEntrada === null) return;
     setAgregando(true);
     try {
       await tomaInventarioApi.agregarItem(toma.id, { id_producto: productoEntrada.id, cantidad_contada: cantidadEntrada });
       setProductoEntrada(null);
-      setCantidadEntrada(0);
+      setCantidadEntrada(null);
       refrescar();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al agregar el producto');
     } finally {
       setAgregando(false);
-    }
-  };
-
-  const actualizarCantidad = (idProducto: string, cantidad: number) => {
-    if (!toma) return;
-    if (editTimers.current[idProducto]) clearTimeout(editTimers.current[idProducto]);
-    editTimers.current[idProducto] = setTimeout(async () => {
-      try {
-        await tomaInventarioApi.agregarItem(toma.id, { id_producto: idProducto, cantidad_contada: cantidad });
-        refrescar();
-      } catch (err) {
-        message.error(err instanceof ApiError ? err.message : 'Error al actualizar la cantidad');
-      }
-    }, 600);
-  };
-
-  const quitarProducto = async (idProducto: string) => {
-    if (!toma) return;
-    try {
-      await tomaInventarioApi.quitarItem(toma.id, idProducto);
-      refrescar();
-    } catch (err) {
-      message.error(err instanceof ApiError ? err.message : 'Error al quitar el producto');
-    }
-  };
-
-  const abrirEdicionUbicacion = (idProducto: string, ubicacionActual: string | null) => {
-    setEditandoUbicacion(idProducto);
-    setUbicacionInput(ubicacionActual || '');
-  };
-
-  const guardarUbicacion = async (idProducto: string) => {
-    setGuardandoUbicacion(true);
-    try {
-      await productosApi.actualizar(idProducto, { ubicacion: ubicacionInput.trim() || undefined });
-      setEditandoUbicacion(null);
-      refrescar();
-    } catch (err) {
-      message.error(err instanceof ApiError ? err.message : 'Error al guardar la ubicación');
-    } finally {
-      setGuardandoUbicacion(false);
     }
   };
 
@@ -198,11 +153,16 @@ export function TomaInventarioDetallePage() {
                 {productoEntrada ? fmtCantidad(productoEntrada.stock_actual) : '—'}
               </div>
             </div>
-            <div style={{ flex: '1 1 110px' }}>
+            <div style={{ flex: '1 1 130px' }}>
               <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Cantidad contada</Typography.Text>
-              <InputNumber min={0} step={1} value={cantidadEntrada} disabled={!productoEntrada} onChange={(v) => setCantidadEntrada(v ?? 0)} style={{ width: '100%' }} />
+              <InputNumber
+                min={0} step={1} value={cantidadEntrada} disabled={!productoEntrada}
+                placeholder="Ingrese la cantidad"
+                onChange={(v) => setCantidadEntrada(v)}
+                style={{ width: '100%' }}
+              />
             </div>
-            <Button type="primary" icon={<PlusOutlined />} disabled={!productoEntrada} loading={agregando} onClick={agregarProducto} style={{ flex: '0 0 auto' }}>
+            <Button type="primary" icon={<PlusOutlined />} disabled={!productoEntrada || cantidadEntrada === null} loading={agregando} onClick={agregarProducto} style={{ flex: '0 0 auto' }}>
               Agregar
             </Button>
           </div>
@@ -217,65 +177,136 @@ export function TomaInventarioDetallePage() {
         <Card size="small"><Empty description="Todavía no se contó ningún producto" /></Card>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-          {toma.detalle.map((d: DetalleTomaInventario) => {
-            const dif = Number(d.diferencia);
-            const editandoEsta = editandoUbicacion === d.id_producto;
-            return (
-              <Card key={d.id} size="small" style={{ borderColor: dif !== 0 ? undefined : '#f0f0f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                    <Typography.Text strong style={{ display: 'block', overflowWrap: 'break-word' }}>{d.producto?.nombre || '-'}</Typography.Text>
-                    <Space size={4} wrap style={{ marginTop: 4 }}>
-                      <Tag>{d.producto?.codigo}</Tag>
-                      {editandoEsta ? null : d.producto?.ubicacion
-                        ? <Tag icon={<EnvironmentOutlined />} color="blue">{d.producto.ubicacion}</Tag>
-                        : <Tag icon={<EnvironmentOutlined />}>Sin ubicación</Tag>}
-                      {enProceso && !editandoEsta && (
-                        <Button size="small" type="link" style={{ padding: 0, height: 'auto' }} icon={<EditOutlined />} onClick={() => abrirEdicionUbicacion(d.id_producto, d.producto?.ubicacion ?? null)}>
-                          Editar ubicación
-                        </Button>
-                      )}
-                    </Space>
-                    {editandoEsta && (
-                      <Space.Compact style={{ marginTop: 6, width: '100%', maxWidth: 260 }}>
-                        <Input
-                          size="small" autoFocus value={ubicacionInput} placeholder="Ej: A-01, PASILLO-3"
-                          onChange={(e) => setUbicacionInput(e.target.value.toUpperCase())}
-                          onPressEnter={() => guardarUbicacion(d.id_producto)}
-                        />
-                        <Button size="small" type="primary" loading={guardandoUbicacion} onClick={() => guardarUbicacion(d.id_producto)}>Guardar</Button>
-                        <Button size="small" onClick={() => setEditandoUbicacion(null)}>Cancelar</Button>
-                      </Space.Compact>
-                    )}
-                  </div>
-
-                  <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                    <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Stock sistema: {fmtCantidad(d.stock_sistema)}</Typography.Text>
-                    {enProceso ? (
-                      <InputNumber
-                        size="small" min={0} step={1} defaultValue={Number(d.cantidad_contada)}
-                        onChange={(v) => actualizarCantidad(d.id_producto, v ?? 0)}
-                        style={{ width: 110, marginTop: 4 }}
-                      />
-                    ) : (
-                      <Typography.Text strong style={{ fontSize: 18, display: 'block' }}>{fmtCantidad(d.cantidad_contada)}</Typography.Text>
-                    )}
-                    <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'} style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
-                      {dif === 0 ? 'sin diferencia' : `${dif > 0 ? '+' : ''}${fmtCantidad(dif)} ${dif > 0 ? 'sobra' : 'falta'}`}
-                    </Typography.Text>
-                  </div>
-                </div>
-
-                {enProceso && (
-                  <Button size="small" danger icon={<DeleteOutlined />} style={{ marginTop: 8 }} onClick={() => quitarProducto(d.id_producto)}>
-                    Quitar
-                  </Button>
-                )}
-              </Card>
-            );
-          })}
+          {toma.detalle.map((d) => (
+            <ItemCard key={d.id} toma={toma} detalle={d} enProceso={!!enProceso} />
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+function ItemCard({ toma, detalle, enProceso }: { toma: TomaInventario; detalle: DetalleTomaInventario; enProceso: boolean }) {
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
+
+  const [cantidad, setCantidad] = useState(Number(detalle.cantidad_contada));
+  const [observaciones, setObservaciones] = useState(detalle.observaciones || '');
+  const [editandoUbicacion, setEditandoUbicacion] = useState(false);
+  const [ubicacionInput, setUbicacionInput] = useState('');
+  const [guardandoUbicacion, setGuardandoUbicacion] = useState(false);
+  const tocado = useRef(false);
+
+  const refrescar = () => queryClient.invalidateQueries({ queryKey: ['toma-inventario', toma.id] });
+
+  useEffect(() => {
+    if (!tocado.current) return;
+    const t = setTimeout(async () => {
+      try {
+        await tomaInventarioApi.agregarItem(toma.id, { id_producto: detalle.id_producto, cantidad_contada: cantidad, observaciones: observaciones || undefined });
+        refrescar();
+      } catch (err) {
+        message.error(err instanceof ApiError ? err.message : 'Error al guardar los cambios');
+      }
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cantidad, observaciones]);
+
+  const quitar = async () => {
+    try {
+      await tomaInventarioApi.quitarItem(toma.id, detalle.id_producto);
+      refrescar();
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : 'Error al quitar el producto');
+    }
+  };
+
+  const abrirEdicionUbicacion = () => {
+    setUbicacionInput(detalle.producto?.ubicacion || '');
+    setEditandoUbicacion(true);
+  };
+
+  const guardarUbicacion = async () => {
+    setGuardandoUbicacion(true);
+    try {
+      await productosApi.actualizar(detalle.id_producto, { ubicacion: ubicacionInput.trim() || undefined });
+      setEditandoUbicacion(false);
+      refrescar();
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : 'Error al guardar la ubicación');
+    } finally {
+      setGuardandoUbicacion(false);
+    }
+  };
+
+  const dif = Number(detalle.diferencia);
+  const colorBorde = dif > 0 ? '#b7eb8f' : dif < 0 ? '#ffa39e' : '#f0f0f0';
+
+  return (
+    <Card size="small" style={{ borderColor: colorBorde, borderWidth: 1.5 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+          <Typography.Text strong style={{ display: 'block', overflowWrap: 'break-word' }}>{detalle.producto?.nombre || '-'}</Typography.Text>
+          <Space size={4} wrap style={{ marginTop: 4 }}>
+            <Tag>{detalle.producto?.codigo}</Tag>
+            {editandoUbicacion ? null : detalle.producto?.ubicacion
+              ? <Tag icon={<EnvironmentOutlined />} color="blue">{detalle.producto.ubicacion}</Tag>
+              : <Tag icon={<EnvironmentOutlined />}>Sin ubicación</Tag>}
+            {enProceso && !editandoUbicacion && (
+              <Button size="small" type="link" style={{ padding: 0, height: 'auto' }} icon={<EditOutlined />} onClick={abrirEdicionUbicacion}>
+                Editar ubicación
+              </Button>
+            )}
+          </Space>
+          {editandoUbicacion && (
+            <Space.Compact style={{ marginTop: 6, width: '100%', maxWidth: 260 }}>
+              <Input
+                size="small" autoFocus value={ubicacionInput} placeholder="Ej: A-01, PASILLO-3"
+                onChange={(e) => setUbicacionInput(e.target.value.toUpperCase())}
+                onPressEnter={guardarUbicacion}
+              />
+              <Button size="small" type="primary" loading={guardandoUbicacion} onClick={guardarUbicacion}>Guardar</Button>
+              <Button size="small" onClick={() => setEditandoUbicacion(false)}>Cancelar</Button>
+            </Space.Compact>
+          )}
+        </div>
+
+        <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+          <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Stock sistema: {fmtCantidad(detalle.stock_sistema)}</Typography.Text>
+          {enProceso ? (
+            <InputNumber
+              size="large" min={0} step={1} value={cantidad}
+              onChange={(v) => { tocado.current = true; setCantidad(v ?? 0); }}
+              style={{ width: 120, marginTop: 4, fontWeight: 700 }}
+            />
+          ) : (
+            <Typography.Text strong style={{ fontSize: 20, display: 'block' }}>{fmtCantidad(detalle.cantidad_contada)}</Typography.Text>
+          )}
+          <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'} style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+            {dif === 0 ? 'sin diferencia' : `${dif > 0 ? '+' : ''}${fmtCantidad(dif)} ${dif > 0 ? 'sobra' : 'falta'}`}
+          </Typography.Text>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>Observación</Typography.Text>
+        {enProceso ? (
+          <Input.TextArea
+            size="small" rows={2} value={observaciones}
+            onChange={(e) => { tocado.current = true; setObservaciones(e.target.value); }}
+            placeholder="Ej: producto en mal estado, caja rota, diferencia justificada…"
+          />
+        ) : (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{detalle.observaciones || '—'}</Typography.Text>
+        )}
+      </div>
+
+      {enProceso && (
+        <Button size="small" danger icon={<DeleteOutlined />} style={{ marginTop: 8 }} onClick={quitar}>
+          Quitar
+        </Button>
+      )}
+    </Card>
   );
 }
