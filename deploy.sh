@@ -1,61 +1,74 @@
-#!/usr/bin/env bash
-# Actualiza el ERP en el servidor: trae el codigo nuevo, aplica migraciones y
-# seed de Prisma, recompila backend y frontend, reinicia PM2 y publica en Nginx.
-#
-# Uso: ./deploy.sh   (desde la raiz del repo, ej. ~/erp-daytona)
-
+#!/bin/bash
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$REPO_DIR/backend"
-FRONTEND_DIR="$REPO_DIR/frontend-react"
-WEB_ROOT="/var/www/erp-daytona"
+DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR="$DEPLOY_DIR/backend"
+FRONTEND_DIR="$DEPLOY_DIR/frontend-react"
 
-step() { echo; echo "==> $1"; }
+echo "🚀 Deploy ERP Daytona — $(date '+%Y-%m-%d %H:%M:%S')"
+echo "📁 $DEPLOY_DIR"
+echo ""
 
-step "Actualizando codigo desde git..."
-cd "$REPO_DIR"
-git pull
+# ── 1. Código limpio desde GitHub ────────────────────────────────────────────
+echo "📥 [1/4] Actualizando código..."
+if [ -d "$DEPLOY_DIR/.git" ]; then
+  git -C "$DEPLOY_DIR" fetch origin
+  git -C "$DEPLOY_DIR" checkout main 2>/dev/null || git -C "$DEPLOY_DIR" checkout master
+  git -C "$DEPLOY_DIR" reset --hard origin/main 2>/dev/null || git -C "$DEPLOY_DIR" reset --hard origin/master
+else
+  echo "❌ Este proyecto no es un repositorio git en $DEPLOY_DIR"
+  exit 1
+fi
+chmod +x "$DEPLOY_DIR/deploy.sh" 2>/dev/null || true
+echo "✅ Código actualizado"
+echo ""
 
-step "Backend: instalando dependencias..."
+# ── 2. Backend: deps + schema + seed + compilación ───────────────────────────
+echo "⚙️  [2/4] Configurando backend..."
 cd "$BACKEND_DIR"
-npm ci
-
-step "Backend: aplicando migraciones de Prisma..."
+npm install
 npx prisma migrate deploy
-
-step "Backend: generando cliente de Prisma..."
 npx prisma generate
-
-step "Backend: ejecutando seed (idempotente, seguro re-ejecutar)..."
 npm run prisma:seed
-
-step "Backend: compilando..."
 npm run build
+echo "✅ Backend configurado y compilado"
+echo ""
 
-step "Backend: reiniciando PM2 (sin downtime)..."
-pm2 startOrReload ecosystem.config.js --env production
+# ── 3. Reinicio suave del backend (zero-downtime) ────────────────────────────
+echo "🔄 [3/4] Recargando servidor Node..."
+if pm2 describe erp-daytona > /dev/null 2>&1; then
+  pm2 reload erp-daytona
+else
+  pm2 start "$BACKEND_DIR/ecosystem.config.js" --env production
+fi
+pm2 save
+echo "✅ Servidor recargado"
+echo ""
 
-step "Frontend: instalando dependencias..."
+# ── 4. Frontend: build atómico (el sitio sigue sirviendo durante el build) ──
+echo "🏗️  [4/4] Construyendo frontend..."
 cd "$FRONTEND_DIR"
-npm ci
+npm install
 
-if [ ! -f .env.production ]; then
-  step "Frontend: creando .env.production (ruta relativa a la API, servida por Nginx)..."
-  echo "VITE_API_URL=/api/v1" > .env.production
+rm -rf dist_new
+npm run build -- --outDir dist_new
+
+if [ ! -f "$FRONTEND_DIR/dist_new/index.html" ]; then
+  echo "❌ ERROR: No se generó index.html en dist_new — se conserva el dist anterior"
+  rm -rf dist_new
+  exit 1
 fi
 
-step "Frontend: compilando..."
-npm run build
+rm -rf dist_old
+if [ -d dist ]; then
+  mv dist dist_old
+fi
+mv dist_new dist
+rm -rf dist_old
 
-step "Frontend: publicando en $WEB_ROOT..."
-sudo mkdir -p "$WEB_ROOT"
-sudo rm -rf "${WEB_ROOT:?}"/*
-sudo cp -r dist/* "$WEB_ROOT"/
-
-step "Recargando Nginx..."
-sudo nginx -t
-sudo systemctl reload nginx
-
-step "Listo. Deploy completo."
-pm2 status
+echo "✅ Frontend actualizado"
+echo ""
+echo "═══════════════════════════════════"
+echo "✅ Deploy completado — $(date '+%H:%M:%S')"
+echo "═══════════════════════════════════"
+echo "⚠️  Usuarios activos: cerrar sesión y volver a entrar"
