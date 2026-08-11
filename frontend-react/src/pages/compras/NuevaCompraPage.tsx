@@ -399,8 +399,8 @@ export function NuevaCompraPage() {
         onRestaurar={restaurarBorrador}
         onDescartar={descartarBorradorLista}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'start' }}>
-        <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ flex: '3 1 480px', minWidth: 0 }}>
           <Card
             size="small" style={{ marginBottom: 12 }}
             title="Datos del documento"
@@ -411,7 +411,7 @@ export function NuevaCompraPage() {
               </>
             }
           >
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Tipo doc. *</Typography.Text>
                 <Select size="small" value={tipoDocumento} onChange={setTipoDocumento} style={{ width: '100%' }} options={[
@@ -432,7 +432,7 @@ export function NuevaCompraPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Proveedor *</Typography.Text>
                 <Autocomplete<Proveedor>
@@ -453,7 +453,7 @@ export function NuevaCompraPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: condicionPago === 'credito' ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Almacén destino *</Typography.Text>
                 <Select size="small" value={idAlmacen} onChange={setIdAlmacen} style={{ width: '100%' }} placeholder="Seleccione" options={(almacenesData?.data || []).map((a) => ({ value: a.id, label: a.nombre }))} />
@@ -508,7 +508,7 @@ export function NuevaCompraPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Monto flete</Typography.Text>
                     <InputNumber size="small" value={fleteMonto} onChange={(v) => setFleteMonto(v ?? 0)} min={0} step={0.01} style={{ width: '100%' }} disabled={!!gastoFlete} />
@@ -596,7 +596,8 @@ export function NuevaCompraPage() {
                     </Button>
                     <Button size="small" danger icon={<DeleteOutlined />} onClick={() => quitarItem(idx)} />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 90px 130px 130px 1fr', gap: 12, alignItems: 'end' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 90px 130px 130px 200px', gap: 12, alignItems: 'end', minWidth: 780 }}>
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Cantidad</Typography.Text>
                       <InputNumber size="small" min={0.001} step={1} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
@@ -624,6 +625,7 @@ export function NuevaCompraPage() {
                     <div style={{ fontSize: 12, color: '#8c8c8c' }}>
                       {moneda === 'USD' ? `= S/ ${importeLineaPen.toFixed(2)} | ` : ''}Base: S/ {base.toFixed(2)}, IGV: S/ {igv.toFixed(2)}
                     </div>
+                  </div>
                   </div>
                   {item.mostrarCodigoProveedor && (
                     <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -658,7 +660,7 @@ export function NuevaCompraPage() {
 
             {items.length > 0 && (
               <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, padding: 12, marginTop: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 12, alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'end' }}>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Total factura con IGV (verificación)</Typography.Text>
                     <InputNumber size="small" value={totalFacturaVerificacion} onChange={(v) => setTotalFacturaVerificacion(v ?? undefined)} min={0} step={0.01} style={{ width: '100%' }} prefix={simb} />
@@ -672,7 +674,7 @@ export function NuevaCompraPage() {
           </Card>
         </div>
 
-        <div style={{ position: 'sticky', top: 16 }}>
+        <div style={{ flex: '1 1 280px', position: 'sticky', top: 16 }}>
           <Card size="small" style={{ borderColor: '#52c41a' }} title={<Typography.Text style={{ color: '#389e0d' }}>Resumen de compra</Typography.Text>}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal (sin IGV)</span><strong>{formatMoneda(totales.subtotal)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV 18%</span><span>{formatMoneda(totales.igvTotal)}</span></div>

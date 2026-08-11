@@ -204,7 +204,7 @@ export function NotaCreditoCompraPage() {
           Acreditando <strong>{numeroCompra}</strong> — Proveedor: {compra.proveedor?.razon_social || '-'} — Total original: {formatMoneda(compra.total, compra.moneda)}
         </Typography.Paragraph>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Serie (del proveedor)</Typography.Text>
             <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="Opcional" maxLength={4} />
@@ -234,7 +234,8 @@ export function NotaCreditoCompraPage() {
         </div>
 
         <Typography.Title level={5}>Ítems a acreditar</Typography.Title>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, minWidth: 560 }}>
           <thead>
             <tr style={{ background: '#fafafa', textAlign: 'left' }}>
               <th style={{ width: 40, padding: 6 }}></th>
@@ -272,6 +273,7 @@ export function NotaCreditoCompraPage() {
             ))}
           </tbody>
         </table>
+        </div>
 
         <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
           El "Importe a acreditar" es el que figura en el documento del proveedor (incluye IGV si la línea lo afecta) — por defecto se calcula proporcional a la cantidad, pero puede corregirlo si el proveedor acreditó otro monto (por ejemplo, en bonificaciones). Si el motivo es "Anulación de la operación", debe acreditar todos los ítems por el total completo de la compra.

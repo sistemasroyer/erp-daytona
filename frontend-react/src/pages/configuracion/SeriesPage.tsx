@@ -120,7 +120,7 @@ export function SeriesPage() {
         options={puntosVenta.map((pv) => ({ value: pv.id, label: pv.nombre }))}
       />
 
-      <Table<SerieDocumento> rowKey="id" columns={columns} dataSource={data?.data} loading={isFetching} pagination={false} />
+      <Table<SerieDocumento> rowKey="id" columns={columns} dataSource={data?.data} loading={isFetching} pagination={false} scroll={{ x: 'max-content' }} />
 
       <Modal title="Nueva Serie de Documento" open={modalNueva} onCancel={() => setModalNueva(false)} onOk={crearSerie} confirmLoading={saving} okText="Crear Serie" cancelText="Cancelar">
         <Form layout="vertical">

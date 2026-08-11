@@ -85,7 +85,7 @@ export function ProveedorNuevoModal({ open, rucInicial, razonSocialInicial, onCl
         <Form.Item label="Razón social" required>
           <Input value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
         </Form.Item>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Teléfono">
             <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </Form.Item>

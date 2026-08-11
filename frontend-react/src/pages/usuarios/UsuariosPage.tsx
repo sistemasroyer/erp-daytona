@@ -56,6 +56,7 @@ export function UsuariosPage() {
       <Table<Usuario>
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         dataSource={data?.data}
         loading={isFetching}
         pagination={{ current: page, pageSize: limit, total: data?.meta?.total, showTotal: (t) => `${t} usuarios`, onChange: setPage }}

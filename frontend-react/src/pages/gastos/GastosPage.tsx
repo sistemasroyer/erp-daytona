@@ -83,6 +83,7 @@ export function GastosPage() {
       <Table<Gasto>
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         dataSource={data?.data}
         loading={isFetching}
         onRow={(g) => ({ onClick: () => setDetalleId(g.id), style: { cursor: 'pointer' } })}

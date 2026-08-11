@@ -119,7 +119,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
 
         <Typography.Title level={5}>Detalle de la factura (tal como la emitió el proveedor)</Typography.Title>
         <Table
-          size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columns}
+          size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columns} scroll={{ x: 'max-content' }}
           summary={() => (
             <>
               <Table.Summary.Row>
@@ -164,7 +164,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           type="info" showIcon style={{ marginBottom: 8 }}
           title="Este cálculo es independiente de la factura del proveedor: toma el costo unitario de la factura y le suma el flete prorrateado (si aplica) para obtener el costo real con el que se valoriza el inventario."
         />
-        <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered />
+        <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered scroll={{ x: 'max-content' }} />
       </Modal>
 
       <GastoFormModal

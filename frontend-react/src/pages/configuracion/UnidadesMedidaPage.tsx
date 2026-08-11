@@ -56,7 +56,7 @@ export function UnidadesMedidaPage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir(null)}>Nueva Unidad</Button>
       </div>
 
-      <Table<UnidadMedida> rowKey="id" columns={columns} dataSource={data?.data} loading={isFetching} pagination={false} style={{ maxWidth: 700 }} />
+      <Table<UnidadMedida> rowKey="id" columns={columns} dataSource={data?.data} loading={isFetching} pagination={false} style={{ maxWidth: 700 }} scroll={{ x: 'max-content' }} />
 
       <Modal
         title={modal.unidad ? 'Editar Unidad de Medida' : 'Nueva Unidad de Medida'}

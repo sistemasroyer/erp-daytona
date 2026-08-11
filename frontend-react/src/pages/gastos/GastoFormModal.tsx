@@ -265,7 +265,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
             <Button size="small" icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>Importar XML del proveedor</Button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             <Form.Item label="Categoría *">
               <Select
                 value={categoria} onChange={setCategoria}
@@ -284,7 +284,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
             </Form.Item>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
             <Form.Item label="Serie">
               <Input value={serie} onChange={(e) => setSerie(e.target.value)} placeholder="F001" maxLength={4} />
             </Form.Item>
@@ -324,7 +324,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
             />
           </Form.Item>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             <Form.Item label="Condición de pago">
               <Select value={condicionPago} onChange={setCondicionPago} options={[
                 { value: 'contado', label: 'Contado' }, { value: 'credito', label: 'Crédito' },
@@ -337,7 +337,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: moneda === 'USD' ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: moneda === 'USD' ? 'repeat(auto-fit, minmax(160px, 1fr))' : '1fr', gap: 16, marginBottom: 8 }}>
             <Form.Item label="Moneda">
               <Select value={moneda} onChange={setMoneda} options={[{ value: 'PEN', label: 'PEN' }, { value: 'USD', label: 'USD' }]} />
             </Form.Item>
@@ -357,7 +357,8 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
             const { subtotal, igv } = calcularLinea(l);
             return (
               <div key={idx} style={{ background: '#fafafa', borderRadius: 8, padding: 10, marginBottom: 8, border: '1px solid #f0f0f0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px 130px 90px 32px', gap: 8, alignItems: 'end' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '220px 80px 130px 90px 32px', gap: 8, alignItems: 'end', minWidth: 552 }}>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Descripción</Typography.Text>
                     <Input size="small" value={l.descripcion} onChange={(e) => actualizarLinea(idx, { descripcion: e.target.value })} placeholder="Ej: Alquiler enero" />
@@ -375,6 +376,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
                     <Switch size="small" checked={l.afectaIgv} onChange={(v) => actualizarLinea(idx, { afectaIgv: v })} />
                   </div>
                   <Button size="small" danger icon={<DeleteOutlined />} onClick={() => quitarLinea(idx)} />
+                </div>
                 </div>
                 <Typography.Text type="secondary" style={{ fontSize: 11 }}>Base: {formatMoneda(subtotal, moneda)} — IGV: {formatMoneda(igv, moneda)}</Typography.Text>
               </div>

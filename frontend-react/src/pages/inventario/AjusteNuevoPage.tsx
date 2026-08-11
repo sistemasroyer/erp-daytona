@@ -77,14 +77,14 @@ export function AjusteNuevoPage() {
       </div>
 
       <Row gutter={16}>
-        <Col span={16}>
+        <Col xs={24} lg={16}>
           <Card title={<><FileTextOutlined style={{ marginRight: 8 }} />Datos del ajuste</>} style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-              <Col span={12}>
+              <Col xs={24} sm={12}>
                 <Typography.Text strong style={{ fontSize: 13 }}>Almacén *</Typography.Text>
                 <Select value={idAlmacen} onChange={setIdAlmacen} placeholder="Seleccione almacén" style={{ width: '100%', marginTop: 4 }} options={almacenes.map((a) => ({ value: a.id, label: a.nombre }))} />
               </Col>
-              <Col span={12}>
+              <Col xs={24} sm={12}>
                 <Typography.Text strong style={{ fontSize: 13 }}>Motivo *</Typography.Text>
                 <Select value={motivo} onChange={setMotivo} style={{ width: '100%', marginTop: 4 }} options={Object.entries(MOTIVO_AJUSTE_LABEL).map(([value, label]) => ({ value, label }))} />
               </Col>
@@ -118,26 +118,26 @@ export function AjusteNuevoPage() {
                     </div>
                     <Button size="small" danger icon={<DeleteOutlined />} onClick={() => quitarItem(idx)} />
                   </div>
-                  <Row gutter={8} align="bottom">
-                    <Col span={6}>
+                  <Row gutter={[8, 8]} align="bottom">
+                    <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11 }}>Tipo</Typography.Text>
                       <Select
                         size="small" value={item.tipo} onChange={(v) => actualizarItem(idx, { tipo: v })} style={{ width: '100%' }}
                         options={[{ value: 'ajuste_negativo', label: 'Salida (-)' }, { value: 'ajuste_positivo', label: 'Entrada (+)' }]}
                       />
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11 }}>Cantidad</Typography.Text>
                       <InputNumber size="small" value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 0 })} min={0.001} step={1} style={{ width: '100%' }} />
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11 }}>Costo unit. referencial</Typography.Text>
                       <Space.Compact style={{ width: '100%' }}>
                         <Button size="small" disabled>S/</Button>
                         <InputNumber size="small" value={item.costoUnitario} onChange={(v) => actualizarItem(idx, { costoUnitario: v ?? 0 })} min={0} step={0.0001} style={{ width: '100%' }} />
                       </Space.Compact>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Costo total ref.</Typography.Text>
                       <Typography.Text strong>{formatMoneda(item.cantidad * item.costoUnitario)}</Typography.Text>
                     </Col>
@@ -148,7 +148,7 @@ export function AjusteNuevoPage() {
           </Card>
         </Col>
 
-        <Col span={8}>
+        <Col xs={24} lg={8}>
           <Card title="Resumen del ajuste" style={{ borderColor: '#faad14', position: 'sticky', top: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <Typography.Text type="secondary">Ítems con entrada (+)</Typography.Text>

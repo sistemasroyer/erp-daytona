@@ -117,6 +117,7 @@ export function FacturacionEnviarPage() {
         <Table<Venta>
           size="small" rowKey="id" columns={columns} dataSource={ventas || []} loading={cargando}
           pagination={false}
+          scroll={{ x: 'max-content' }}
           locale={{ emptyText: ventas === null ? 'Use el filtro para cargar documentos' : 'Sin documentos pendientes 🎉' }}
         />
       </Card>

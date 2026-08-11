@@ -132,7 +132,7 @@ export function KardexPage() {
         extra={idProducto && <Typography.Text type="secondary">{total} movimientos</Typography.Text>}
       >
         {idProducto
-          ? <Table<MovimientoKardex> rowKey="id" columns={columns} dataSource={items} loading={isFetching} pagination={false} locale={{ emptyText: 'Sin movimientos en el período' }} />
+          ? <Table<MovimientoKardex> rowKey="id" columns={columns} dataSource={items} loading={isFetching} pagination={false} scroll={{ x: 'max-content' }} locale={{ emptyText: 'Sin movimientos en el período' }} />
           : <Empty description="Busque un producto arriba para ver su kardex" />}
       </Card>
     </div>

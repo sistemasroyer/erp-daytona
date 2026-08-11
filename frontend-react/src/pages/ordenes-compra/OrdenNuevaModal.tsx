@@ -125,8 +125,8 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
         onDescartar={descartarBorradorLista}
       />
       <Form layout="vertical">
-        <Row gutter={16}>
-          <Col span={12}>
+        <Row gutter={[16, 8]}>
+          <Col xs={24} md={12}>
             <Form.Item label="Proveedor" required>
               <Autocomplete<Proveedor>
                 placeholder="Buscar proveedor..."
@@ -138,12 +138,12 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
               {proveedor && <Typography.Text type="success" style={{ fontSize: 12 }}>✓ {proveedor.razon_social}</Typography.Text>}
             </Form.Item>
           </Col>
-          <Col span={6}>
+          <Col xs={12} md={6}>
             <Form.Item label="Moneda">
               <Select value={moneda} onChange={setMoneda} options={[{ value: 'PEN', label: 'PEN' }, { value: 'USD', label: 'USD' }]} />
             </Form.Item>
           </Col>
-          <Col span={6}>
+          <Col xs={12} md={6}>
             <Form.Item label="Fecha requerida">
               <DatePicker value={fechaRequerida} onChange={setFechaRequerida} style={{ width: '100%' }} format="DD/MM/YYYY" />
             </Form.Item>

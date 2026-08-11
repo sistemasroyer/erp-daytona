@@ -68,6 +68,7 @@ export function AjustesInventarioPage() {
       <Table<AjusteInventario>
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         dataSource={data?.data}
         loading={isFetching}
         onRow={(a) => ({ onClick: () => setDetalleId(a.id), style: { cursor: 'pointer' } })}
@@ -88,6 +89,7 @@ export function AjustesInventarioPage() {
               size="small"
               rowKey="id"
               pagination={false}
+              scroll={{ x: 'max-content' }}
               dataSource={detalle.detalle}
               columns={[
                 { title: 'Producto', render: (_, d: (typeof detalle.detalle)[number]) => <>{d.producto?.nombre || d.id_producto} <Typography.Text type="secondary">{d.producto?.codigo}</Typography.Text></> },

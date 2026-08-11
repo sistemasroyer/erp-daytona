@@ -81,6 +81,7 @@ export function ClientesPage() {
       <Table<Cliente>
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         dataSource={data?.data}
         loading={isFetching}
         pagination={{

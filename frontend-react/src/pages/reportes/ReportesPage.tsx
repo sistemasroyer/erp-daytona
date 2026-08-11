@@ -193,6 +193,7 @@ export function ReportesPage() {
           )}
           <Table<VentaReporte>
             rowKey="id" columns={columnsVentas} dataSource={qVentas.data?.data.ventas} loading={qVentas.isFetching}
+            scroll={{ x: 'max-content' }}
             locale={{ emptyText: filtros ? 'Sin ventas en el período' : 'Seleccione un período y haga clic en Generar' }}
           />
         </>
@@ -201,6 +202,7 @@ export function ReportesPage() {
       {tab === 'compras' && (
         <Table<CompraReporte>
           rowKey="id" columns={columnsCompras} dataSource={qCompras.data?.data.compras} loading={qCompras.isFetching}
+          scroll={{ x: 'max-content' }}
           locale={{ emptyText: filtros ? 'Sin compras en el período' : 'Seleccione un período y haga clic en Generar' }}
         />
       )}
@@ -209,6 +211,7 @@ export function ReportesPage() {
         <Table<ItemReporteInventario>
           rowKey="id" columns={columnsInventario} dataSource={inventarioItems} loading={qInventario.isFetching}
           pagination={false}
+          scroll={{ x: 'max-content' }}
           locale={{ emptyText: filtros ? 'Sin registros' : 'Haga clic en Generar' }}
           summary={() => inventarioItems.length > 0 ? (
             <Table.Summary.Row>
@@ -231,6 +234,7 @@ export function ReportesPage() {
           )}
           <Table<ItemReporteTomaInventario>
             rowKey="id" columns={columnsTomasInventario} dataSource={tomasInventario?.detalle} loading={qTomasInventario.isFetching}
+            scroll={{ x: 'max-content' }}
             locale={{ emptyText: filtros ? 'Sin registros para estos filtros' : 'Seleccione un período y haga clic en Generar' }}
           />
         </>
@@ -239,6 +243,7 @@ export function ReportesPage() {
       {tab === 'auditoria' && (
         <Table<RegistroAuditoria>
           rowKey="id" columns={columnsAuditoria} dataSource={qAuditoria.data?.data} loading={qAuditoria.isFetching}
+          scroll={{ x: 'max-content' }}
           locale={{ emptyText: filtros ? 'Sin registros' : 'Seleccione un período y haga clic en Generar' }}
         />
       )}

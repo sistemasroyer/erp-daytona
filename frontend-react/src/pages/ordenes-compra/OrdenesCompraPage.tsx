@@ -106,6 +106,7 @@ export function OrdenesCompraPage() {
       <Table<OrdenCompra>
         rowKey="id"
         columns={columns}
+        scroll={{ x: 'max-content' }}
         dataSource={data?.data}
         loading={isFetching}
         pagination={{ current: page, pageSize: limit, total: data?.meta?.total, showTotal: (t) => `${t} órdenes`, onChange: setPage }}
@@ -139,6 +140,7 @@ export function OrdenesCompraPage() {
               size="small"
               rowKey="id"
               pagination={false}
+              scroll={{ x: 'max-content' }}
               dataSource={orden.detalle || []}
               columns={[
                 { title: 'Producto', render: (_, d: NonNullable<typeof orden.detalle>[number]) => d.producto?.nombre || d.id_producto },

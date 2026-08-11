@@ -187,7 +187,7 @@ export function NotaCreditoPage() {
           Acreditando <strong>{venta.numero_comprobante}</strong> — Cliente: {venta.cliente?.razon_social || '-'} — Total original: {formatMoneda(venta.total, venta.moneda)}
         </Typography.Paragraph>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 16 }}>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Motivo *</Typography.Text>
             <Select value={codigoMotivo} onChange={cambiarMotivo} style={{ width: '100%' }} options={CODIGOS_MOTIVO_NOTA_CREDITO} />
@@ -213,7 +213,8 @@ export function NotaCreditoPage() {
         </div>
 
         <Typography.Title level={5}>Ítems a acreditar</Typography.Title>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, minWidth: 520 }}>
           <thead>
             <tr style={{ background: '#fafafa', textAlign: 'left' }}>
               <th style={{ width: 40, padding: 6 }}></th>
@@ -249,6 +250,7 @@ export function NotaCreditoPage() {
             ))}
           </tbody>
         </table>
+        </div>
 
         <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
           Si el motivo es "Anulación de la operación", debe incluir todos los ítems por su cantidad completa — el sistema marcará la venta original como anulada automáticamente.

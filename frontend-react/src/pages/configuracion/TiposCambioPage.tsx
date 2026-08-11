@@ -112,7 +112,7 @@ export function TiposCambioPage() {
       )}
 
       <Typography.Text type="secondary">Historial (últimos 60 días)</Typography.Text>
-      <Table<TipoCambio> rowKey="id" columns={columns} dataSource={data?.data} pagination={false} style={{ marginTop: 8 }} />
+      <Table<TipoCambio> rowKey="id" columns={columns} dataSource={data?.data} pagination={false} style={{ marginTop: 8 }} scroll={{ x: 'max-content' }} />
 
       <Modal
         title={modal.tc ? 'Editar Tipo de Cambio' : 'Nuevo Tipo de Cambio'}

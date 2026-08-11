@@ -109,7 +109,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
       destroyOnHidden
     >
       <Form layout="vertical">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="RUC" validateStatus={errors.ruc ? 'error' : ''} help={errors.ruc?.message}>
             <Controller name="ruc" control={control} render={({ field }) => (
               <Input {...field} maxLength={11} suffix={
@@ -122,7 +122,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Nombre Comercial">
             <Controller name="nombre_comercial" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
@@ -131,7 +131,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           <Form.Item label="Teléfono">
             <Controller name="telefono" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
@@ -145,7 +145,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Cuenta detracción">
             <Controller name="cuenta_detraccion" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>

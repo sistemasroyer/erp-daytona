@@ -45,7 +45,7 @@ export function CajaResumenVista({ resumen }: { resumen: ResumenCaja }) {
 
       <Card title={<><WalletOutlined style={{ marginRight: 8 }} />Movimientos de caja</>}>
         {resumen.movimientos.length
-          ? <Table<MovimientoCaja> rowKey="id" columns={columns} dataSource={resumen.movimientos} pagination={false} />
+          ? <Table<MovimientoCaja> rowKey="id" columns={columns} dataSource={resumen.movimientos} pagination={false} scroll={{ x: 'max-content' }} />
           : <Empty description="Sin movimientos" />}
       </Card>
     </>

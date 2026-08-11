@@ -371,7 +371,7 @@ export function NuevaVentaPage() {
         onDescartar={descartarBorradorLista}
       />
       <Card size="small" style={{ marginBottom: 8 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 120px 1fr 200px', gap: 12, alignItems: 'end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>Documento *</Typography.Text>
             <Select
@@ -423,9 +423,10 @@ export function NuevaVentaPage() {
         />
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-        <Card size="small" title={<><Typography.Text strong>Productos</Typography.Text> <Typography.Text type="secondary" style={{ fontSize: 12 }}>Escriba el código o nombre y presione Enter para avanzar</Typography.Text></>}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <Card size="small" style={{ flex: '3 1 480px' }} title={<><Typography.Text strong>Productos</Typography.Text> <Typography.Text type="secondary" style={{ fontSize: 12 }}>Escriba el código o nombre y presione Enter para avanzar</Typography.Text></>}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
             <thead>
               <tr style={{ background: '#fafafa', textAlign: 'left' }}>
                 <th style={{ width: 130, padding: 6 }}>Código</th>
@@ -472,7 +473,7 @@ export function NuevaVentaPage() {
                     autoComplete="off"
                   />
                   {sugerencias.length > 0 && (
-                    <div style={{ position: 'absolute', zIndex: 1000, width: 560, background: '#fff', border: '1px solid #d9d9d9', borderRadius: 10, marginTop: 6, maxHeight: 360, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
+                    <div style={{ position: 'absolute', zIndex: 1000, width: 'min(560px, 90vw)', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 10, marginTop: 6, maxHeight: 360, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
                       {sugerencias.map((p, i) => {
                         const precios = preciosDisponibles(p);
                         return (
@@ -532,9 +533,10 @@ export function NuevaVentaPage() {
               </tr>
             </tbody>
           </table>
+          </div>
         </Card>
 
-        <div>
+        <div style={{ flex: '1 1 300px' }}>
           <Card size="small" title="Resumen" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal</span><strong>{formatMoneda(subtotalVenta)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV (18%)</span><span>{formatMoneda(igvVenta)}</span></div>

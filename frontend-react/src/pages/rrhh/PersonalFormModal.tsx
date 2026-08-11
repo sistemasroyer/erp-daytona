@@ -95,7 +95,7 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
       destroyOnHidden
     >
       <Form layout="vertical">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           <Form.Item label="DNI" validateStatus={errors.dni ? 'error' : ''} help={errors.dni?.message}>
             <Controller name="dni" control={control} render={({ field }) => <Input {...field} maxLength={8} />} />
           </Form.Item>
@@ -107,7 +107,7 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           <Form.Item label="Cargo">
             <Controller name="cargo" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
@@ -121,7 +121,7 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Fecha ingreso" validateStatus={errors.fecha_ingreso ? 'error' : ''} help={errors.fecha_ingreso?.message}>
             <Controller name="fecha_ingreso" control={control} render={({ field }) => (
               <DatePicker {...field} style={{ width: '100%' }} format="DD/MM/YYYY" />
@@ -134,7 +134,7 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Banco">
             <Controller name="banco" control={control} render={({ field }) => (
               <Select {...field} allowClear placeholder="Sin cuenta" options={BANCOS.map((b) => ({ value: b, label: b }))} />

@@ -116,7 +116,7 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
       destroyOnHidden
     >
       <Form layout="vertical">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Tipo documento">
             <Controller name="tipo_documento" control={control} render={({ field }) => (
               <Select {...field} options={[
@@ -140,7 +140,7 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
           <Controller name="razon_social" control={control} render={({ field }) => <Input {...field} />} />
         </Form.Item>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Nombre comercial">
             <Controller name="nombre_comercial" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
@@ -149,7 +149,7 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
           </Form.Item>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           <Form.Item label="Teléfono">
             <Controller name="telefono" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
