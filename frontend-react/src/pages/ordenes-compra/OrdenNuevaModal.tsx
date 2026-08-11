@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { App, Modal, Form, Select, DatePicker, Input, Typography, Button, InputNumber, Row, Col, Empty, Space } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
-import type { Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { ordenesCompraApi } from '@/api/ordenes-compra';
 import { proveedoresApi } from '@/api/proveedores';
 import { productosApi } from '@/api/productos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
+import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Proveedor } from '@/types/proveedor';
 import type { Producto } from '@/types/producto';
 
@@ -15,6 +17,14 @@ interface ItemOrden {
   producto: Producto;
   cantidad: number;
   precio: number;
+}
+
+interface BorradorOrden {
+  proveedor: Proveedor | null;
+  moneda: 'PEN' | 'USD';
+  fechaRequerida: string | null;
+  observaciones: string;
+  items: ItemOrden[];
 }
 
 interface Props {
@@ -35,7 +45,36 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
   const reset = () => {
     setProveedor(null); setMoneda('PEN'); setFechaRequerida(null); setObservaciones(''); setItems([]);
   };
-  const handleClose = () => { reset(); onClose(); };
+  // No reseteamos el estado acá: el modal usa destroyOnHidden y se desmonta solo al cerrarse,
+  // y resetear en memoria antes de eso disparaba el efecto "vacío" del borrador y lo borraba.
+  const handleClose = () => onClose();
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
+  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorOrden>[]>([]);
+  const datosBorrador: BorradorOrden = { proveedor, moneda, fechaRequerida: fechaRequerida ? fechaRequerida.format('YYYY-MM-DD') : null, observaciones, items };
+  const { limpiar: limpiarBorrador } = useBorrador('orden-compra', datosBorrador, {
+    vacio: (d) => !d.proveedor && d.items.length === 0,
+  });
+
+  useEffect(() => {
+    if (open) setBorradores(listarBorradores<BorradorOrden>('orden-compra'));
+  }, [open]);
+
+  const restaurarBorrador = (b: BorradorGuardado<BorradorOrden>) => {
+    const d = b.datos;
+    setProveedor(d.proveedor);
+    setMoneda(d.moneda);
+    setFechaRequerida(d.fechaRequerida ? dayjs(d.fechaRequerida) : null);
+    setObservaciones(d.observaciones);
+    setItems(d.items);
+    descartarBorrador(b.clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== b.clave));
+  };
+
+  const descartarBorradorLista = (clave: string) => {
+    descartarBorrador(clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== clave));
+  };
 
   const agregarItem = (p: Producto) => {
     if (items.find((i) => i.producto.id === p.id)) return;
@@ -57,6 +96,7 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
         detalle: items.map((i) => ({ id_producto: i.producto.id, cantidad: i.cantidad, precio_referencial: i.precio })),
       });
       message.success('Orden creada correctamente');
+      limpiarBorrador();
       reset();
       onSaved();
     } catch (err) {
@@ -78,6 +118,12 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
       width={800}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borradores}
+        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s)`}
+        onRestaurar={restaurarBorrador}
+        onDescartar={descartarBorradorLista}
+      />
       <Form layout="vertical">
         <Row gutter={16}>
           <Col span={12}>

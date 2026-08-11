@@ -8,6 +8,8 @@ import { comprasApi } from '@/api/compras';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
+import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 import { CATEGORIAS_GASTO_LABEL, type CategoriaGasto } from '@/types/gasto';
 import type { Proveedor } from '@/types/proveedor';
@@ -46,6 +48,22 @@ interface Props {
   onSaved: () => void;
 }
 
+interface BorradorGasto {
+  categoria: CategoriaGasto;
+  tipoDocumento: string;
+  serie: string;
+  numero: string;
+  proveedor: Proveedor | null;
+  compraRelacionada: { id: string; label: string } | null;
+  fechaEmision: string;
+  condicionPago: 'contado' | 'credito';
+  fechaVencimiento: string | null;
+  moneda: 'PEN' | 'USD';
+  tipoCambio: number;
+  lineas: LineaGasto[];
+  observaciones: string;
+}
+
 export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
   const { message } = App.useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +86,52 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
   const [lineas, setLineas] = useState<LineaGasto[]>([]);
   const [observaciones, setObservaciones] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental).
+  // Deshabilitado cuando el modal viene pre-rellenado (ej. "Registrar factura de flete"
+  // desde Compras) para no mezclar ese contexto puntual con un borrador genérico.
+  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorGasto>[]>([]);
+  const datosBorrador: BorradorGasto = {
+    categoria, tipoDocumento, serie, numero, proveedor, compraRelacionada,
+    fechaEmision: fechaEmision.format('YYYY-MM-DD'), condicionPago,
+    fechaVencimiento: fechaVencimiento ? fechaVencimiento.format('YYYY-MM-DD') : null,
+    moneda, tipoCambio, lineas, observaciones,
+  };
+  const { limpiar: limpiarBorrador } = useBorrador('gasto', datosBorrador, {
+    vacio: (d) => !d.proveedor && d.lineas.length === 0,
+    habilitado: !inicial,
+  });
+
+  useEffect(() => {
+    setBorradores(open && !inicial ? listarBorradores<BorradorGasto>('gasto') : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, inicial]);
+
+  const restaurarBorrador = (b: BorradorGuardado<BorradorGasto>) => {
+    const d = b.datos;
+    setCategoria(d.categoria);
+    setTipoDocumento(d.tipoDocumento);
+    setSerie(d.serie);
+    setNumero(d.numero);
+    setProveedor(d.proveedor);
+    setProveedorTexto(d.proveedor?.razon_social || '');
+    setCompraRelacionada(d.compraRelacionada);
+    setCompraTexto(d.compraRelacionada?.label || '');
+    setFechaEmision(dayjs(d.fechaEmision));
+    setCondicionPago(d.condicionPago);
+    setFechaVencimiento(d.fechaVencimiento ? dayjs(d.fechaVencimiento) : null);
+    setMoneda(d.moneda);
+    setTipoCambio(d.tipoCambio);
+    setLineas(d.lineas);
+    setObservaciones(d.observaciones);
+    descartarBorrador(b.clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== b.clave));
+  };
+
+  const descartarBorradorLista = (clave: string) => {
+    descartarBorrador(clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== clave));
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -167,6 +231,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
         })),
       });
       message.success('Gasto registrado correctamente');
+      limpiarBorrador();
       onSaved();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar el gasto');
@@ -189,6 +254,12 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
         destroyOnHidden
       >
         <Form layout="vertical">
+          <BorradorBanner
+            borradores={borradores}
+            resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.lineas.length} línea(s)`}
+            onRestaurar={restaurarBorrador}
+            onDescartar={descartarBorradorLista}
+          />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
             <input ref={fileInputRef} type="file" accept=".xml,text/xml" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importarXml(f); }} />
             <Button size="small" icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>Importar XML del proveedor</Button>

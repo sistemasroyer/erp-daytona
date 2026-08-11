@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Switch, DatePicker, Space, Alert, Empty } from 'antd';
@@ -12,6 +12,8 @@ import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
+import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Proveedor } from '@/types/proveedor';
 import type { DetalleImportadoXml } from '@/types/compra';
 import type { Gasto } from '@/types/gasto';
@@ -64,6 +66,29 @@ const MODO_INFO: Record<ModoIngreso, { label: (simb: string) => string; desc: st
     ejemplo: 'Ej: total factura 590.00 → base 500.00 + IGV 90.00',
   },
 };
+
+interface BorradorCompra {
+  tipoDocumento: 'factura' | 'boleta' | 'nota' | 'otros';
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  proveedor: Proveedor | null;
+  condicionPago: 'contado' | 'credito';
+  fechaVencimiento: string | null;
+  idAlmacen: string | undefined;
+  moneda: 'PEN' | 'USD';
+  tipoCambio: number;
+  observaciones: string;
+  tieneFlete: boolean;
+  fleteMonto: number;
+  fleteMoneda: 'PEN' | 'USD';
+  fleteTipoProrrateo: 'precio' | 'cantidad';
+  proveedorFlete: Proveedor | null;
+  gastoFlete: Gasto | null;
+  modoIngreso: ModoIngreso;
+  items: ItemCompra[];
+  totalFacturaVerificacion: number | undefined;
+}
 
 function redondear2(v: number) {
   return Math.round(v * 100) / 100;
@@ -123,6 +148,55 @@ export function NuevaCompraPage() {
   const [guardando, setGuardando] = useState(false);
 
   const { data: almacenesData } = useQuery({ queryKey: ['almacenes-all'], queryFn: () => almacenesApi.listar() });
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
+  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorCompra>[]>([]);
+  const datosBorrador: BorradorCompra = {
+    tipoDocumento, serie, numero, fechaEmision: fechaEmision.format('YYYY-MM-DD'), proveedor,
+    condicionPago, fechaVencimiento: fechaVencimiento ? fechaVencimiento.format('YYYY-MM-DD') : null,
+    idAlmacen, moneda, tipoCambio, observaciones, tieneFlete, fleteMonto, fleteMoneda, fleteTipoProrrateo,
+    proveedorFlete, gastoFlete, modoIngreso, items, totalFacturaVerificacion,
+  };
+  const { limpiar: limpiarBorrador } = useBorrador('compra', datosBorrador, {
+    vacio: (d) => !d.proveedor && d.items.length === 0,
+  });
+
+  useEffect(() => {
+    setBorradores(listarBorradores<BorradorCompra>('compra'));
+  }, []);
+
+  const restaurarBorrador = (b: BorradorGuardado<BorradorCompra>) => {
+    const d = b.datos;
+    setTipoDocumento(d.tipoDocumento);
+    setSerie(d.serie);
+    setNumero(d.numero);
+    setFechaEmision(dayjs(d.fechaEmision));
+    setProveedor(d.proveedor);
+    setProveedorTexto(d.proveedor?.razon_social || '');
+    setCondicionPago(d.condicionPago);
+    setFechaVencimiento(d.fechaVencimiento ? dayjs(d.fechaVencimiento) : null);
+    setIdAlmacen(d.idAlmacen);
+    setMoneda(d.moneda);
+    setTipoCambio(d.tipoCambio);
+    setObservaciones(d.observaciones);
+    setTieneFlete(d.tieneFlete);
+    setFleteMonto(d.fleteMonto);
+    setFleteMoneda(d.fleteMoneda);
+    setFleteTipoProrrateo(d.fleteTipoProrrateo);
+    setProveedorFlete(d.proveedorFlete);
+    setGastoFlete(d.gastoFlete);
+    setGastoFleteTexto(d.gastoFlete ? labelGastoFlete(d.gastoFlete) : '');
+    setModoIngreso(d.modoIngreso);
+    setItems(d.items.map((i) => ({ ...i, mostrarCodigoProveedor: false })));
+    setTotalFacturaVerificacion(d.totalFacturaVerificacion);
+    descartarBorrador(b.clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== b.clave));
+  };
+
+  const descartarBorradorLista = (clave: string) => {
+    descartarBorrador(clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== clave));
+  };
 
   const simb = moneda === 'USD' ? 'US$' : 'S/';
 
@@ -301,6 +375,7 @@ export function NuevaCompraPage() {
         })),
       });
       message.success('¡Compra registrada! Stock y precios actualizados.');
+      limpiarBorrador();
       navigate('/compras');
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar la compra');
@@ -318,6 +393,12 @@ export function NuevaCompraPage() {
         <Link to="/compras"><Button>Cancelar</Button></Link>
       </div>
 
+      <BorradorBanner
+        borradores={borradores}
+        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso), 0))}`}
+        onRestaurar={restaurarBorrador}
+        onDescartar={descartarBorradorLista}
+      />
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'start' }}>
         <div>
           <Card

@@ -12,6 +12,8 @@ import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { useAuth } from '@/auth/AuthContext';
 import { ClienteNuevoModal } from './ClienteNuevoModal';
+import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Cliente } from '@/types/cliente';
 import type { Producto } from '@/types/producto';
 import type { SerieDocumento } from '@/types/serie-documento';
@@ -27,6 +29,17 @@ interface ItemVenta {
 interface PagoState {
   id_metodo_pago: string;
   monto: number;
+}
+
+interface BorradorVenta {
+  tipoDocumento: 'BOLETA' | 'FACTURA' | 'NOTA_VENTA' | 'COTIZACION';
+  idSerie: string | undefined;
+  observaciones: string;
+  mostrarObs: boolean;
+  cliente: Cliente | null;
+  clienteQuery: string;
+  items: ItemVenta[];
+  pagos: PagoState[];
 }
 
 const TEXTO_BOTON: Record<string, string> = {
@@ -84,6 +97,36 @@ export function NuevaVentaPage() {
   const [guardando, setGuardando] = useState(false);
   const [modalImpresionOpen, setModalImpresionOpen] = useState(false);
   const [ventaReciente, setVentaReciente] = useState<{ id: string; tipo_documento: string } | null>(null);
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
+  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorVenta>[]>([]);
+  const datosBorrador: BorradorVenta = { tipoDocumento, idSerie, observaciones, mostrarObs, cliente, clienteQuery, items, pagos };
+  const { limpiar: limpiarBorrador } = useBorrador('venta', datosBorrador, {
+    vacio: (d) => !d.cliente && d.items.length === 0,
+  });
+
+  useEffect(() => {
+    setBorradores(listarBorradores<BorradorVenta>('venta'));
+  }, []);
+
+  const restaurarBorrador = (b: BorradorGuardado<BorradorVenta>) => {
+    const d = b.datos;
+    setTipoDocumento(d.tipoDocumento);
+    setIdSerie(d.idSerie);
+    setObservaciones(d.observaciones);
+    setMostrarObs(d.mostrarObs);
+    setCliente(d.cliente);
+    setClienteQuery(d.clienteQuery);
+    setItems(d.items);
+    setPagos(d.pagos);
+    descartarBorrador(b.clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== b.clave));
+  };
+
+  const descartarBorradorLista = (clave: string) => {
+    descartarBorrador(clave);
+    setBorradores((prev) => prev.filter((x) => x.clave !== clave));
+  };
 
   useEffect(() => {
     (async () => {
@@ -311,6 +354,7 @@ export function NuevaVentaPage() {
         : '¡Documento emitido correctamente!');
       setVentaReciente(venta);
       setModalImpresionOpen(true);
+      limpiarBorrador();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar la venta');
     } finally {
@@ -320,6 +364,12 @@ export function NuevaVentaPage() {
 
   return (
     <div>
+      <BorradorBanner
+        borradores={borradores}
+        resumen={(d) => `${d.cliente ? d.cliente.razon_social : 'Sin cliente'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + i.cantidad * i.precio, 0))}`}
+        onRestaurar={restaurarBorrador}
+        onDescartar={descartarBorradorLista}
+      />
       <Card size="small" style={{ marginBottom: 8 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '120px 120px 1fr 200px', gap: 12, alignItems: 'end' }}>
           <div>
