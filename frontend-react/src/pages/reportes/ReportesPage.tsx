@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { App, Tabs, Card, DatePicker, Button, Table, Row, Col, Statistic, Input, Typography } from 'antd';
+import { App, Tabs, Card, DatePicker, Button, Table, Row, Col, Statistic, Input, Select, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlayCircleOutlined, FileExcelOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -8,7 +8,7 @@ import { reportesApi } from '@/api/reportes';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
-import type { VentaReporte, CompraReporte, ItemReporteInventario, RegistroAuditoria } from '@/types/reportes';
+import type { VentaReporte, CompraReporte, ItemReporteInventario, ItemReporteTomaInventario, RegistroAuditoria } from '@/types/reportes';
 
 export function ReportesPage() {
   const { message } = App.useApp();
@@ -16,7 +16,9 @@ export function ReportesPage() {
   const [desde, setDesde] = useState<Dayjs>(dayjs().startOf('month'));
   const [hasta, setHasta] = useState<Dayjs>(dayjs());
   const [tablaAuditoria, setTablaAuditoria] = useState('');
-  const [filtros, setFiltros] = useState<{ fecha_desde: string; fecha_hasta: string; tabla?: string } | null>(null);
+  const [searchProducto, setSearchProducto] = useState('');
+  const [tipoDiferencia, setTipoDiferencia] = useState<string | undefined>(undefined);
+  const [filtros, setFiltros] = useState<{ fecha_desde: string; fecha_hasta: string; tabla?: string; search?: string; tipo_diferencia?: string } | null>(null);
 
   const filtrosBase = () => ({ fecha_desde: desde.format('YYYY-MM-DD'), fecha_hasta: hasta.format('YYYY-MM-DD') });
 
@@ -40,8 +42,18 @@ export function ReportesPage() {
     queryFn: () => reportesApi.auditoria(filtros!),
     enabled: !!filtros && tab === 'auditoria',
   });
+  const qTomasInventario = useQuery({
+    queryKey: ['reporte-tomas-inventario', filtros],
+    queryFn: () => reportesApi.tomasInventario(filtros!),
+    enabled: !!filtros && tab === 'tomas-inventario',
+  });
 
-  const generar = () => setFiltros({ ...filtrosBase(), tabla: tablaAuditoria || undefined });
+  const generar = () => setFiltros({
+    ...filtrosBase(),
+    tabla: tablaAuditoria || undefined,
+    search: searchProducto || undefined,
+    tipo_diferencia: tipoDiferencia,
+  });
 
   const exportarExcel = async () => {
     try {
@@ -84,6 +96,24 @@ export function ReportesPage() {
     { title: 'Valor Stock', align: 'right', render: (_, i) => <strong>{formatMoneda(Number(i.stock_actual) * Number(i.producto?.costo_promedio || 0))}</strong> },
   ];
 
+  const tomasInventario = qTomasInventario.data?.data;
+  const columnsTomasInventario: ColumnsType<ItemReporteTomaInventario> = [
+    { title: 'Toma', render: (_, d) => <>{d.toma.numero_interno} <EstadoTag estado={d.toma.estado} /></> },
+    { title: 'Fecha conteo', render: (_, d) => dayjs(d.fecha_conteo).format('DD/MM/YYYY HH:mm') },
+    { title: 'Código', render: (_, d) => d.producto.codigo },
+    { title: 'Producto', render: (_, d) => d.producto.nombre },
+    { title: 'Ubicación', render: (_, d) => d.producto.ubicacion || '-' },
+    { title: 'Stock sistema', align: 'right', render: (_, d) => Number(d.stock_sistema).toFixed(2) },
+    { title: 'Cant. contada', align: 'right', render: (_, d) => Number(d.cantidad_contada).toFixed(2) },
+    {
+      title: 'Diferencia', align: 'right',
+      render: (_, d) => {
+        const dif = Number(d.diferencia);
+        return <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'}>{dif > 0 ? '+' : ''}{dif.toFixed(2)}</Typography.Text>;
+      },
+    },
+  ];
+
   const columnsAuditoria: ColumnsType<RegistroAuditoria> = [
     { title: 'Fecha/Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
     { title: 'Usuario', render: (_, a) => a.usuario ? `${a.usuario.nombre} ${a.usuario.apellido}` : '-' },
@@ -100,6 +130,7 @@ export function ReportesPage() {
         { key: 'ventas', label: 'Ventas' },
         { key: 'compras', label: 'Compras' },
         { key: 'inventario', label: 'Inventario' },
+        { key: 'tomas-inventario', label: 'Tomas de Inventario' },
         { key: 'auditoria', label: 'Auditoría' },
       ]} />
 
@@ -118,6 +149,26 @@ export function ReportesPage() {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>Tabla</Typography.Text>
               <Input value={tablaAuditoria} onChange={(e) => setTablaAuditoria(e.target.value)} placeholder="Filtrar por tabla..." />
             </Col>
+          )}
+          {tab === 'tomas-inventario' && (
+            <>
+              <Col span={6}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Producto</Typography.Text>
+                <Input value={searchProducto} onChange={(e) => setSearchProducto(e.target.value)} placeholder="Código o nombre..." />
+              </Col>
+              <Col span={6}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Diferencia</Typography.Text>
+                <Select
+                  allowClear placeholder="Todas" style={{ width: '100%' }}
+                  value={tipoDiferencia} onChange={setTipoDiferencia}
+                  options={[
+                    { value: 'sobra', label: 'Sobran' },
+                    { value: 'falta', label: 'Faltan' },
+                    { value: 'ok', label: 'Sin diferencia' },
+                  ]}
+                />
+              </Col>
+            </>
           )}
           <Col>
             <Button type="primary" icon={<PlayCircleOutlined />} onClick={generar}>Generar</Button>
@@ -166,6 +217,23 @@ export function ReportesPage() {
             </Table.Summary.Row>
           ) : null}
         />
+      )}
+
+      {tab === 'tomas-inventario' && (
+        <>
+          {tomasInventario && (
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={6}><Card><Statistic title="Registros" value={tomasInventario.totales.cantidad} /></Card></Col>
+              <Col span={6}><Card><Statistic title="Sobran" value={tomasInventario.totales.sobran} valueStyle={{ color: '#389e0d' }} /></Card></Col>
+              <Col span={6}><Card><Statistic title="Faltan" value={tomasInventario.totales.faltan} valueStyle={{ color: '#cf1322' }} /></Card></Col>
+              <Col span={6}><Card><Statistic title="Sin diferencia" value={tomasInventario.totales.ok} /></Card></Col>
+            </Row>
+          )}
+          <Table<ItemReporteTomaInventario>
+            rowKey="id" columns={columnsTomasInventario} dataSource={tomasInventario?.detalle} loading={qTomasInventario.isFetching}
+            locale={{ emptyText: filtros ? 'Sin registros para estos filtros' : 'Seleccione un período y haga clic en Generar' }}
+          />
+        </>
       )}
 
       {tab === 'auditoria' && (

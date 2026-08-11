@@ -213,7 +213,9 @@ async function main() {
     'ordenes_compra:ver', 'ordenes_compra:crear', 'ordenes_compra:editar',
     'ordenes_compra:aprobar', 'ordenes_compra:anular',
     'proveedores:ver', 'proveedores:crear', 'proveedores:editar',
-    'productos:ver', 'productos:editar', 'inventario:ver', 'reportes:ver',
+    'productos:ver', 'productos:editar',
+    'inventario:ver', 'inventario:crear', 'inventario:editar', 'inventario:anular',
+    'reportes:ver',
   ];
 
   for (const clave of permisosCompras) {

@@ -40,6 +40,13 @@ export class ReportesController {
     return this.service.reporteInventario(filtros);
   }
 
+  @Get('tomas-inventario')
+  @Permisos('reportes:ver')
+  @ApiOperation({ summary: 'Reporte de diferencias de tomas de inventario (sobrantes/faltantes)' })
+  reporteTomasInventario(@Query() filtros: FiltroReporte & { search?: string; tipo_diferencia?: 'sobra' | 'falta' | 'ok'; estado_toma?: string }) {
+    return this.service.reporteTomasInventario(filtros);
+  }
+
   @Get('kardex/:idProducto')
   @Permisos('reportes:ver')
   @ApiQuery({ name: 'limit', required: false })

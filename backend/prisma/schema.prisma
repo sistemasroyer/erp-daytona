@@ -83,6 +83,7 @@ enum TipoReferenciaMovimiento {
   ajuste
   transferencia
   inventario_inicial
+  toma_inventario
 }
 
 enum MetodoValuacion {
@@ -334,6 +335,7 @@ model tbl_usuarios {
   mov_caja     tbl_movimientos_caja[]
   auditoria    tbl_auditoria[]
   gastos       tbl_gastos[]
+  tomas_inventario tbl_tomas_inventario[]
 
   @@index([email])
   @@index([id_punto_venta])
@@ -513,6 +515,7 @@ model tbl_almacenes {
   inventarios        tbl_inventario[]
   compras            tbl_compras[]
   ajustes_inventario tbl_ajustes_inventario[]
+  tomas_inventario   tbl_tomas_inventario[]
 
   @@index([id_empresa])
   @@map("tbl_almacenes")
@@ -649,6 +652,7 @@ model tbl_productos {
   detalle_ordenes            tbl_detalle_ordenes_compra[]
   codigos_proveedor          tbl_producto_codigos_proveedor[]
   detalle_ajustes_inventario tbl_detalle_ajustes_inventario[]
+  detalle_tomas_inventario   tbl_detalle_tomas_inventario[]
 
   @@index([codigo])
   @@index([nombre])
@@ -777,6 +781,55 @@ model tbl_detalle_ajustes_inventario {
   @@index([id_ajuste])
   @@index([id_producto])
   @@map("tbl_detalle_ajustes_inventario")
+}
+
+enum EstadoTomaInventario {
+  en_proceso
+  finalizada
+  anulada
+}
+
+model tbl_tomas_inventario {
+  id                   String               @id @default(uuid())
+  numero_interno       String               @unique @db.VarChar(20)
+  id_almacen           String
+  id_usuario           String
+  fecha_inicio         DateTime             @default(now())
+  fecha_finalizacion   DateTime?
+  estado               EstadoTomaInventario @default(en_proceso)
+  observaciones        String?              @db.VarChar(500)
+  estado_registro      Boolean              @default(true)
+  eliminado            Boolean              @default(false)
+  fecha_creacion       DateTime             @default(now())
+  fecha_modificacion   DateTime             @updatedAt
+  usuario_creacion     String?              @db.VarChar(36)
+  usuario_modificacion String?              @db.VarChar(36)
+
+  almacen tbl_almacenes                  @relation(fields: [id_almacen], references: [id])
+  usuario tbl_usuarios                   @relation(fields: [id_usuario], references: [id])
+  detalle tbl_detalle_tomas_inventario[]
+
+  @@index([id_almacen])
+  @@index([id_usuario])
+  @@index([estado])
+  @@map("tbl_tomas_inventario")
+}
+
+model tbl_detalle_tomas_inventario {
+  id               String   @id @default(uuid())
+  id_toma          String
+  id_producto      String
+  stock_sistema    Decimal  @db.Decimal(12, 4)
+  cantidad_contada Decimal  @db.Decimal(12, 4)
+  diferencia       Decimal  @db.Decimal(12, 4)
+  fecha_conteo     DateTime @default(now())
+
+  toma     tbl_tomas_inventario @relation(fields: [id_toma], references: [id])
+  producto tbl_productos        @relation(fields: [id_producto], references: [id])
+
+  @@unique([id_toma, id_producto])
+  @@index([id_toma])
+  @@map("tbl_detalle_tomas_inventario")
 }
 
 // ============================================================

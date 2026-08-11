@@ -52,6 +52,23 @@ export interface ItemReporteInventario {
   almacen: { nombre: string };
 }
 
+export interface ItemReporteTomaInventario {
+  id: string;
+  id_toma: string;
+  id_producto: string;
+  stock_sistema: string;
+  cantidad_contada: string;
+  diferencia: string;
+  fecha_conteo: string;
+  producto: { codigo: string; nombre: string; ubicacion: string | null; unidad_medida?: { simbolo: string } };
+  toma: { numero_interno: string; estado: string; fecha_inicio: string; usuario?: { nombre: string; apellido: string } };
+}
+
+export interface ReporteTomasInventario {
+  detalle: ItemReporteTomaInventario[];
+  totales: { cantidad: number; sobran: number; faltan: number; ok: number };
+}
+
 export interface RegistroAuditoria {
   id: string;
   fecha: string;

@@ -111,6 +111,48 @@ export class ReportesService {
     });
   }
 
+  async reporteTomasInventario(filtros: FiltroReporte & { search?: string; tipo_diferencia?: 'sobra' | 'falta' | 'ok'; estado_toma?: string }) {
+    const where: any = {};
+
+    if (filtros.search) {
+      where.producto = {
+        OR: [
+          { nombre: { contains: filtros.search, mode: 'insensitive' } },
+          { codigo: { contains: filtros.search, mode: 'insensitive' } },
+        ],
+      };
+    }
+    if (filtros.tipo_diferencia === 'sobra') where.diferencia = { gt: 0 };
+    else if (filtros.tipo_diferencia === 'falta') where.diferencia = { lt: 0 };
+    else if (filtros.tipo_diferencia === 'ok') where.diferencia = 0;
+
+    if (filtros.fecha_desde || filtros.fecha_hasta) {
+      where.fecha_conteo = {};
+      if (filtros.fecha_desde) where.fecha_conteo.gte = new Date(filtros.fecha_desde);
+      if (filtros.fecha_hasta) where.fecha_conteo.lte = finDeDia(filtros.fecha_hasta);
+    }
+    if (filtros.estado_toma) where.toma = { estado: filtros.estado_toma };
+
+    const detalle = await this.prisma.tbl_detalle_tomas_inventario.findMany({
+      where,
+      include: {
+        producto: { select: { codigo: true, nombre: true, ubicacion: true, unidad_medida: { select: { simbolo: true } } } },
+        toma: { select: { numero_interno: true, estado: true, fecha_inicio: true, usuario: { select: { nombre: true, apellido: true } } } },
+      },
+      orderBy: { fecha_conteo: 'desc' },
+      take: 1000,
+    });
+
+    const totales = {
+      cantidad: detalle.length,
+      sobran: detalle.filter((d) => Number(d.diferencia) > 0).length,
+      faltan: detalle.filter((d) => Number(d.diferencia) < 0).length,
+      ok: detalle.filter((d) => Number(d.diferencia) === 0).length,
+    };
+
+    return { detalle, totales };
+  }
+
   async reporteKardex(idProducto: string, filtros: FiltroReporte & { limit?: number; skip?: number }) {
     return this.inventarioRepo.obtenerKardex(
       idProducto,

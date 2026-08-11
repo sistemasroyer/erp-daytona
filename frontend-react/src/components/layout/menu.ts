@@ -59,6 +59,7 @@ export const MENU: MenuGroupDef[] = [
     items: [
       { key: 'productos', label: 'Productos', icon: 'InboxOutlined', href: '/productos', perm: 'productos:ver' },
       { key: 'inventario', label: 'Inventario', icon: 'DatabaseOutlined', href: '/inventario', perm: 'inventario:ver' },
+      { key: 'tomas-inventario', label: 'Toma de Inventario', icon: 'FileSearchOutlined', href: '/inventario/tomas', perm: 'inventario:ver' },
       { key: 'kardex', label: 'Kardex', icon: 'BookOutlined', href: '/inventario/kardex', perm: 'reportes:ver' },
     ],
   },

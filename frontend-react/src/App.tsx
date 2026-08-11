@@ -26,6 +26,8 @@ import { ProductosPage } from '@/pages/productos/ProductosPage';
 import { InventarioPage } from '@/pages/inventario/InventarioPage';
 import { KardexPage } from '@/pages/inventario/KardexPage';
 import { AjusteNuevoPage } from '@/pages/inventario/AjusteNuevoPage';
+import { TomasInventarioPage } from '@/pages/inventario/TomasInventarioPage';
+import { TomaInventarioDetallePage } from '@/pages/inventario/TomaInventarioDetallePage';
 import { OrdenesCompraPage } from '@/pages/ordenes-compra/OrdenesCompraPage';
 import { ReportesPage } from '@/pages/reportes/ReportesPage';
 import { CajaPage } from '@/pages/caja/CajaPage';
@@ -109,6 +111,8 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="inventario:ver" />}>
                       <Route path="/inventario" element={<InventarioPage />} />
+                      <Route path="/inventario/tomas" element={<TomasInventarioPage />} />
+                      <Route path="/inventario/tomas/:id" element={<TomaInventarioDetallePage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="reportes:ver" />}>

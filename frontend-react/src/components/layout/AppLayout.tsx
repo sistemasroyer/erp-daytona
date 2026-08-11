@@ -53,7 +53,8 @@ export function AppLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark" width={250}
-        style={{ position: 'sticky', insetInlineStart: 0, top: 0, height: '100vh', overflow: 'auto' }}
+        breakpoint="lg" collapsedWidth={0}
+        style={{ position: 'sticky', insetInlineStart: 0, top: 0, height: '100vh', overflow: 'auto', zIndex: 20 }}
       >
         <div style={{ color: '#fff', padding: '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden' }}>
           {collapsed ? 'ED' : 'ERP Daytona'}

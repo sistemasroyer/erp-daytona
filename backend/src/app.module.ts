@@ -22,6 +22,7 @@ import { ClientesModule } from './modules/clientes/clientes.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { ProductosModule } from './modules/productos/productos.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
+import { TomaInventarioModule } from './modules/toma-inventario/toma-inventario.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { ComprasModule } from './modules/compras/compras.module';
 import { GastosModule } from './modules/gastos/gastos.module';
@@ -85,6 +86,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ProveedoresModule,
     ProductosModule,
     InventarioModule,
+    TomaInventarioModule,
     VentasModule,
     ComprasModule,
     GastosModule,
