@@ -31,6 +31,15 @@ export interface CajaApertura {
   movimientos?: MovimientoCaja[];
 }
 
+export interface ListarAperturasParams {
+  page?: number;
+  limit?: number;
+  id_caja?: string;
+  estado?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+}
+
 export interface ResumenPorMetodoPago {
   id_metodo_pago: string;
   nombre: string;

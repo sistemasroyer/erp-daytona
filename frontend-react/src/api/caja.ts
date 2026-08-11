@@ -1,8 +1,9 @@
 import { api } from './client';
-import type { Caja, CajaApertura, ResumenCaja, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto } from '@/types/caja';
+import type { Caja, CajaApertura, ResumenCaja, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ListarAperturasParams } from '@/types/caja';
 
 export const cajaApi = {
   cajas: () => api.get<Caja[]>('/caja/cajas', { limit: 100 }),
+  aperturas: (params: ListarAperturasParams) => api.get<CajaApertura[]>('/caja/aperturas', params),
   aperturaActiva: (idCaja: string) => api.get<CajaApertura | null>(`/caja/cajas/${idCaja}/apertura-activa`),
   abrir: (dto: AbrirCajaDto) => api.post<CajaApertura>('/caja/abrir', dto),
   cerrar: (idApertura: string, dto: CerrarCajaDto) => api.patch<CajaApertura>(`/caja/aperturas/${idApertura}/cerrar`, dto),

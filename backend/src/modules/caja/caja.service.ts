@@ -3,6 +3,7 @@ import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsEnum } from 'class-v
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { redondear2 } from '../../common/utils/numero-documento.util';
+import { finDeDia } from '../../common/utils/fecha.util';
 
 export class AbrirCajaDto {
   @IsString() @IsNotEmpty() id_caja: string;
@@ -232,20 +233,30 @@ export class CajaService {
     });
   }
 
-  async getAperturas(idCaja: string, pagination: PaginationDto, idPuntoVenta?: string, esSuperadmin?: boolean) {
-    const caja = await this.prisma.tbl_cajas.findFirst({ where: { id: idCaja, eliminado: false } });
-    if (!caja) throw new NotFoundException('Caja no encontrada');
-    this.assertMismoPuntoVenta(caja.id_punto_venta, idPuntoVenta, esSuperadmin);
+  async getAperturas(
+    pagination: PaginationDto & { id_caja?: string; estado?: string; fecha_desde?: string; fecha_hasta?: string },
+    idPuntoVenta?: string,
+    esSuperadmin?: boolean,
+  ) {
+    const where: any = { eliminado: false };
+    if (!esSuperadmin && idPuntoVenta) where.caja = { id_punto_venta: idPuntoVenta };
+    if (pagination.id_caja) where.id_caja = pagination.id_caja;
+    if (pagination.estado) where.estado = pagination.estado;
+    if (pagination.fecha_desde || pagination.fecha_hasta) {
+      where.fecha_apertura = {};
+      if (pagination.fecha_desde) where.fecha_apertura.gte = new Date(pagination.fecha_desde);
+      if (pagination.fecha_hasta) where.fecha_apertura.lte = finDeDia(pagination.fecha_hasta);
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.tbl_cajas_aperturas.findMany({
-        where: { id_caja: idCaja, eliminado: false },
+        where,
         skip: Number(pagination.skip) || 0,
         take: Number(pagination.limit) || 20,
         orderBy: { fecha_apertura: 'desc' },
-        include: { usuario: { select: { nombre: true, apellido: true } } },
+        include: { caja: { select: { nombre: true } }, usuario: { select: { nombre: true, apellido: true } } },
       }),
-      this.prisma.tbl_cajas_aperturas.count({ where: { id_caja: idCaja, eliminado: false } }),
+      this.prisma.tbl_cajas_aperturas.count({ where }),
     ]);
     return { data, total, page: pagination.page, limit: pagination.limit };
   }

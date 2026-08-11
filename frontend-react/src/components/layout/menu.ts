@@ -30,6 +30,7 @@ export const MENU: MenuGroupDef[] = [
       { key: 'nueva-nota-credito', label: 'Nueva Nota de Crédito', icon: 'FileExcelOutlined', href: '/ventas/nueva-nota-credito', perm: 'ventas:anular' },
       { key: 'clientes', label: 'Clientes', icon: 'TeamOutlined', href: '/clientes', perm: 'clientes:ver' },
       { key: 'caja', label: 'Caja', icon: 'WalletOutlined', href: '/caja', perm: 'caja:ver' },
+      { key: 'caja-historial', label: 'Historial de Caja', icon: 'HistoryOutlined', href: '/caja/historial', perm: 'caja:ver' },
     ],
   },
   {

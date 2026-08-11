@@ -29,6 +29,7 @@ import { AjusteNuevoPage } from '@/pages/inventario/AjusteNuevoPage';
 import { OrdenesCompraPage } from '@/pages/ordenes-compra/OrdenesCompraPage';
 import { ReportesPage } from '@/pages/reportes/ReportesPage';
 import { CajaPage } from '@/pages/caja/CajaPage';
+import { CajaHistorialPage } from '@/pages/caja/CajaHistorialPage';
 import { ComprasPage } from '@/pages/compras/ComprasPage';
 import { NotaCreditoCompraPage } from '@/pages/compras/NotaCreditoCompraPage';
 import { NuevaCompraPage } from '@/pages/compras/NuevaCompraPage';
@@ -128,6 +129,7 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="caja:ver" />}>
                       <Route path="/caja" element={<CajaPage />} />
+                      <Route path="/caja/historial" element={<CajaHistorialPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="compras:ver" />}>

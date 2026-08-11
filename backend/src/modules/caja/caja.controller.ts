@@ -42,15 +42,15 @@ export class CajaController {
     return this.service.getCajaActiva(id, idPuntoVenta, esSuperadmin);
   }
 
-  @Get('cajas/:idCaja/aperturas')
+  @Get('aperturas')
   @Permisos('caja:ver')
+  @ApiOperation({ summary: 'Historial de aperturas de caja (todas las cajas visibles para el usuario)' })
   getAperturas(
-    @Param('idCaja') id: string,
-    @Query() pagination: PaginationDto,
+    @Query() pagination: PaginationDto & { id_caja?: string; estado?: string; fecha_desde?: string; fecha_hasta?: string },
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.getAperturas(id, pagination, idPuntoVenta, esSuperadmin);
+    return this.service.getAperturas(pagination, idPuntoVenta, esSuperadmin);
   }
 
   @Post('abrir')
