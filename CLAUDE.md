@@ -1,6 +1,6 @@
-# ERP Daytona
+# MARTSOFT
 
-ERP/facturador para un negocio de repuestos de auto en Perú (2 tiendas). Monolito modular: backend NestJS+Prisma+PostgreSQL, frontend React SPA. Single-tenant (una empresa, `tbl_empresas` tiene una sola fila).
+ERP/facturador (producto distribuible, blanco-etiquetable) usado actualmente por un negocio de repuestos de auto en Perú (2 tiendas). Monolito modular: backend NestJS+Prisma+PostgreSQL, frontend React SPA. Single-tenant por instalación (una empresa, `tbl_empresas` tiene una sola fila) — el nombre de la marca del software es "MARTSOFT" (login, título del navegador, docs de la API); el nombre de la empresa/tenant configurado en `tbl_empresas` es lo que se muestra en el sidebar ya logueado y en los comprobantes impresos.
 
 ## Estructura del repo
 

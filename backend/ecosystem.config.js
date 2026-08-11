@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'erp-daytona',
+      name: 'martsoft',
       script: 'dist/main.js',
       instances: 'max',
       exec_mode: 'cluster',

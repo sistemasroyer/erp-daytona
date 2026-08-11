@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seed del ERP Daytona...\n');
+  console.log('🌱 Iniciando seed de MARTSOFT...\n');
 
   // ─── EMPRESA ────────────────────────────────────────────────────────────────
   console.log('📦 Creando empresa...');

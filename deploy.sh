@@ -5,7 +5,7 @@ DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$DEPLOY_DIR/backend"
 FRONTEND_DIR="$DEPLOY_DIR/frontend-react"
 
-echo "🚀 Deploy ERP Daytona — $(date '+%Y-%m-%d %H:%M:%S')"
+echo "🚀 Deploy MARTSOFT — $(date '+%Y-%m-%d %H:%M:%S')"
 echo "📁 $DEPLOY_DIR"
 echo ""
 
@@ -36,8 +36,14 @@ echo ""
 
 # ── 3. Reinicio suave del backend (zero-downtime) ────────────────────────────
 echo "🔄 [3/4] Recargando servidor Node..."
+# Migración única: el proceso PM2 se llamaba "erp-daytona", ahora es "martsoft".
+# Si todavía existe el viejo, se elimina para no dejar dos procesos corriendo.
 if pm2 describe erp-daytona > /dev/null 2>&1; then
-  pm2 reload erp-daytona
+  echo "🧹 Eliminando proceso PM2 viejo 'erp-daytona'..."
+  pm2 delete erp-daytona
+fi
+if pm2 describe martsoft > /dev/null 2>&1; then
+  pm2 reload martsoft
 else
   pm2 start "$BACKEND_DIR/ecosystem.config.js" --env production
 fi

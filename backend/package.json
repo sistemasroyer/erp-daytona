@@ -1,8 +1,8 @@
 {
-  "name": "erp-daytona-backend",
+  "name": "martsoft-backend",
   "version": "1.0.0",
   "description": "ERP Comercial Perú - Backend NestJS",
-  "author": "Daytona",
+  "author": "MARTSOFT",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

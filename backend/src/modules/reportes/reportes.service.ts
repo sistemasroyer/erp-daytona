@@ -187,7 +187,7 @@ export class ReportesService {
     const { ventas, totales } = await this.reporteVentas(filtros);
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'ERP Daytona';
+    workbook.creator = 'MARTSOFT';
     const sheet = workbook.addWorksheet('Ventas');
 
     sheet.columns = [

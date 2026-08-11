@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Layout, Menu, Dropdown, Avatar, Button, Drawer, Grid, type MenuProps } from 'antd';
 import { UserOutlined, LogoutOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useAuth } from '@/auth/AuthContext';
+import { empresaApi } from '@/api/empresa';
 import { MENU } from './menu';
 import { ICONS } from './icons';
 
@@ -16,6 +18,10 @@ export function AppLayout() {
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const screens = Grid.useBreakpoint();
   const esMobile = !screens.lg;
+
+  const { data: empresaData } = useQuery({ queryKey: ['empresa'], queryFn: () => empresaApi.obtener() });
+  const nombreEmpresa = empresaData?.data.nombre_comercial || empresaData?.data.razon_social || 'MARTSOFT';
+  const inicialesEmpresa = nombreEmpresa.trim().slice(0, 2).toUpperCase();
 
   useEffect(() => {
     setDrawerAbierto(false);
@@ -66,7 +72,7 @@ export function AppLayout() {
           style={{ position: 'sticky', insetInlineStart: 0, top: 0, height: '100vh', overflow: 'auto' }}
         >
           <div style={{ color: '#fff', padding: '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-            {collapsed ? 'ED' : 'ERP Daytona'}
+            {collapsed ? inicialesEmpresa : nombreEmpresa}
           </div>
           {menuNav}
         </Sider>
@@ -97,7 +103,7 @@ export function AppLayout() {
         placement="left" open={esMobile && drawerAbierto} onClose={() => setDrawerAbierto(false)}
         closable={false} width={250} styles={{ body: { padding: 0, background: '#001529' } }}
       >
-        <div style={{ color: '#fff', padding: '16px', fontWeight: 700 }}>ERP Daytona</div>
+        <div style={{ color: '#fff', padding: '16px', fontWeight: 700 }}>{nombreEmpresa}</div>
         {menuNav}
       </Drawer>
     </Layout>

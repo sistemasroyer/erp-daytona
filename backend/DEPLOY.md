@@ -1,4 +1,4 @@
-# Despliegue ERP Daytona — VPS Ubuntu 22.04
+# Despliegue MARTSOFT — VPS Ubuntu 22.04
 
 ## Requisitos del Servidor
 
@@ -45,14 +45,14 @@ sudo systemctl enable --now nginx
 ```bash
 # Crear usuario y base de datos
 sudo -u postgres psql <<EOF
-CREATE USER erp_user WITH PASSWORD 'CAMBIA_ESTA_PASSWORD';
-CREATE DATABASE erp_daytona OWNER erp_user;
-GRANT ALL PRIVILEGES ON DATABASE erp_daytona TO erp_user;
-ALTER USER erp_user CREATEDB;
+CREATE USER martsoft_user WITH PASSWORD 'CAMBIA_ESTA_PASSWORD';
+CREATE DATABASE martsoft_db OWNER martsoft_user;
+GRANT ALL PRIVILEGES ON DATABASE martsoft_db TO martsoft_user;
+ALTER USER martsoft_user CREATEDB;
 EOF
 
 # Verificar conexión
-psql -h localhost -U erp_user -d erp_daytona -c "SELECT version();"
+psql -h localhost -U martsoft_user -d martsoft_db -c "SELECT version();"
 ```
 
 ---
@@ -61,15 +61,15 @@ psql -h localhost -U erp_user -d erp_daytona -c "SELECT version();"
 
 ```bash
 # Crear directorio de la aplicación
-sudo mkdir -p /var/www/erp-daytona
-sudo chown $USER:$USER /var/www/erp-daytona
+sudo mkdir -p /var/www/martsoft
+sudo chown $USER:$USER /var/www/martsoft
 
 # Opción A: Git clone
-git clone https://github.com/tu-org/erp-daytona.git /var/www/erp-daytona
+git clone https://github.com/tu-org/martsoft.git /var/www/martsoft
 
 # Opción B: SCP desde tu máquina local
-# scp -r ./backend usuario@servidor:/var/www/erp-daytona/
-# scp -r ./frontend usuario@servidor:/var/www/erp-daytona/
+# scp -r ./backend usuario@servidor:/var/www/martsoft/
+# scp -r ./frontend-react usuario@servidor:/var/www/martsoft/
 ```
 
 ---
@@ -77,7 +77,7 @@ git clone https://github.com/tu-org/erp-daytona.git /var/www/erp-daytona
 ## 4. Configurar Variables de Entorno
 
 ```bash
-cd /var/www/erp-daytona/backend
+cd /var/www/martsoft/backend
 
 # Crear archivo .env desde el ejemplo
 cp .env.example .env
@@ -91,7 +91,7 @@ NODE_ENV=production
 PORT=3000
 
 # Base de datos
-DATABASE_URL="postgresql://erp_user:TU_PASSWORD@localhost:5432/erp_daytona"
+DATABASE_URL="postgresql://martsoft_user:TU_PASSWORD@localhost:5432/martsoft_db"
 
 # JWT - GENERAR SECRETS SEGUROS
 JWT_SECRET=$(openssl rand -base64 64)
@@ -120,7 +120,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 ## 5. Instalar Dependencias y Construir
 
 ```bash
-cd /var/www/erp-daytona/backend
+cd /var/www/martsoft/backend
 
 # Instalar dependencias de producción
 npm ci --omit=dev
@@ -137,7 +137,7 @@ ls -la dist/
 ## 6. Migraciones y Seed Inicial
 
 ```bash
-cd /var/www/erp-daytona/backend
+cd /var/www/martsoft/backend
 
 # Aplicar migraciones (NO usar migrate dev en producción)
 npx prisma migrate deploy
@@ -157,14 +157,14 @@ npx prisma studio  # abrir en navegador para inspeccionar (usar con SSH tunnel)
 ## 7. Iniciar con PM2
 
 ```bash
-cd /var/www/erp-daytona/backend
+cd /var/www/martsoft/backend
 
 # Iniciar en producción
 pm2 start ecosystem.config.js --env production
 
 # Verificar estado
 pm2 status
-pm2 logs erp-daytona-api
+pm2 logs martsoft
 
 # Guardar configuración PM2 para reinicio automático
 pm2 save
@@ -176,7 +176,7 @@ pm2 startup  # ejecutar el comando que muestra
 ## 8. Construir y Desplegar Frontend
 
 ```bash
-cd /var/www/erp-daytona/frontend
+cd /var/www/martsoft/frontend-react
 
 # Instalar dependencias
 npm ci
@@ -187,7 +187,7 @@ echo "VITE_API_URL=https://tu-dominio.com/api/v1" > .env.production
 # Build de producción
 npm run build
 
-# Los archivos estarán en frontend/dist/
+# Los archivos estarán en frontend-react/dist/
 ls -la dist/
 ```
 
@@ -196,7 +196,7 @@ ls -la dist/
 ## 9. Configurar Nginx
 
 ```bash
-sudo nano /etc/nginx/sites-available/erp-daytona
+sudo nano /etc/nginx/sites-available/martsoft
 ```
 
 ```nginx
@@ -219,7 +219,7 @@ server {
     ssl_session_cache shared:SSL:10m;
 
     # Frontend (archivos estáticos)
-    root /var/www/erp-daytona/frontend/dist;
+    root /var/www/martsoft/frontend-react/dist;
     index index.html;
 
     # SPA fallback
@@ -255,7 +255,7 @@ server {
 
 ```bash
 # Activar sitio
-sudo ln -s /etc/nginx/sites-available/erp-daytona /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/martsoft /etc/nginx/sites-enabled/
 sudo nginx -t  # verificar configuración
 sudo systemctl reload nginx
 ```
@@ -294,10 +294,10 @@ pm2 status
 pm2 monit
 
 # Logs en tiempo real
-pm2 logs erp-daytona-api --lines 100
+pm2 logs martsoft --lines 100
 
 # Reiniciar sin downtime
-pm2 reload erp-daytona-api
+pm2 reload martsoft
 
 # Métricas PostgreSQL
 sudo -u postgres psql -c "SELECT count(*) FROM pg_stat_activity;"
@@ -310,16 +310,16 @@ sudo -u postgres psql -c "SELECT count(*) FROM pg_stat_activity;"
 
 ```bash
 # Script de backup PostgreSQL
-sudo nano /usr/local/bin/backup-erp.sh
+sudo nano /usr/local/bin/backup-martsoft.sh
 ```
 
 ```bash
 #!/bin/bash
-BACKUP_DIR="/var/backups/erp-daytona"
+BACKUP_DIR="/var/backups/martsoft"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 
-pg_dump -U erp_user -h localhost erp_daytona | gzip > "$BACKUP_DIR/db_$DATE.sql.gz"
+pg_dump -U martsoft_user -h localhost martsoft_db | gzip > "$BACKUP_DIR/db_$DATE.sql.gz"
 
 # Mantener solo últimos 30 backups
 ls -t $BACKUP_DIR/db_*.sql.gz | tail -n +31 | xargs -r rm
@@ -327,9 +327,9 @@ echo "Backup completado: $BACKUP_DIR/db_$DATE.sql.gz"
 ```
 
 ```bash
-sudo chmod +x /usr/local/bin/backup-erp.sh
+sudo chmod +x /usr/local/bin/backup-martsoft.sh
 sudo crontab -e
-# Agregar: 0 2 * * * /usr/local/bin/backup-erp.sh >> /var/log/erp-backup.log 2>&1
+# Agregar: 0 2 * * * /usr/local/bin/backup-martsoft.sh >> /var/log/martsoft-backup.log 2>&1
 ```
 
 ---
@@ -337,7 +337,7 @@ sudo crontab -e
 ## 14. Actualizar la Aplicación
 
 ```bash
-cd /var/www/erp-daytona
+cd /var/www/martsoft
 
 # Obtener cambios
 git pull origin main
@@ -347,10 +347,10 @@ cd backend
 npm ci --omit=dev
 npx prisma migrate deploy   # solo si hay nuevas migraciones
 npm run build
-pm2 reload erp-daytona-api  # reload sin downtime
+pm2 reload martsoft  # reload sin downtime
 
 # Frontend
-cd ../frontend
+cd ../frontend-react
 npm ci
 npm run build
 # Nginx sirve automáticamente los archivos actualizados en dist/
@@ -405,4 +405,4 @@ La facturación electrónica se envía a través de [NubeFact](https://www.nubef
    NUBEFACT_RUTA=https://api.nubefact.com/api/v1/tu_ruta
    NUBEFACT_TOKEN=tu_token
    ```
-5. Reiniciar: `pm2 reload erp-daytona-api`
+5. Reiniciar: `pm2 reload martsoft`

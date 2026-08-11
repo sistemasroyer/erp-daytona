@@ -69,8 +69,8 @@ async function bootstrap() {
   // Swagger (solo en desarrollo)
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('ERP Daytona API')
-      .setDescription('API REST del ERP Comercial Daytona para Perú')
+      .setTitle('MARTSOFT API')
+      .setDescription('API REST de MARTSOFT, ERP comercial para Perú')
       .setVersion('1.0.0')
       .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
       .addServer(`http://localhost:${port}`, 'Desarrollo')
@@ -97,7 +97,7 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  logger.log(`ERP Daytona corriendo en: http://localhost:${port}`);
+  logger.log(`MARTSOFT corriendo en: http://localhost:${port}`);
   logger.log(`API Base URL: http://localhost:${port}/api/v1`);
   logger.log(`Entorno: ${nodeEnv}`);
 }
