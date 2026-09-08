@@ -199,6 +199,7 @@ export function NuevaCompraPage() {
   };
 
   const simb = moneda === 'USD' ? 'US$' : 'S/';
+  const tcFactura = moneda === 'USD' ? tipoCambio : 1;
 
   const agregarProducto = (p: import('@/types/producto').Producto) => {
     if (items.find((i) => i.producto.id === p.id)) { message.warning('El producto ya está agregado'); return; }
@@ -676,11 +677,31 @@ export function NuevaCompraPage() {
 
         <div style={{ flex: '1 1 280px', position: 'sticky', top: 16 }}>
           <Card size="small" style={{ borderColor: '#52c41a' }} title={<Typography.Text style={{ color: '#389e0d' }}>Resumen de compra</Typography.Text>}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal (sin IGV)</span><strong>{formatMoneda(totales.subtotal)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV 18%</span><span>{formatMoneda(totales.igvTotal)}</span></div>
-            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
+            {moneda === 'USD' && (
+              <Typography.Text style={{ fontSize: 12, display: 'inline-block', background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 4, padding: '2px 8px', marginBottom: 10 }}>
+                Factura en USD · TC: {tipoCambio.toFixed(3)}
+              </Typography.Text>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span>Subtotal (sin IGV)</span>
+              <span style={{ textAlign: 'right' }}>
+                <strong>{formatMoneda(totales.subtotal / tcFactura, moneda)}</strong>
+                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>≈ {formatMoneda(totales.subtotal)}</Typography.Text>}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span>IGV 18%</span>
+              <span style={{ textAlign: 'right' }}>
+                {formatMoneda(totales.igvTotal / tcFactura, moneda)}
+                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>≈ {formatMoneda(totales.igvTotal)}</Typography.Text>}
+              </span>
+            </div>
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography.Text strong>TOTAL A PAGAR AL PROVEEDOR</Typography.Text>
-              <Typography.Text strong style={{ fontSize: 18, color: '#389e0d' }}>{formatMoneda(totales.total)}</Typography.Text>
+              <div style={{ textAlign: 'right' }}>
+                <Typography.Text strong style={{ fontSize: 18, color: '#389e0d' }}>{formatMoneda(totales.total / tcFactura, moneda)}</Typography.Text>
+                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>≈ {formatMoneda(totales.total)}</Typography.Text>}
+              </div>
             </div>
 
             {tieneFlete && (

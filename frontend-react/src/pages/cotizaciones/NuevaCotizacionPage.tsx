@@ -7,46 +7,31 @@ import { ventasApi } from '@/api/ventas';
 import { clientesApi } from '@/api/clientes';
 import { productosApi } from '@/api/productos';
 import { seriesDocumentoApi } from '@/api/series-documento';
-import { metodosPagoApi } from '@/api/metodos-pago';
-import { cajaApi } from '@/api/caja';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { useAuth } from '@/auth/AuthContext';
-import { ClienteNuevoModal } from './ClienteNuevoModal';
+import { ClienteNuevoModal } from '../ventas/ClienteNuevoModal';
 import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Cliente } from '@/types/cliente';
 import type { Producto } from '@/types/producto';
 import type { SerieDocumento } from '@/types/serie-documento';
-import type { MetodoPago } from '@/types/metodo-pago';
 
-interface ItemVenta {
+interface ItemCotizacion {
   producto: Producto;
   cantidad: number;
   precio_tipo: number;
   precio: number;
 }
 
-interface PagoState {
-  id_metodo_pago: string;
-  monto: number;
-}
-
-interface BorradorVenta {
-  tipoDocumento: 'BOLETA' | 'FACTURA' | 'NOTA_VENTA';
+interface BorradorCotizacion {
   idSerie: string | undefined;
   observaciones: string;
   mostrarObs: boolean;
   cliente: Cliente | null;
   clienteQuery: string;
-  items: ItemVenta[];
-  pagos: PagoState[];
+  items: ItemCotizacion[];
 }
-
-const TEXTO_BOTON: Record<string, string> = {
-  FACTURA: 'Emitir Factura', BOLETA: 'Emitir Boleta',
-  NOTA_VENTA: 'Registrar Nota de Venta',
-};
 
 function preciosDisponibles(producto: Producto): { numero: number; valor: number }[] {
   return [1, 2, 3, 4, 5]
@@ -54,19 +39,16 @@ function preciosDisponibles(producto: Producto): { numero: number; valor: number
     .filter((p) => p.valor > 0);
 }
 
-export function NuevaVentaPage() {
+export function NuevaCotizacionPage() {
   const { message } = App.useApp();
   const { user } = useAuth();
   const idPuntoVenta = user?.idPuntoVenta || undefined;
 
   // Cabecera
-  const [tipoDocumento, setTipoDocumento] = useState<'BOLETA' | 'FACTURA' | 'NOTA_VENTA'>('BOLETA');
   const [series, setSeries] = useState<SerieDocumento[]>([]);
   const [idSerie, setIdSerie] = useState<string | undefined>(undefined);
   const [mostrarObs, setMostrarObs] = useState(false);
   const [observaciones, setObservaciones] = useState('');
-  const [idCajaApertura, setIdCajaApertura] = useState<string | undefined>(undefined);
-  const [cajaLabel, setCajaLabel] = useState<string | null>(null);
 
   // Cliente
   const [clienteQuery, setClienteQuery] = useState('');
@@ -78,7 +60,7 @@ export function NuevaVentaPage() {
   const clienteBoxRef = useRef<HTMLDivElement>(null);
 
   // Entrada de producto
-  const [items, setItems] = useState<ItemVenta[]>([]);
+  const [items, setItems] = useState<ItemCotizacion[]>([]);
   const [codigoInput, setCodigoInput] = useState('');
   const [sugerencias, setSugerencias] = useState<Producto[]>([]);
   const [sugerenciaActiva, setSugerenciaActiva] = useState(-1);
@@ -93,35 +75,29 @@ export function NuevaVentaPage() {
   const sugerenciasDropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  // Pagos
-  const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([]);
-  const [pagos, setPagos] = useState<PagoState[]>([]);
-
   const [guardando, setGuardando] = useState(false);
   const [modalImpresionOpen, setModalImpresionOpen] = useState(false);
-  const [ventaReciente, setVentaReciente] = useState<{ id: string; tipo_documento: string } | null>(null);
+  const [cotizacionReciente, setCotizacionReciente] = useState<{ id: string } | null>(null);
 
   // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
-  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorVenta>[]>([]);
-  const datosBorrador: BorradorVenta = { tipoDocumento, idSerie, observaciones, mostrarObs, cliente, clienteQuery, items, pagos };
-  const { limpiar: limpiarBorrador } = useBorrador('venta', datosBorrador, {
+  const [borradores, setBorradores] = useState<BorradorGuardado<BorradorCotizacion>[]>([]);
+  const datosBorrador: BorradorCotizacion = { idSerie, observaciones, mostrarObs, cliente, clienteQuery, items };
+  const { limpiar: limpiarBorrador } = useBorrador('cotizacion', datosBorrador, {
     vacio: (d) => !d.cliente && d.items.length === 0,
   });
 
   useEffect(() => {
-    setBorradores(listarBorradores<BorradorVenta>('venta'));
+    setBorradores(listarBorradores<BorradorCotizacion>('cotizacion'));
   }, []);
 
-  const restaurarBorrador = (b: BorradorGuardado<BorradorVenta>) => {
+  const restaurarBorrador = (b: BorradorGuardado<BorradorCotizacion>) => {
     const d = b.datos;
-    setTipoDocumento(d.tipoDocumento);
     setIdSerie(d.idSerie);
     setObservaciones(d.observaciones);
     setMostrarObs(d.mostrarObs);
     setCliente(d.cliente);
     setClienteQuery(d.clienteQuery);
     setItems(d.items);
-    setPagos(d.pagos);
     descartarBorrador(b.clave);
     setBorradores((prev) => prev.filter((x) => x.clave !== b.clave));
   };
@@ -134,18 +110,8 @@ export function NuevaVentaPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [resMetodos, resSeries] = await Promise.all([
-          metodosPagoApi.listar(),
-          seriesDocumentoApi.listar(idPuntoVenta),
-        ]);
-        setMetodosPago(resMetodos.data);
-        setSeries(resSeries.data.filter((s) => s.activo));
-        if (resMetodos.data.length) setPagos([{ id_metodo_pago: resMetodos.data[0].id, monto: 0 }]);
-
-        try {
-          const apertura = await cajaApi.miAperturaActiva();
-          if (apertura) { setIdCajaApertura(apertura.id); setCajaLabel(`${apertura.caja?.nombre || 'Caja'} (abierta)`); }
-        } catch { /* sin caja activa */ }
+        const { data } = await seriesDocumentoApi.listar(idPuntoVenta);
+        setSeries(data.filter((s) => s.activo));
       } catch (err) {
         message.error(err instanceof ApiError ? err.message : 'Error al cargar datos iniciales');
       }
@@ -185,11 +151,11 @@ export function NuevaVentaPage() {
     };
   }, [sugerencias.length]);
 
-  const seriesDisponibles = series.filter((s) => s.tipo_documento === tipoDocumento);
+  const seriesDisponibles = series.filter((s) => s.tipo_documento === 'COTIZACION');
   useEffect(() => {
     setIdSerie(seriesDisponibles[0]?.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoDocumento, series]);
+  }, [series]);
 
   // ==================== CLIENTE ====================
   const buscarCliente = (q: string) => {
@@ -303,29 +269,12 @@ export function NuevaVentaPage() {
   };
 
   const quitarItem = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
-  const actualizarItem = (idx: number, cambios: Partial<ItemVenta>) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...cambios } : it)));
+  const actualizarItem = (idx: number, cambios: Partial<ItemCotizacion>) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...cambios } : it)));
 
-  // ==================== TOTALES / PAGOS ====================
-  const totalVenta = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
-  const subtotalVenta = totalVenta / 1.18;
-  const igvVenta = totalVenta - subtotalVenta;
-  const totalPagado = pagos.reduce((s, p) => s + (p.monto || 0), 0);
-
-  useEffect(() => {
-    if (pagos.length === 1) {
-      setPagos([{ ...pagos[0], monto: Math.round(totalVenta * 100) / 100 }]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalVenta]);
-
-  const agregarPago = () => {
-    if (pagos.length >= 3) { message.warning('Máximo 3 métodos de pago'); return; }
-    const pagadoActual = pagos.reduce((s, p) => s + (p.monto || 0), 0);
-    const restante = Math.max(0, Math.round((totalVenta - pagadoActual) * 100) / 100);
-    setPagos((prev) => [...prev, { id_metodo_pago: metodosPago[0]?.id || '', monto: restante }]);
-  };
-  const quitarPago = (idx: number) => setPagos((prev) => prev.filter((_, i) => i !== idx));
-  const actualizarPago = (idx: number, cambios: Partial<PagoState>) => setPagos((prev) => prev.map((p, i) => (i === idx ? { ...p, ...cambios } : p)));
+  // ==================== TOTALES ====================
+  const totalCotizacion = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  const subtotalCotizacion = totalCotizacion / 1.18;
+  const igvCotizacion = totalCotizacion - subtotalCotizacion;
 
   // ==================== RESET / GUARDAR ====================
   const resetearFormulario = () => {
@@ -333,58 +282,43 @@ export function NuevaVentaPage() {
     setCodigoInput('');
     resetEntrada();
     setSugerencias([]);
-    setPagos(metodosPago.length ? [{ id_metodo_pago: metodosPago[0].id, monto: 0 }] : []);
     setCliente(null);
     setClienteQuery('');
     setObservaciones('');
     setMostrarObs(false);
-    setTipoDocumento('BOLETA');
   };
 
-  const finalizarVenta = (opcion: 'imprimir' | 'sin_imprimir' | 'nueva') => {
+  const finalizarCotizacion = (opcion: 'imprimir' | 'sin_imprimir' | 'nueva') => {
     setModalImpresionOpen(false);
-    if (opcion === 'imprimir' && ventaReciente) {
-      window.open(`/ventas/imprimir?id=${ventaReciente.id}`, '_blank', 'noopener,noreferrer');
+    if (opcion === 'imprimir' && cotizacionReciente) {
+      window.open(`/ventas/imprimir?id=${cotizacionReciente.id}`, '_blank', 'noopener,noreferrer');
     }
     resetearFormulario();
-    setVentaReciente(null);
+    setCotizacionReciente(null);
   };
 
   const guardar = async () => {
-    const esOficial = tipoDocumento === 'FACTURA' || tipoDocumento === 'BOLETA';
     if (!cliente) { message.warning('Seleccione un cliente'); return; }
-    if (!idSerie) { message.warning('No hay una serie configurada para este tipo de documento. Configúrela en Configuración → Series.'); return; }
+    if (!idSerie) { message.warning('No hay una serie configurada para Cotización. Configúrela en Configuración → Series.'); return; }
     if (items.length === 0) { message.warning('Agregue al menos un producto'); return; }
-
-    const pagosValidos = pagos.filter((p) => p.monto > 0 && p.id_metodo_pago);
-    const totalPagadoValido = pagosValidos.reduce((s, p) => s + p.monto, 0);
-    if (esOficial && totalPagadoValido + 0.01 < totalVenta) {
-      message.warning(`${tipoDocumento === 'FACTURA' ? 'La factura' : 'La boleta'} requiere el pago completo (falta ${formatMoneda(totalVenta - totalPagadoValido)})`);
-      return;
-    }
 
     setGuardando(true);
     try {
-      const { data: venta } = await ventasApi.crear({
-        tipo_documento: tipoDocumento,
+      const { data: cotizacion } = await ventasApi.crear({
+        tipo_documento: 'COTIZACION',
         id_serie_documento: idSerie,
         id_cliente: cliente.id,
         moneda: 'PEN',
         observaciones: observaciones || undefined,
-        id_caja_apertura: idCajaApertura,
         detalle: items.map((i) => ({ id_producto: i.producto.id, cantidad: i.cantidad, precio_tipo: i.precio_tipo })),
-        pagos: pagosValidos.length ? pagosValidos : undefined,
       });
 
-      const ventaEsOficial = venta.tipo_documento === 'FACTURA' || venta.tipo_documento === 'BOLETA';
-      message.success(ventaEsOficial
-        ? '¡Documento emitido! Recuerda enviarlo a SUNAT desde "Facturación → Enviar a SUNAT".'
-        : '¡Documento emitido correctamente!');
-      setVentaReciente(venta);
+      message.success('¡Cotización registrada correctamente!');
+      setCotizacionReciente(cotizacion);
       setModalImpresionOpen(true);
       limpiarBorrador();
     } catch (err) {
-      message.error(err instanceof ApiError ? err.message : 'Error al registrar la venta');
+      message.error(err instanceof ApiError ? err.message : 'Error al registrar la cotización');
     } finally {
       setGuardando(false);
     }
@@ -399,14 +333,7 @@ export function NuevaVentaPage() {
         onDescartar={descartarBorradorLista}
       />
       <Card size="small" style={{ marginBottom: 8 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
-          <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>Documento *</Typography.Text>
-            <Select
-              value={tipoDocumento} onChange={setTipoDocumento} style={{ width: '100%' }} size="small"
-              options={[{ value: 'BOLETA', label: 'Boleta' }, { value: 'FACTURA', label: 'Factura' }, { value: 'NOTA_VENTA', label: 'Nota de Venta' }]}
-            />
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, alignItems: 'end' }}>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>Serie *</Typography.Text>
             <Select
@@ -573,73 +500,47 @@ export function NuevaVentaPage() {
 
         <div style={{ flex: '1 1 300px' }}>
           <Card size="small" title="Resumen" style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal</span><strong>{formatMoneda(subtotalVenta)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV (18%)</span><span>{formatMoneda(igvVenta)}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal</span><strong>{formatMoneda(subtotalCotizacion)}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV (18%)</span><span>{formatMoneda(igvCotizacion)}</span></div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <Typography.Text strong style={{ fontSize: 16 }}>TOTAL</Typography.Text>
-              <Typography.Text strong style={{ fontSize: 16, color: '#1677ff' }}>{formatMoneda(totalVenta)}</Typography.Text>
+              <Typography.Text strong style={{ fontSize: 16, color: '#1677ff' }}>{formatMoneda(totalCotizacion)}</Typography.Text>
             </div>
-          </Card>
-
-          <Card
-            size="small" title="Pagos" style={{ marginBottom: 12 }}
-            extra={<Button size="small" icon={<CheckOutlined />} onClick={agregarPago} title="Agregar pago" />}
-          >
-            {pagos.map((p, idx) => (
-              <Space key={idx} style={{ marginBottom: 8, width: '100%' }}>
-                <Select
-                  size="small" value={p.id_metodo_pago} style={{ width: 140 }}
-                  onChange={(v) => actualizarPago(idx, { id_metodo_pago: v })}
-                  options={metodosPago.map((m) => ({ value: m.id, label: m.nombre }))}
-                />
-                <InputNumber size="small" min={0} step={0.01} value={p.monto} onChange={(v) => actualizarPago(idx, { monto: v ?? 0 })} style={{ width: 100 }} />
-                {idx > 0 && <Button size="small" danger icon={<DeleteOutlined />} onClick={() => quitarPago(idx)} />}
-              </Space>
-            ))}
-            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-              <Typography.Text type="secondary">Total pagado</Typography.Text>
-              <Typography.Text strong>{formatMoneda(totalPagado)}</Typography.Text>
-            </div>
-          </Card>
-
-          <Card size="small" style={{ marginBottom: 12 }}>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>Caja activa</Typography.Text>
-            <Input size="small" disabled value={cajaLabel || 'Sin asignar a caja'} />
           </Card>
 
           <Space orientation="vertical" style={{ width: '100%' }}>
             <Button type="primary" size="large" block icon={<CheckOutlined />} loading={guardando} onClick={guardar}>
-              {TEXTO_BOTON[tipoDocumento] || 'Guardar'}
+              Registrar Cotización
             </Button>
-            <Link to="/ventas"><Button block>Cancelar</Button></Link>
+            <Link to="/cotizaciones"><Button block>Cancelar</Button></Link>
           </Space>
         </div>
       </div>
 
       <Modal
         open={modalImpresionOpen}
-        title="Documento emitido"
-        onCancel={() => finalizarVenta('sin_imprimir')}
+        title="Cotización registrada"
+        onCancel={() => finalizarCotizacion('sin_imprimir')}
         footer={[
-          <Button key="sin-imprimir" onClick={() => finalizarVenta('sin_imprimir')}>
+          <Button key="sin-imprimir" onClick={() => finalizarCotizacion('sin_imprimir')}>
             No imprimir
           </Button>,
-          <Button key="nueva" type="primary" onClick={() => finalizarVenta('nueva')}>
-            Nueva venta
+          <Button key="nueva" type="primary" onClick={() => finalizarCotizacion('nueva')}>
+            Nueva cotización
           </Button>,
-          <Button key="imprimir" type="primary" onClick={() => finalizarVenta('imprimir')}>
+          <Button key="imprimir" type="primary" onClick={() => finalizarCotizacion('imprimir')}>
             Imprimir
           </Button>,
         ]}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Typography.Text>
-            El documento se registró correctamente. Puedes revisar la vista previa antes de imprimir.
+            La cotización se registró correctamente. Puedes revisar la vista previa antes de imprimir.
           </Typography.Text>
-          {ventaReciente && (
+          {cotizacionReciente && (
             <iframe
               title="Vista previa del documento"
-              src={`/ventas/imprimir?id=${ventaReciente.id}`}
+              src={`/ventas/imprimir?id=${cotizacionReciente.id}`}
               style={{ width: '100%', height: 420, border: '1px solid #f0f0f0', borderRadius: 8, background: '#fff' }}
             />
           )}

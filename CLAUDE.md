@@ -50,7 +50,7 @@ Requiere PostgreSQL local corriendo y `backend/.env` configurado (copiar de `.en
 Puntos no obvios:
 - **Compras** (`tbl_compras`) es mercadería (afecta stock, tiene `tbl_detalle_compras` por producto). Tiene campos `flete_*` para prorratear el costo del flete al costo de inventario (`flete_monto`, `flete_moneda`, `flete_tipo_prorrateo`, `id_proveedor_flete`) — **pero ya no tiene seguimiento de pago del flete** (eso se sacó, ver Gastos).
 - **Gastos** (`tbl_gastos`) es para CUALQUIER factura de proveedor que no sea mercadería (flete, alquiler, servicios, comida, honorarios, etc.). Es de una sola línea (sin tabla de detalle, a diferencia de Compras) — un comprobante = un monto. Tiene `id_compra_relacionada` opcional (vínculo débil, sin FK real, mismo patrón que `id_orden_compra` en Compras) para el caso de "esta es la factura real del flete de esta compra". El pago de un Gasto sí genera un movimiento de egreso en `tbl_movimientos_caja` si se le pasa `id_caja_apertura`.
-- **Ventas** (`tbl_ventas`) maneja Boleta/Factura/Nota de Venta/Cotización/Nota de Crédito, con envío a SUNAT vía NubeFact (mock por defecto) desacoplado de la emisión — el envío es manual desde Facturación → Enviar a SUNAT, no automático al crear la venta.
+- **Ventas** (`tbl_ventas`) maneja Boleta/Factura/Nota de Venta/Cotización/Nota de Crédito, con envío a SUNAT vía NubeFact (mock por defecto) desacoplado de la emisión — el envío es manual desde Facturación → Enviar a SUNAT, no automático al crear la venta. Cotización sigue viviendo en esta misma tabla/endpoint (`POST /ventas` con `tipo_documento: 'COTIZACION'`, permisos `ventas:*`) — el módulo "Cotizaciones" del frontend es una separación solo de UI/rutas para que el vendedor no elija mal el tipo de documento en el mismo formulario, no un módulo de datos aparte. El canje Cotización/Nota de Venta → Boleta/Factura (`POST /ventas/:id/canjear`) sigue operando sobre el mismo registro.
 - **IDOR histórico corregido**: hay un helper `assertMismoPuntoVenta()` en `ventas.service.ts` que valida que el usuario no acceda a ventas de otra tienda (excepto superadmin) — patrón a replicar si se agrega scoping por tienda en otro módulo.
 
 ## Frontend (`frontend-react/`) — convenciones
@@ -67,7 +67,7 @@ Puntos no obvios:
 
 ### Páginas frontend existentes (`src/pages/`)
 
-`clientes, proveedores, rrhh, roles, usuarios, configuracion/ (categorias, marcas, unidades-medida, almacenes, series, empresa, margenes, tipos-cambio), inventario/ (ajustes, ajuste-nuevo, listado, kardex), productos, ordenes-compra, reportes, caja, ventas/ (listado, nueva, imprimir con QR, nota-credito), compras/ (listado, nueva con importación XML y prorrateo de flete, nota-credito), facturacion/ (enviar a SUNAT), gastos/`
+`clientes, proveedores, rrhh, roles, usuarios, configuracion/ (categorias, marcas, unidades-medida, almacenes, series, empresa, margenes, tipos-cambio), inventario/ (ajustes, ajuste-nuevo, listado, kardex), productos, ordenes-compra, reportes, caja, ventas/ (listado, nueva, imprimir con QR, nota-credito), cotizaciones/ (listado, nueva — mismo backend de Ventas, solo separado en el frontend), compras/ (listado, nueva con importación XML y prorrateo de flete, nota-credito), facturacion/ (enviar a SUNAT), gastos/`
 
 ## Verificación end-to-end
 

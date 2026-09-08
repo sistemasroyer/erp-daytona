@@ -34,6 +34,13 @@ export const MENU: MenuGroupDef[] = [
     ],
   },
   {
+    header: 'Cotizaciones',
+    items: [
+      { key: 'cotizaciones-nueva', label: 'Nueva Cotización', icon: 'FileAddOutlined', href: '/cotizaciones/nueva', perm: 'ventas:crear' },
+      { key: 'cotizaciones-listado', label: 'Listado de Cotizaciones', icon: 'UnorderedListOutlined', href: '/cotizaciones', perm: 'ventas:ver' },
+    ],
+  },
+  {
     header: 'Facturación Electrónica',
     items: [
       { key: 'facturacion-enviar', label: 'Enviar a SUNAT', icon: 'CloudUploadOutlined', href: '/facturacion/enviar', perm: 'facturacion:ver' },

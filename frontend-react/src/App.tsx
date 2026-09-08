@@ -41,6 +41,8 @@ import { VentasPage } from '@/pages/ventas/VentasPage';
 import { NuevaVentaPage } from '@/pages/ventas/NuevaVentaPage';
 import { ImprimirPage } from '@/pages/ventas/ImprimirPage';
 import { NotaCreditoPage } from '@/pages/ventas/NotaCreditoPage';
+import { CotizacionesPage } from '@/pages/cotizaciones/CotizacionesPage';
+import { NuevaCotizacionPage } from '@/pages/cotizaciones/NuevaCotizacionPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -166,6 +168,14 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="ventas:anular" />}>
                       <Route path="/ventas/nueva-nota-credito" element={<NotaCreditoPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermiso perm="ventas:ver" />}>
+                      <Route path="/cotizaciones" element={<CotizacionesPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermiso perm="ventas:crear" />}>
+                      <Route path="/cotizaciones/nueva" element={<NuevaCotizacionPage />} />
                     </Route>
                   </Route>
                 </Route>
