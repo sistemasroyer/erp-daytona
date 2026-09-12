@@ -365,7 +365,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
                   </div>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Cant.</Typography.Text>
-                    <InputNumber size="small" min={0.0001} step={1} value={l.cantidad} onChange={(v) => actualizarLinea(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
+                    <InputNumber size="small" min={1} step={1} precision={0} value={l.cantidad} onChange={(v) => actualizarLinea(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
                   </div>
                   <div>
                     <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Monto ({simb})</Typography.Text>

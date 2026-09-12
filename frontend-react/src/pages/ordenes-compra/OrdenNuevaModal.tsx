@@ -177,7 +177,7 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
             <Col span={5}>
               <Space.Compact style={{ width: '100%' }}>
                 <Button size="small" disabled>Cant.</Button>
-                <InputNumber size="small" min={0.001} step={1} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 0 })} style={{ width: '100%' }} />
+                <InputNumber size="small" min={1} step={1} precision={0} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 0 })} style={{ width: '100%' }} />
               </Space.Compact>
             </Col>
             <Col span={6}>

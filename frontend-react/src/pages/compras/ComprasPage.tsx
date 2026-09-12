@@ -8,7 +8,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { usePagination } from '@/hooks/usePagination';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
 import { TIPOS_DOC_COMPRA_LABEL, type Compra } from '@/types/compra';
 import { CompraDetalleModal } from './CompraDetalleModal';
 
@@ -41,7 +41,7 @@ export function ComprasPage() {
     { title: 'Proveedor', render: (_, c) => c.proveedor?.razon_social || '-' },
     { title: 'Almacén', render: (_, c) => c.almacen?.nombre || '-' },
     { title: 'Condición', align: 'center', render: (_, c) => c.condicion_pago === 'credito' ? <Tag color="warning">Crédito</Tag> : <Tag color="success">Contado</Tag> },
-    { title: 'Total', align: 'right', render: (_, c) => <strong>{formatMoneda(c.total, c.moneda)}</strong> },
+    { title: 'Total', align: 'right', render: (_, c) => <strong>{formatMoneda(penAMonedaOriginal(c.total, c.moneda, c.tipo_cambio), c.moneda)}</strong> },
     { title: 'Moneda', align: 'center', render: (_, c) => <Tag>{c.moneda}</Tag> },
     { title: 'Estado', align: 'center', render: (_, c) => <EstadoTag estado={c.estado} /> },
     { title: '', align: 'center', width: 60, render: (_, c) => <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalleId(c.id)} /> },

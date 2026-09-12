@@ -233,11 +233,11 @@ export function NotaCreditoPage() {
                     onChange={(e) => actualizarItem(it.detalle.id, { marcado: e.target.checked, cantidad: e.target.checked ? Number(it.detalle.cantidad) : 0 })}
                   />
                 </td>
-                <td style={{ padding: 6 }}>{it.detalle.producto?.nombre || it.detalle.id_producto}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{Number(it.detalle.cantidad).toFixed(2)}</td>
+                <td style={{ padding: 6 }}>{it.detalle.producto?.nombre || it.detalle.id_producto} <Typography.Text type="secondary" style={{ fontSize: 12 }}>{it.detalle.producto?.codigo}</Typography.Text></td>
+                <td style={{ padding: 6, textAlign: 'right' }}>{Number(it.detalle.cantidad).toFixed(0)}</td>
                 <td style={{ padding: 6, textAlign: 'right' }}>
                   <InputNumber
-                    size="small" min={0.01} max={Number(it.detalle.cantidad)} step={0.01}
+                    size="small" min={1} max={Number(it.detalle.cantidad)} step={1} precision={0}
                     value={it.cantidad} disabled={!it.marcado || esAnulacionTotal}
                     onChange={(v) => actualizarItem(it.detalle.id, { cantidad: v ?? 0 })}
                     style={{ width: '100%' }}

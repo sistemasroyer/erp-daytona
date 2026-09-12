@@ -1,9 +1,10 @@
-import { Card, Table, Typography, Tag, Empty, Row, Col } from 'antd';
+import { useState } from 'react';
+import { Card, Table, Typography, Tag, Empty, Row, Col, Modal, Descriptions } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { WalletOutlined } from '@ant-design/icons';
+import { WalletOutlined, AuditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatMoneda } from '@/utils/format';
-import type { MovimientoCaja, ResumenCaja } from '@/types/caja';
+import type { MovimientoCaja, ResumenCaja, ArqueoCaja } from '@/types/caja';
 
 const columns: ColumnsType<MovimientoCaja> = [
   { title: 'Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('HH:mm:ss') },
@@ -21,9 +22,68 @@ const columns: ColumnsType<MovimientoCaja> = [
   },
 ];
 
-export function CajaResumenVista({ resumen }: { resumen: ResumenCaja }) {
+function ArqueoDetalleModal({ arqueo, onClose }: { arqueo: ArqueoCaja | null; onClose: () => void }) {
+  return (
+    <Modal title="Detalle del arqueo" open={!!arqueo} onCancel={onClose} footer={null} destroyOnHidden>
+      {arqueo && (
+        <>
+          <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="Hora">{dayjs(arqueo.fecha_arqueo).format('DD/MM/YYYY HH:mm:ss')}</Descriptions.Item>
+            <Descriptions.Item label="Cajero">{arqueo.usuario ? `${arqueo.usuario.nombre} ${arqueo.usuario.apellido}` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Saldo sistema">{formatMoneda(arqueo.monto_sistema)}</Descriptions.Item>
+            <Descriptions.Item label="Monto contado">{formatMoneda(arqueo.monto_contado)}</Descriptions.Item>
+            <Descriptions.Item label="Diferencia">
+              <Typography.Text type={Number(arqueo.diferencia) >= 0 ? 'success' : 'danger'} strong>
+                {Number(arqueo.diferencia) >= 0 ? '+' : ''}{formatMoneda(arqueo.diferencia)}
+              </Typography.Text>
+            </Descriptions.Item>
+            {arqueo.observaciones && <Descriptions.Item label="Observaciones">{arqueo.observaciones}</Descriptions.Item>}
+          </Descriptions>
+          {arqueo.detalle_denominaciones.map((d) => (
+            <div key={`${d.tipo}-${d.denominacion}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span>S/ {d.denominacion.toFixed(2)} × {d.cantidad}</span>
+              <strong>{formatMoneda(d.subtotal)}</strong>
+            </div>
+          ))}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+export function CajaResumenVista({ resumen, arqueos }: { resumen: ResumenCaja; arqueos?: ArqueoCaja[] }) {
+  const [arqueoSeleccionado, setArqueoSeleccionado] = useState<ArqueoCaja | null>(null);
+
+  const columnsArqueos: ColumnsType<ArqueoCaja> = [
+    { title: 'Hora', dataIndex: 'fecha_arqueo', render: (v) => dayjs(v).format('HH:mm:ss') },
+    { title: 'Cajero', render: (_, a) => a.usuario ? `${a.usuario.nombre} ${a.usuario.apellido}` : '-' },
+    { title: 'Sistema', align: 'right', render: (_, a) => formatMoneda(a.monto_sistema) },
+    { title: 'Contado', align: 'right', render: (_, a) => formatMoneda(a.monto_contado) },
+    {
+      title: 'Diferencia', align: 'right',
+      render: (_, a) => (
+        <Typography.Text strong type={Number(a.diferencia) >= 0 ? 'success' : 'danger'}>
+          {Number(a.diferencia) >= 0 ? '+' : ''}{formatMoneda(a.diferencia)}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: '', render: (_, a) => (
+        <a onClick={() => setArqueoSeleccionado(a)}>Ver detalle</a>
+      ),
+    },
+  ];
+
   return (
     <>
+      {arqueos !== undefined && (
+        <Card title={<><AuditOutlined style={{ marginRight: 8 }} />Arqueos de caja</>} style={{ marginBottom: 16 }}>
+          {arqueos.length
+            ? <Table<ArqueoCaja> rowKey="id" columns={columnsArqueos} dataSource={arqueos} pagination={false} scroll={{ x: 'max-content' }} />
+            : <Empty description="Sin arqueos registrados" />}
+        </Card>
+      )}
+      <ArqueoDetalleModal arqueo={arqueoSeleccionado} onClose={() => setArqueoSeleccionado(null)} />
       {!!resumen.resumen.por_metodo_pago.length && (
         <Card title="Resumen por método de pago" style={{ marginBottom: 16 }}>
           <Row gutter={16}>

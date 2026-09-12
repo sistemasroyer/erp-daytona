@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Card, Row, Col, Button, Typography, Tag, Modal, Select, InputNumber, Input, Space } from 'antd';
-import { UnlockOutlined, LockOutlined, PlusCircleOutlined, MinusCircleOutlined, ReloadOutlined, WalletOutlined } from '@ant-design/icons';
+import { UnlockOutlined, LockOutlined, PlusCircleOutlined, MinusCircleOutlined, ReloadOutlined, WalletOutlined, AuditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { cajaApi } from '@/api/caja';
 import { metodosPagoApi } from '@/api/metodos-pago';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { CajaResumenVista } from './CajaResumenVista';
+import { ArqueoCajaModal } from './ArqueoCajaModal';
 
 export function CajaPage() {
   const queryClient = useQueryClient();
@@ -26,13 +27,21 @@ export function CajaPage() {
   const resumen = resumenData?.data;
   const saldoSistema = resumen?.resumen.saldo_actual ?? Number(apertura?.monto_apertura ?? 0);
 
+  const { data: arqueosData } = useQuery({
+    queryKey: ['caja-arqueos', apertura?.id],
+    queryFn: () => cajaApi.arqueos(apertura!.id),
+    enabled: !!apertura,
+  });
+
   const [modalAbrir, setModalAbrir] = useState(false);
   const [modalCerrar, setModalCerrar] = useState(false);
   const [modalMov, setModalMov] = useState<'ingreso' | 'egreso' | null>(null);
+  const [modalArqueo, setModalArqueo] = useState(false);
 
   const recargarTodo = () => {
     queryClient.invalidateQueries({ queryKey: ['caja-apertura-activa'] });
     queryClient.invalidateQueries({ queryKey: ['caja-resumen'] });
+    queryClient.invalidateQueries({ queryKey: ['caja-arqueos'] });
   };
 
   if (cargandoApertura) return null;
@@ -83,6 +92,7 @@ export function CajaPage() {
             <Space orientation="vertical" style={{ width: '100%' }}>
               <Button block icon={<PlusCircleOutlined />} onClick={() => setModalMov('ingreso')}>Ingreso</Button>
               <Button block danger icon={<MinusCircleOutlined />} onClick={() => setModalMov('egreso')}>Egreso</Button>
+              <Button block icon={<AuditOutlined />} onClick={() => setModalArqueo(true)}>Arqueo de Caja</Button>
               <Button block type="primary" style={{ background: '#faad14', borderColor: '#faad14' }} icon={<LockOutlined />} onClick={() => setModalCerrar(true)}>
                 Cerrar Caja
               </Button>
@@ -95,7 +105,7 @@ export function CajaPage() {
         <Button size="small" icon={<ReloadOutlined />} onClick={() => refetchResumen()}>Actualizar</Button>
       </div>
 
-      {resumen && <CajaResumenVista resumen={resumen} />}
+      {resumen && <CajaResumenVista resumen={resumen} arqueos={arqueosData?.data} />}
 
       <CerrarCajaModal
         open={modalCerrar}
@@ -110,6 +120,14 @@ export function CajaPage() {
         idApertura={apertura.id}
         onClose={() => setModalMov(null)}
         onSaved={() => { setModalMov(null); refetchResumen(); }}
+      />
+
+      <ArqueoCajaModal
+        open={modalArqueo}
+        idApertura={apertura.id}
+        saldoSistema={saldoSistema}
+        onClose={() => setModalArqueo(false)}
+        onSaved={() => { setModalArqueo(false); recargarTodo(); }}
       />
     </div>
   );

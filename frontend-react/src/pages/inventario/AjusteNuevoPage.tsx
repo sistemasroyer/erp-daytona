@@ -128,7 +128,7 @@ export function AjusteNuevoPage() {
                     </Col>
                     <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11 }}>Cantidad</Typography.Text>
-                      <InputNumber size="small" value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 0 })} min={0.001} step={1} style={{ width: '100%' }} />
+                      <InputNumber size="small" value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 0 })} min={1} step={1} precision={0} style={{ width: '100%' }} />
                     </Col>
                     <Col xs={12} sm={6}>
                       <Typography.Text type="secondary" style={{ fontSize: 11 }}>Costo unit. referencial</Typography.Text>

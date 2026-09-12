@@ -14,8 +14,7 @@ import type { DetalleTomaInventario, TomaInventario } from '@/types/toma-inventa
 import type { Producto } from '@/types/producto';
 
 function fmtCantidad(v: string | number) {
-  const n = Number(v);
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  return Number(v).toFixed(0);
 }
 
 export function TomaInventarioDetallePage() {
@@ -156,7 +155,7 @@ export function TomaInventarioDetallePage() {
             <div style={{ flex: '1 1 130px' }}>
               <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Cantidad contada</Typography.Text>
               <InputNumber
-                min={0} step={1} value={cantidadEntrada} disabled={!productoEntrada}
+                min={0} step={1} precision={0} value={cantidadEntrada} disabled={!productoEntrada}
                 placeholder="Ingrese la cantidad"
                 onChange={(v) => setCantidadEntrada(v)}
                 style={{ width: '100%' }}
@@ -276,7 +275,7 @@ function ItemCard({ toma, detalle, enProceso }: { toma: TomaInventario; detalle:
           <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Stock sistema: {fmtCantidad(detalle.stock_sistema)}</Typography.Text>
           {enProceso ? (
             <InputNumber
-              size="large" min={0} step={1} value={cantidad}
+              size="large" min={0} step={1} precision={0} value={cantidad}
               onChange={(v) => { tocado.current = true; setCantidad(v ?? 0); }}
               style={{ width: 120, marginTop: 4, fontWeight: 700 }}
             />

@@ -44,26 +44,26 @@ interface ItemCompra {
   afecta_igv: boolean;
 }
 
-const MODO_INFO: Record<ModoIngreso, { label: (simb: string) => string; desc: string; ejemplo: string }> = {
+const MODO_INFO: Record<ModoIngreso, { label: (simb: string) => string; desc: string; ejemplo: (simb: string) => string }> = {
   precio_sin_igv: {
     label: (simb) => `Precio unit. sin IGV (${simb})`,
     desc: 'Ingresa el precio por unidad sin IGV. El sistema calcula el total de la línea multiplicando por la cantidad y agrega el IGV.',
-    ejemplo: 'Ej: costo 100.00 × 5 und × 1.18 = S/ 590.00',
+    ejemplo: (simb) => `Ej: precio 100.00 × 5 und × 1.18 = ${simb} 590.00`,
   },
   precio_con_igv: {
     label: (simb) => `Precio unit. con IGV (${simb})`,
     desc: 'Ingresa el precio por unidad con IGV incluido. El sistema multiplica por la cantidad.',
-    ejemplo: 'Ej: precio 118.00 × 5 und = S/ 590.00',
+    ejemplo: (simb) => `Ej: precio 118.00 × 5 und = ${simb} 590.00`,
   },
   total_sin_igv: {
     label: (simb) => `Total línea sin IGV (${simb})`,
     desc: 'Ingresa el importe total de la línea sin IGV. El sistema agrega el 18% de IGV.',
-    ejemplo: 'Ej: subtotal 500.00 × 1.18 = S/ 590.00',
+    ejemplo: (simb) => `Ej: subtotal 500.00 × 1.18 = ${simb} 590.00`,
   },
   total_con_igv: {
     label: (simb) => `Total línea con IGV (${simb})`,
     desc: 'Ingresa el importe total de la línea tal como aparece en la factura (ya incluye IGV).',
-    ejemplo: 'Ej: total factura 590.00 → base 500.00 + IGV 90.00',
+    ejemplo: (simb) => `Ej: total factura 590.00 → base 500.00 + IGV 90.00 (en ${simb})`,
   },
 };
 
@@ -107,11 +107,9 @@ function getImporteLinea(item: ItemCompra, modo: ModoIngreso) {
   }
 }
 
-function getCostoUnitarioSinIgvPen(item: ItemCompra, modo: ModoIngreso, moneda: 'PEN' | 'USD', tipoCambio: number) {
+function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso) {
   const importeLinea = getImporteLinea(item, modo);
-  const tc = moneda === 'USD' ? tipoCambio : 1;
-  const importeLineaPen = importeLinea * tc;
-  const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
+  const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
   return item.cantidad > 0 ? base / item.cantidad : 0;
 }
 
@@ -199,7 +197,6 @@ export function NuevaCompraPage() {
   };
 
   const simb = moneda === 'USD' ? 'US$' : 'S/';
-  const tcFactura = moneda === 'USD' ? tipoCambio : 1;
 
   const agregarProducto = (p: import('@/types/producto').Producto) => {
     if (items.find((i) => i.producto.id === p.id)) { message.warning('El producto ya está agregado'); return; }
@@ -260,31 +257,26 @@ export function NuevaCompraPage() {
   };
 
   const totales = useMemo(() => {
-    const tc = moneda === 'USD' ? tipoCambio : 1;
     let subtotal = 0;
     let igvTotal = 0;
     items.forEach((item) => {
       const importeLinea = getImporteLinea(item, modoIngreso);
-      const importeLineaPen = importeLinea * tc;
-      const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
-      const igv = item.afecta_igv ? importeLineaPen - base : 0;
+      const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+      const igv = item.afecta_igv ? importeLinea - base : 0;
       subtotal += base;
       igvTotal += igv;
     });
-    const flete = tieneFlete ? fleteMonto * (fleteMoneda === 'USD' ? tc : 1) : 0;
     const total = subtotal + igvTotal;
-    return { subtotal, igvTotal, flete, total };
-  }, [items, modoIngreso, moneda, tipoCambio, tieneFlete, fleteMonto, fleteMoneda]);
+    return { subtotal, igvTotal, total };
+  }, [items, modoIngreso]);
 
   const validacion = useMemo(() => {
     if (totalFacturaVerificacion === undefined || items.length === 0) return null;
-    const tc = moneda === 'USD' ? tipoCambio : 1;
-    const totalFacturaPen = totalFacturaVerificacion * tc;
-    const diff = Math.abs(totales.total - totalFacturaPen);
+    const diff = Math.abs(totales.total - totalFacturaVerificacion);
     return diff < 0.05
       ? { ok: true, texto: 'Cuadra con el total de la factura ✓' }
-      : { ok: false, texto: `Diferencia: S/ ${diff.toFixed(2)} — revise los importes` };
-  }, [totalFacturaVerificacion, items.length, moneda, tipoCambio, totales.total]);
+      : { ok: false, texto: `Diferencia: ${simb} ${diff.toFixed(2)} — revise los importes` };
+  }, [totalFacturaVerificacion, items.length, totales.total, simb]);
 
   const importarXml = async (file: File) => {
     try {
@@ -396,7 +388,7 @@ export function NuevaCompraPage() {
 
       <BorradorBanner
         borradores={borradores}
-        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso), 0))}`}
+        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso), 0), d.moneda)}`}
         onRestaurar={restaurarBorrador}
         onDescartar={descartarBorradorLista}
       />
@@ -570,14 +562,13 @@ export function NuevaCompraPage() {
               </Space>
             }
           >
-            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>{MODO_INFO[modoIngreso].desc} {MODO_INFO[modoIngreso].ejemplo}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>{MODO_INFO[modoIngreso].desc} {MODO_INFO[modoIngreso].ejemplo(simb)}</Typography.Text>
 
             {items.length === 0 ? <Empty description="Agregue los productos de la factura" /> : items.map((item, idx) => {
-              const costoUnit = getCostoUnitarioSinIgvPen(item, modoIngreso, moneda, tipoCambio);
-              const tc = moneda === 'USD' ? tipoCambio : 1;
-              const importeLineaPen = getImporteLinea(item, modoIngreso) * tc;
-              const base = item.afecta_igv ? importeLineaPen / 1.18 : importeLineaPen;
-              const igv = item.afecta_igv ? importeLineaPen - base : 0;
+              const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso);
+              const importeLinea = getImporteLinea(item, modoIngreso);
+              const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+              const igv = item.afecta_igv ? importeLinea - base : 0;
               const codigoExistente = proveedor ? item.producto.codigos_proveedor.find((c) => c.id_proveedor === proveedor.id) : undefined;
               return (
                 <div key={item.producto.id} style={{ background: '#fafafa', borderRadius: 8, padding: 12, marginBottom: 8, border: '1px solid #f0f0f0' }}>
@@ -601,7 +592,7 @@ export function NuevaCompraPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 90px 130px 130px 200px', gap: 12, alignItems: 'end', minWidth: 780 }}>
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Cantidad</Typography.Text>
-                      <InputNumber size="small" min={0.001} step={1} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
+                      <InputNumber size="small" min={1} step={1} precision={0} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
                     </div>
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{inputLabel}</Typography.Text>
@@ -614,17 +605,17 @@ export function NuevaCompraPage() {
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Costo unit. s/IGV</Typography.Text>
                       <div style={{ background: '#e6f4ff', borderRadius: 4, padding: '2px 6px', textAlign: 'center', fontWeight: 600, color: '#0958d9', fontSize: 12 }}>
-                        {costoUnit > 0 ? `S/ ${costoUnit.toFixed(4)}` : '—'}
+                        {costoUnit > 0 ? `${simb} ${costoUnit.toFixed(4)}` : '—'}
                       </div>
                     </div>
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Costo unit. c/IGV</Typography.Text>
                       <div style={{ background: '#e6f4ff', borderRadius: 4, padding: '2px 6px', textAlign: 'center', fontWeight: 600, color: '#0958d9', fontSize: 12 }}>
-                        {costoUnit > 0 ? `S/ ${(item.afecta_igv ? costoUnit * 1.18 : costoUnit).toFixed(4)}` : '—'}
+                        {costoUnit > 0 ? `${simb} ${(item.afecta_igv ? costoUnit * 1.18 : costoUnit).toFixed(4)}` : '—'}
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-                      {moneda === 'USD' ? `= S/ ${importeLineaPen.toFixed(2)} | ` : ''}Base: S/ {base.toFixed(2)}, IGV: S/ {igv.toFixed(2)}
+                      Base: {simb} {base.toFixed(2)}, IGV: {simb} {igv.toFixed(2)}
                     </div>
                   </div>
                   </div>
@@ -652,7 +643,7 @@ export function NuevaCompraPage() {
                 description={
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {lineasSinAsociar.map((l, i) => (
-                      <li key={i}><strong>{l.codigo_proveedor || '—'}</strong> — {l.descripcion} (cant. {l.cantidad}, {simb} {l.importe_linea.toFixed(2)} c/IGV)</li>
+                      <li key={i}><strong>{l.codigo_proveedor || '—'}</strong> — {l.descripcion} (cant. {l.cantidad.toFixed(0)}, {simb} {l.importe_linea.toFixed(2)} c/IGV)</li>
                     ))}
                   </ul>
                 }
@@ -684,30 +675,21 @@ export function NuevaCompraPage() {
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>Subtotal (sin IGV)</span>
-              <span style={{ textAlign: 'right' }}>
-                <strong>{formatMoneda(totales.subtotal / tcFactura, moneda)}</strong>
-                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>≈ {formatMoneda(totales.subtotal)}</Typography.Text>}
-              </span>
+              <strong>{formatMoneda(totales.subtotal, moneda)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>IGV 18%</span>
-              <span style={{ textAlign: 'right' }}>
-                {formatMoneda(totales.igvTotal / tcFactura, moneda)}
-                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>≈ {formatMoneda(totales.igvTotal)}</Typography.Text>}
-              </span>
+              <span>{formatMoneda(totales.igvTotal, moneda)}</span>
             </div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography.Text strong>TOTAL A PAGAR AL PROVEEDOR</Typography.Text>
-              <div style={{ textAlign: 'right' }}>
-                <Typography.Text strong style={{ fontSize: 18, color: '#389e0d' }}>{formatMoneda(totales.total / tcFactura, moneda)}</Typography.Text>
-                {moneda === 'USD' && <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>≈ {formatMoneda(totales.total)}</Typography.Text>}
-              </div>
+              <Typography.Text strong style={{ fontSize: 18, color: '#389e0d' }}>{formatMoneda(totales.total, moneda)}</Typography.Text>
             </div>
 
             {tieneFlete && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', borderRadius: 6, padding: 8, marginBottom: 12 }}>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>Flete (gasto aparte, no incluido arriba)</Typography.Text>
-                <strong>{formatMoneda(totales.flete)}</strong>
+                <strong>{formatMoneda(fleteMonto, fleteMoneda)}</strong>
               </div>
             )}
 

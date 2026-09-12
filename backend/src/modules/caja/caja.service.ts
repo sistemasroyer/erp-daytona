@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsEnum, IsArray, IsInt, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { redondear2 } from '../../common/utils/numero-documento.util';
@@ -24,6 +25,18 @@ export class MovimientoCajaDto {
   @IsOptional() @IsString() id_metodo_pago?: string;
 }
 
+export class DetalleDenominacionDto {
+  @IsNumber() denominacion: number;
+  @IsEnum(['moneda', 'billete']) tipo: 'moneda' | 'billete';
+  @IsInt() @Min(0) cantidad: number;
+}
+
+export class ArqueoCajaDto {
+  @IsArray() @ValidateNested({ each: true }) @Type(() => DetalleDenominacionDto)
+  detalle: DetalleDenominacionDto[];
+  @IsOptional() @IsString() observaciones?: string;
+}
+
 @Injectable()
 export class CajaService {
   constructor(private prisma: PrismaService) {}
@@ -34,6 +47,21 @@ export class CajaService {
     if (!idPuntoVentaUsuario || idPuntoVentaCaja !== idPuntoVentaUsuario) {
       throw new ForbiddenException('No tiene acceso a la caja de otro punto de venta');
     }
+  }
+
+  /** Saldo esperado por sistema: monto_apertura + ingresos - egresos registrados hasta el momento. */
+  private async calcularSaldoSistema(idCajaApertura: string, montoApertura: number): Promise<number> {
+    const [ingresos, egresos] = await Promise.all([
+      this.prisma.tbl_movimientos_caja.aggregate({
+        where: { id_caja_apertura: idCajaApertura, tipo: 'ingreso' },
+        _sum: { monto: true },
+      }),
+      this.prisma.tbl_movimientos_caja.aggregate({
+        where: { id_caja_apertura: idCajaApertura, tipo: 'egreso' },
+        _sum: { monto: true },
+      }),
+    ]);
+    return redondear2(montoApertura + Number(ingresos._sum.monto || 0) - Number(egresos._sum.monto || 0));
   }
 
   async abrirCaja(dto: AbrirCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
@@ -72,21 +100,7 @@ export class CajaService {
     if (!apertura) throw new NotFoundException('Apertura de caja no encontrada o ya cerrada');
     this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
 
-    // Calcular total del sistema
-    const ingresos = await this.prisma.tbl_movimientos_caja.aggregate({
-      where: { id_caja_apertura: idApertura, tipo: 'ingreso' },
-      _sum: { monto: true },
-    });
-    const egresos = await this.prisma.tbl_movimientos_caja.aggregate({
-      where: { id_caja_apertura: idApertura, tipo: 'egreso' },
-      _sum: { monto: true },
-    });
-
-    const montoSistema = redondear2(
-      Number(apertura.monto_apertura) +
-      Number(ingresos._sum.monto || 0) -
-      Number(egresos._sum.monto || 0),
-    );
+    const montoSistema = await this.calcularSaldoSistema(idApertura, Number(apertura.monto_apertura));
     const diferencia = redondear2(dto.monto_cierre - montoSistema);
 
     return this.prisma.tbl_cajas_aperturas.update({
@@ -100,6 +114,59 @@ export class CajaService {
         fecha_cierre: new Date(),
         usuario_modificacion: usuarioId,
       },
+    });
+  }
+
+  private static readonly DENOMINACIONES_VALIDAS = new Set([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200]);
+
+  async registrarArqueo(idApertura: string, dto: ArqueoCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const apertura = await this.prisma.tbl_cajas_aperturas.findFirst({
+      where: { id: idApertura, estado: 'abierta', eliminado: false },
+      include: { caja: { select: { id_punto_venta: true } } },
+    });
+    if (!apertura) throw new BadRequestException('No hay apertura de caja activa');
+    this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
+
+    for (const d of dto.detalle) {
+      if (!CajaService.DENOMINACIONES_VALIDAS.has(d.denominacion)) {
+        throw new BadRequestException(`Denominación inválida: ${d.denominacion}`);
+      }
+    }
+
+    const detalle = dto.detalle
+      .filter((d) => d.cantidad > 0)
+      .map((d) => ({ ...d, subtotal: redondear2(d.denominacion * d.cantidad) }));
+    if (!detalle.length) throw new BadRequestException('Debe contar al menos una denominación');
+    const montoContado = redondear2(detalle.reduce((acc, d) => acc + d.subtotal, 0));
+
+    const montoSistema = await this.calcularSaldoSistema(idApertura, Number(apertura.monto_apertura));
+    const diferencia = redondear2(montoContado - montoSistema);
+
+    return this.prisma.tbl_cajas_arqueos.create({
+      data: {
+        id_caja_apertura: idApertura,
+        id_usuario: usuarioId,
+        monto_sistema: montoSistema,
+        monto_contado: montoContado,
+        diferencia,
+        detalle_denominaciones: detalle,
+        observaciones: dto.observaciones,
+      },
+    });
+  }
+
+  async listarArqueos(idApertura: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const apertura = await this.prisma.tbl_cajas_aperturas.findFirst({
+      where: { id: idApertura },
+      include: { caja: { select: { id_punto_venta: true } } },
+    });
+    if (!apertura) throw new NotFoundException('Apertura no encontrada');
+    this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
+
+    return this.prisma.tbl_cajas_arqueos.findMany({
+      where: { id_caja_apertura: idApertura },
+      orderBy: { fecha_arqueo: 'desc' },
+      include: { usuario: { select: { nombre: true, apellido: true } } },
     });
   }
 

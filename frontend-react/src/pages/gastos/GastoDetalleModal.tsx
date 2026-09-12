@@ -61,7 +61,7 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
 
   const columns = [
     { title: 'Descripción', dataIndex: 'descripcion' },
-    { title: 'Cant.', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => Number(d.cantidad).toFixed(2) },
+    { title: 'Cant.', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => Number(d.cantidad).toFixed(0) },
     { title: 'Subtotal', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => formatMoneda(d.subtotal, gasto.moneda) },
     { title: 'IGV', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => formatMoneda(d.igv, gasto.moneda) },
     { title: 'Total', align: 'right' as const, render: (_: unknown, d: DetalleGasto) => <strong>{formatMoneda(d.total, gasto.moneda)}</strong> },

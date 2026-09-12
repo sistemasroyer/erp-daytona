@@ -14,6 +14,12 @@ export function CajaHistorialDetalleModal({ id, onClose }: { id: string | null; 
   const resumen = data?.data;
   const apertura = resumen?.apertura;
 
+  const { data: arqueosData } = useQuery({
+    queryKey: ['caja-arqueos', id],
+    queryFn: () => cajaApi.arqueos(id!),
+    enabled: !!id,
+  });
+
   return (
     <Modal title="Detalle de apertura de caja" open={!!id} onCancel={onClose} footer={null} width={800} destroyOnHidden>
       {apertura && (
@@ -30,7 +36,7 @@ export function CajaHistorialDetalleModal({ id, onClose }: { id: string | null; 
             <Descriptions.Item label="Monto cierre">{apertura.monto_cierre !== null ? formatMoneda(apertura.monto_cierre) : '-'}</Descriptions.Item>
             <Descriptions.Item label="Diferencia">{apertura.diferencia !== null ? formatMoneda(apertura.diferencia) : '-'}</Descriptions.Item>
           </Descriptions>
-          <CajaResumenVista resumen={resumen!} />
+          <CajaResumenVista resumen={resumen!} arqueos={arqueosData?.data} />
         </>
       )}
     </Modal>

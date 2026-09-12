@@ -7,7 +7,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
 import { CODIGOS_MOTIVO_NOTA_CREDITO, MOTIVOS_NC, MOTIVOS_NC_SUGIERE_STOCK } from '@/types/nota-credito';
 import type { Compra, DetalleCompra } from '@/types/compra';
 
@@ -159,7 +159,7 @@ export function NotaCreditoCompraPage() {
     { title: 'Documento', render: (_, c) => c.serie ? `${c.serie}-${c.numero}` : c.numero || '-' },
     { title: 'Fecha', render: (_, c) => new Date(c.fecha_emision).toLocaleDateString('es-PE') },
     { title: 'Proveedor', render: (_, c) => c.proveedor?.razon_social || '-' },
-    { title: 'Total', align: 'right', render: (_, c) => formatMoneda(c.total, c.moneda) },
+    { title: 'Total', align: 'right', render: (_, c) => formatMoneda(penAMonedaOriginal(c.total, c.moneda, c.tipo_cambio), c.moneda) },
     { title: 'Estado', align: 'center', render: (_, c) => <EstadoTag estado={c.estado} /> },
     { title: '', align: 'center', width: 100, render: (_, c) => <Button size="small" type="primary" danger icon={<FileExcelOutlined />} onClick={() => seleccionar(c.id)}>Elegir</Button> },
   ];
@@ -201,7 +201,7 @@ export function NotaCreditoCompraPage() {
         extra={<Button size="small" icon={<ArrowLeftOutlined />} onClick={volverABuscar}>Elegir otra compra</Button>}
       >
         <Typography.Paragraph type="secondary">
-          Acreditando <strong>{numeroCompra}</strong> — Proveedor: {compra.proveedor?.razon_social || '-'} — Total original: {formatMoneda(compra.total, compra.moneda)}
+          Acreditando <strong>{numeroCompra}</strong> — Proveedor: {compra.proveedor?.razon_social || '-'} — Total original: {formatMoneda(penAMonedaOriginal(compra.total, compra.moneda, compra.tipo_cambio), compra.moneda)}
         </Typography.Paragraph>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
@@ -251,11 +251,11 @@ export function NotaCreditoCompraPage() {
                 <td style={{ padding: 6 }}>
                   <input type="checkbox" checked={it.marcado} disabled={esAnulacionTotal} onChange={(e) => actualizarMarcado(it.detalle.id, e.target.checked)} />
                 </td>
-                <td style={{ padding: 6 }}>{it.detalle.producto?.nombre || it.detalle.id_producto}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{Number(it.detalle.cantidad).toFixed(4)}</td>
+                <td style={{ padding: 6 }}>{it.detalle.producto?.nombre || it.detalle.id_producto} <Typography.Text type="secondary" style={{ fontSize: 12 }}>{it.detalle.producto?.codigo}</Typography.Text></td>
+                <td style={{ padding: 6, textAlign: 'right' }}>{Number(it.detalle.cantidad).toFixed(0)}</td>
                 <td style={{ padding: 6, textAlign: 'right' }}>
                   <InputNumber
-                    size="small" min={0.0001} max={Number(it.detalle.cantidad)} step={0.0001}
+                    size="small" min={1} max={Number(it.detalle.cantidad)} step={1} precision={0}
                     value={it.cantidad} disabled={!it.marcado || esAnulacionTotal}
                     onChange={(v) => actualizarCantidad(it.detalle.id, v ?? 0)}
                     style={{ width: '100%' }}

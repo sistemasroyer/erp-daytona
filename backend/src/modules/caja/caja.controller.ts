@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { CajaService, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto } from './caja.service';
+import { CajaService, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ArqueoCajaDto } from './caja.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -100,5 +100,29 @@ export class CajaController {
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
     return this.service.registrarMovimiento(id, dto, userId, idPuntoVenta, esSuperadmin);
+  }
+
+  @Post('aperturas/:id/arqueos')
+  @Permisos('caja:crear')
+  @ApiOperation({ summary: 'Registrar arqueo de caja (conteo físico de efectivo por denominación)' })
+  registrarArqueo(
+    @Param('id') id: string,
+    @Body() dto: ArqueoCajaDto,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.registrarArqueo(id, dto, userId, idPuntoVenta, esSuperadmin);
+  }
+
+  @Get('aperturas/:id/arqueos')
+  @Permisos('caja:ver')
+  @ApiOperation({ summary: 'Listar arqueos de una apertura de caja' })
+  listarArqueos(
+    @Param('id') id: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.listarArqueos(id, idPuntoVenta, esSuperadmin);
   }
 }

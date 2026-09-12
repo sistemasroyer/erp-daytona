@@ -3,15 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, Table, Select, DatePicker, Button, Typography, Tag, Row, Col, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { FilterOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { FilterOutlined, ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { reportesApi } from '@/api/reportes';
 import { almacenesApi } from '@/api/almacenes';
 import { productosApi } from '@/api/productos';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
-import { TIPO_MOVIMIENTO_LABEL, TIPO_REFERENCIA_LABEL, type MovimientoKardex } from '@/types/kardex';
+import { TIPO_MOVIMIENTO_LABEL, etiquetaReferencia, type MovimientoKardex } from '@/types/kardex';
 import type { Producto } from '@/types/producto';
+import { VentaDetalleModal } from '@/pages/ventas/VentaDetalleModal';
+import { CompraDetalleModal } from '@/pages/compras/CompraDetalleModal';
+import { AjusteDetalleModal } from './AjusteDetalleModal';
 
 export function KardexPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,11 +31,22 @@ export function KardexPage() {
     queryFn: () => productosApi.obtener(idProducto!),
     enabled: !!idProducto,
   });
-  const { data: kardexData, isFetching } = useQuery({
+  const { data: kardexData, isFetching, refetch: refetchKardex } = useQuery({
     queryKey: ['kardex', idProducto, filtrosAplicados],
     queryFn: () => reportesApi.kardex(idProducto!, filtrosAplicados),
     enabled: !!idProducto,
   });
+
+  const [ventaDetalleId, setVentaDetalleId] = useState<string | null>(null);
+  const [compraDetalleId, setCompraDetalleId] = useState<string | null>(null);
+  const [ajusteDetalleId, setAjusteDetalleId] = useState<string | null>(null);
+
+  const abrirDocumento = (k: MovimientoKardex) => {
+    if (!k.id_referencia) return;
+    if (k.tipo_referencia === 'venta') setVentaDetalleId(k.id_referencia);
+    else if (k.tipo_referencia === 'compra') setCompraDetalleId(k.id_referencia);
+    else if (k.tipo_referencia === 'ajuste') setAjusteDetalleId(k.id_referencia);
+  };
 
   useEffect(() => {
     setFiltrosAplicados({ id_almacen: almacenFiltro, fecha_desde: desde.format('YYYY-MM-DD'), fecha_hasta: hasta.format('YYYY-MM-DD') });
@@ -53,12 +67,20 @@ export function KardexPage() {
       title: 'Tipo', dataIndex: 'tipo_movimiento',
       render: (v, k) => <Tag color={Number(k.cantidad_entrada) > 0 ? 'success' : 'error'}>{TIPO_MOVIMIENTO_LABEL[v] || v}</Tag>,
     },
-    { title: 'Referencia', dataIndex: 'tipo_referencia', render: (v) => <Typography.Text type="secondary">{v ? (TIPO_REFERENCIA_LABEL[v] || v) : '-'}</Typography.Text> },
-    { title: 'Entrada', align: 'right', render: (_, k) => Number(k.cantidad_entrada) > 0 ? <Typography.Text type="success" strong>{Number(k.cantidad_entrada).toFixed(4)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
-    { title: 'Salida', align: 'right', render: (_, k) => Number(k.cantidad_salida) > 0 ? <Typography.Text type="danger" strong>{Number(k.cantidad_salida).toFixed(4)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Referencia', render: (_, k) => <Typography.Text type="secondary">{etiquetaReferencia(k)}</Typography.Text> },
+    { title: 'N° Documento', render: (_, k) => k.numero_documento || '-' },
+    { title: 'Entrada', align: 'right', render: (_, k) => Number(k.cantidad_entrada) > 0 ? <Typography.Text type="success" strong>{Number(k.cantidad_entrada).toFixed(0)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Salida', align: 'right', render: (_, k) => Number(k.cantidad_salida) > 0 ? <Typography.Text type="danger" strong>{Number(k.cantidad_salida).toFixed(0)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'C. Unitario', align: 'right', render: (_, k) => formatMoneda(k.costo_unitario) },
     { title: 'C. Total', align: 'right', render: (_, k) => formatMoneda(k.costo_total) },
-    { title: 'Stock', align: 'right', render: (_, k) => <strong>{Number(k.stock_resultante).toFixed(4)}</strong> },
+    { title: 'Stock', align: 'right', render: (_, k) => <strong>{Number(k.stock_resultante).toFixed(0)}</strong> },
+    {
+      title: '', width: 50, render: (_, k) => (
+        ['venta', 'compra', 'ajuste'].includes(k.tipo_referencia || '') && k.numero_documento
+          ? <Button size="small" icon={<EyeOutlined />} onClick={() => abrirDocumento(k)} />
+          : null
+      ),
+    },
   ];
 
   return (
@@ -113,7 +135,7 @@ export function KardexPage() {
             </Col>
             <Col span={4}>
               <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Stock actual</Typography.Text>
-              <Typography.Text strong style={{ color: '#1677ff' }}>{Number(producto.stock_actual || 0).toFixed(4)}</Typography.Text>
+              <Typography.Text strong style={{ color: '#1677ff' }}>{Number(producto.stock_actual || 0).toFixed(0)}</Typography.Text>
             </Col>
             <Col span={4}>
               <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Costo promedio</Typography.Text>
@@ -135,6 +157,10 @@ export function KardexPage() {
           ? <Table<MovimientoKardex> rowKey="id" columns={columns} dataSource={items} loading={isFetching} pagination={false} scroll={{ x: 'max-content' }} locale={{ emptyText: 'Sin movimientos en el período' }} />
           : <Empty description="Busque un producto arriba para ver su kardex" />}
       </Card>
+
+      <VentaDetalleModal id={ventaDetalleId} onClose={() => setVentaDetalleId(null)} onCambiado={() => refetchKardex()} />
+      <CompraDetalleModal id={compraDetalleId} onClose={() => setCompraDetalleId(null)} onCambiado={() => refetchKardex()} />
+      <AjusteDetalleModal id={ajusteDetalleId} onClose={() => setAjusteDetalleId(null)} />
     </div>
   );
 }

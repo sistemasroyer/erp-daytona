@@ -41,11 +41,11 @@ export function InventarioPage() {
         const stock = Number(i.stock_actual);
         const min = Number(i.producto?.stock_minimo || 0);
         const color = stock <= 0 ? '#8c8c8c' : stock <= min ? '#faad14' : undefined;
-        return <span style={{ color, fontWeight: stock > 0 && stock <= min ? 600 : undefined }}>{stock.toFixed(4)}</span>;
+        return <span style={{ color, fontWeight: stock > 0 && stock <= min ? 600 : undefined }}>{stock.toFixed(0)}</span>;
       },
     },
-    { title: 'Mín.', align: 'right', render: (_, i) => <Typography.Text type="secondary">{Number(i.producto?.stock_minimo || 0).toFixed(2)}</Typography.Text> },
-    { title: 'Máx.', align: 'right', render: (_, i) => <Typography.Text type="secondary">{Number(i.producto?.stock_maximo || 0).toFixed(2)}</Typography.Text> },
+    { title: 'Mín.', align: 'right', render: (_, i) => <Typography.Text type="secondary">{Number(i.producto?.stock_minimo || 0).toFixed(0)}</Typography.Text> },
+    { title: 'Máx.', align: 'right', render: (_, i) => <Typography.Text type="secondary">{Number(i.producto?.stock_maximo || 0).toFixed(0)}</Typography.Text> },
     { title: 'Unidad', align: 'center', render: (_, i) => i.producto?.unidad_medida?.simbolo || '-' },
     { title: 'Costo Prom.', align: 'right', render: (_, i) => formatMoneda(i.producto?.costo_promedio) },
     { title: 'Valor Stock', align: 'right', render: (_, i) => <strong>{formatMoneda(Number(i.stock_actual) * Number(i.producto?.costo_promedio || 0))}</strong> },

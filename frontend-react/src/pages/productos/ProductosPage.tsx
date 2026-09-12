@@ -76,7 +76,7 @@ export function ProductosPage() {
         const stock = Number(p.stock_actual || 0);
         const min = Number(p.stock_minimo || 0);
         const color = stock > 0 && stock <= min ? '#faad14' : stock <= 0 ? '#8c8c8c' : undefined;
-        return <span style={{ color, fontWeight: stock > 0 && stock <= min ? 600 : undefined }}>{stock.toFixed(2)}</span>;
+        return <span style={{ color, fontWeight: stock > 0 && stock <= min ? 600 : undefined }}>{stock.toFixed(0)}</span>;
       },
     },
     { title: 'Costo Prom.', align: 'right', render: (_, p) => Number(p.costo_promedio) > 0 ? formatMoneda(p.costo_promedio) : <Typography.Text type="secondary">—</Typography.Text> },

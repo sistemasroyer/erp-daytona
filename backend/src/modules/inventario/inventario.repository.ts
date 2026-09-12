@@ -230,6 +230,39 @@ export class InventarioRepository {
       this.prisma.tbl_kardex.count({ where }),
     ]);
 
-    return { data, total };
+    return { data: await this.resolverDocumentosOrigen(data), total };
+  }
+
+  /** Resuelve numero_documento/tipo_documento_origen del documento que originó cada fila de kardex, en lote (sin N+1). */
+  private async resolverDocumentosOrigen(data: any[]) {
+    const idsVenta = data.filter((k) => k.tipo_referencia === 'venta' && k.id_referencia).map((k) => k.id_referencia as string);
+    const idsCompra = data.filter((k) => k.tipo_referencia === 'compra' && k.id_referencia).map((k) => k.id_referencia as string);
+    const idsAjuste = data.filter((k) => k.tipo_referencia === 'ajuste' && k.id_referencia).map((k) => k.id_referencia as string);
+
+    const [ventas, compras, ajustes] = await Promise.all([
+      this.prisma.tbl_ventas.findMany({ where: { id: { in: idsVenta } }, select: { id: true, numero_comprobante: true, tipo_documento: true } }),
+      this.prisma.tbl_compras.findMany({ where: { id: { in: idsCompra } }, select: { id: true, numero_interno: true, serie: true, numero: true, tipo_documento: true } }),
+      this.prisma.tbl_ajustes_inventario.findMany({ where: { id: { in: idsAjuste } }, select: { id: true, numero_interno: true } }),
+    ]);
+    const mapaVentas = new Map(ventas.map((v) => [v.id, v]));
+    const mapaCompras = new Map(compras.map((c) => [c.id, c]));
+    const mapaAjustes = new Map(ajustes.map((a) => [a.id, a]));
+
+    return data.map((k) => {
+      if (k.tipo_referencia === 'venta' && k.id_referencia) {
+        const v = mapaVentas.get(k.id_referencia);
+        return { ...k, numero_documento: v?.numero_comprobante ?? null, tipo_documento_origen: v?.tipo_documento ?? null };
+      }
+      if (k.tipo_referencia === 'compra' && k.id_referencia) {
+        const c = mapaCompras.get(k.id_referencia);
+        const numeroFactura = c ? (c.serie ? `${c.serie}-${c.numero}` : c.numero) : null;
+        return { ...k, numero_documento: numeroFactura || c?.numero_interno || null, tipo_documento_origen: c?.tipo_documento ?? null };
+      }
+      if (k.tipo_referencia === 'ajuste' && k.id_referencia) {
+        const a = mapaAjustes.get(k.id_referencia);
+        return { ...k, numero_documento: a?.numero_interno ?? null, tipo_documento_origen: null };
+      }
+      return { ...k, numero_documento: null, tipo_documento_origen: null };
+    });
   }
 }

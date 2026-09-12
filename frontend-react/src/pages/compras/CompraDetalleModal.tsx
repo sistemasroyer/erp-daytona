@@ -8,7 +8,7 @@ import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
 
@@ -63,16 +63,16 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   };
 
   const columns = [
-    { title: 'Producto', render: (_: unknown, d: DetalleCompra) => d.producto?.nombre || d.id_producto },
-    { title: 'Cantidad', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => Number(d.cantidad).toFixed(4) },
+    { title: 'Producto', render: (_: unknown, d: DetalleCompra) => <>{d.producto?.nombre || d.id_producto} <Typography.Text type="secondary">{d.producto?.codigo}</Typography.Text></> },
+    { title: 'Cantidad', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => Number(d.cantidad).toFixed(0) },
     { title: 'P. Unitario', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(d.precio_unitario, compra?.moneda) },
-    { title: 'Subtotal', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(d.subtotal, compra?.moneda) },
-    { title: 'IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(d.igv, compra?.moneda) },
-    { title: 'Total', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.total, compra?.moneda)}</strong> },
+    { title: 'Subtotal', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(penAMonedaOriginal(d.subtotal, compra?.moneda || 'PEN', compra?.tipo_cambio || 1), compra?.moneda) },
+    { title: 'IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(penAMonedaOriginal(d.igv, compra?.moneda || 'PEN', compra?.tipo_cambio || 1), compra?.moneda) },
+    { title: 'Total', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(penAMonedaOriginal(d.total, compra?.moneda || 'PEN', compra?.tipo_cambio || 1), compra?.moneda)}</strong> },
   ];
 
   const columnsCosteo = [
-    { title: 'Producto', render: (_: unknown, d: DetalleCompra) => d.producto?.nombre || d.id_producto },
+    { title: 'Producto', render: (_: unknown, d: DetalleCompra) => <>{d.producto?.nombre || d.id_producto} <Typography.Text type="secondary">{d.producto?.codigo}</Typography.Text></> },
     { title: 'Costo Base s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(Number(d.cantidad) > 0 ? Number(d.subtotal) / Number(d.cantidad) : 0) },
     { title: 'Flete Prorrateado', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <Typography.Text type="secondary">{formatMoneda(d.costo_flete_prorrateado || 0)}</Typography.Text> },
     { title: 'Costo Final s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.costo_unitario_total)}</strong> },
@@ -109,6 +109,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="Fecha emisión">{new Date(compra.fecha_emision).toLocaleDateString('es-PE')}</Descriptions.Item>
           <Descriptions.Item label="RUC">{compra.proveedor?.ruc || '-'}</Descriptions.Item>
           <Descriptions.Item label="Moneda">{compra.moneda}</Descriptions.Item>
+          {compra.moneda === 'USD' && <Descriptions.Item label="Tipo de cambio">{Number(compra.tipo_cambio).toFixed(3)}</Descriptions.Item>}
           <Descriptions.Item label="Almacén">{compra.almacen?.nombre || '-'}</Descriptions.Item>
           <Descriptions.Item label="Condición de pago">
             {compra.condicion_pago === 'credito' ? `Crédito${compra.fecha_vencimiento ? ` (vence ${new Date(compra.fecha_vencimiento).toLocaleDateString('es-PE')})` : ''}` : 'Contado'}
@@ -124,15 +125,15 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
             <>
               <Table.Summary.Row>
                 <Table.Summary.Cell index={0} colSpan={3} align="right">Subtotal:</Table.Summary.Cell>
-                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(compra.subtotal, compra.moneda)}</Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(penAMonedaOriginal(compra.subtotal, compra.moneda, compra.tipo_cambio), compra.moneda)}</Table.Summary.Cell>
               </Table.Summary.Row>
               <Table.Summary.Row>
                 <Table.Summary.Cell index={0} colSpan={3} align="right">IGV:</Table.Summary.Cell>
-                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(compra.igv, compra.moneda)}</Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(penAMonedaOriginal(compra.igv, compra.moneda, compra.tipo_cambio), compra.moneda)}</Table.Summary.Cell>
               </Table.Summary.Row>
               <Table.Summary.Row>
                 <Table.Summary.Cell index={0} colSpan={3} align="right"><strong>TOTAL A PAGAR AL PROVEEDOR:</strong></Table.Summary.Cell>
-                <Table.Summary.Cell index={1} colSpan={3} align="right"><strong>{formatMoneda(compra.total, compra.moneda)}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={1} colSpan={3} align="right"><strong>{formatMoneda(penAMonedaOriginal(compra.total, compra.moneda, compra.tipo_cambio), compra.moneda)}</strong></Table.Summary.Cell>
               </Table.Summary.Row>
             </>
           )}

@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { Caja, CajaApertura, ResumenCaja, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ListarAperturasParams } from '@/types/caja';
+import type { Caja, CajaApertura, ResumenCaja, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ListarAperturasParams, ArqueoCaja, ArqueoCajaDto } from '@/types/caja';
 
 export const cajaApi = {
   cajas: () => api.get<Caja[]>('/caja/cajas', { limit: 100 }),
@@ -9,6 +9,8 @@ export const cajaApi = {
   cerrar: (idApertura: string, dto: CerrarCajaDto) => api.patch<CajaApertura>(`/caja/aperturas/${idApertura}/cerrar`, dto),
   resumen: (idApertura: string) => api.get<ResumenCaja>(`/caja/aperturas/${idApertura}/resumen`),
   movimiento: (idApertura: string, dto: MovimientoCajaDto) => api.post(`/caja/aperturas/${idApertura}/movimientos`, dto),
+  arqueos: (idApertura: string) => api.get<ArqueoCaja[]>(`/caja/aperturas/${idApertura}/arqueos`),
+  registrarArqueo: (idApertura: string, dto: ArqueoCajaDto) => api.post<ArqueoCaja>(`/caja/aperturas/${idApertura}/arqueos`, dto),
   // No existe un endpoint único "mi sesión activa": se listan las cajas visibles para el
   // usuario (ya filtradas por punto de venta en el backend) y se busca cuál tiene apertura abierta.
   async miAperturaActiva(): Promise<CajaApertura | null> {

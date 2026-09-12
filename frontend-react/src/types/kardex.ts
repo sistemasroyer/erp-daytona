@@ -17,11 +17,26 @@ export interface MovimientoKardex {
   fecha: string;
   tipo_movimiento: TipoMovimientoKardex;
   tipo_referencia: TipoReferenciaKardex | null;
+  id_referencia: string | null;
+  descripcion: string | null;
+  numero_documento: string | null;
+  tipo_documento_origen: string | null;
   cantidad_entrada: string;
   cantidad_salida: string;
   costo_unitario: string;
   costo_total: string;
   stock_resultante: string;
+}
+
+/** Distingue Nota de Crédito de una Venta/Compra normal (ambas comparten tipo_referencia). */
+export function etiquetaReferencia(k: Pick<MovimientoKardex, 'tipo_referencia' | 'tipo_documento_origen'>): string {
+  if (k.tipo_referencia === 'venta') {
+    return k.tipo_documento_origen === 'NOTA_CREDITO' ? 'Nota de Crédito (Venta)' : 'Venta';
+  }
+  if (k.tipo_referencia === 'compra') {
+    return k.tipo_documento_origen === 'nota_credito' ? 'Nota de Crédito (Compra)' : 'Compra';
+  }
+  return k.tipo_referencia ? (TIPO_REFERENCIA_LABEL[k.tipo_referencia] || k.tipo_referencia) : '-';
 }
 
 export interface FiltrosKardex {

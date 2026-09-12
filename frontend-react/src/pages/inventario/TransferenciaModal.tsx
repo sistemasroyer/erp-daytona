@@ -79,7 +79,7 @@ export function TransferenciaModal({ open, almacenes, onClose, onSaved }: Props)
           <Select value={destino} onChange={setDestino} placeholder="Seleccione" options={almacenes.map((a) => ({ value: a.id, label: a.nombre }))} />
         </Form.Item>
         <Form.Item label="Cantidad" required>
-          <InputNumber value={cantidad} onChange={setCantidad} min={0.001} step={0.001} style={{ width: '100%' }} />
+          <InputNumber value={cantidad} onChange={setCantidad} min={1} step={1} precision={0} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item label="Motivo">
           <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} />

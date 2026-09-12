@@ -333,6 +333,7 @@ model tbl_usuarios {
   aprobaciones tbl_ordenes_compra[]   @relation("aprobador")
   cajas        tbl_cajas_aperturas[]
   mov_caja     tbl_movimientos_caja[]
+  arqueos_caja tbl_cajas_arqueos[]
   auditoria    tbl_auditoria[]
   gastos       tbl_gastos[]
   tomas_inventario tbl_tomas_inventario[]
@@ -1196,6 +1197,7 @@ model tbl_cajas_aperturas {
   caja        tbl_cajas              @relation(fields: [id_caja], references: [id])
   usuario     tbl_usuarios           @relation(fields: [id_usuario], references: [id])
   movimientos tbl_movimientos_caja[]
+  arqueos     tbl_cajas_arqueos[]
 
   @@index([id_caja])
   @@index([id_usuario])
@@ -1223,6 +1225,24 @@ model tbl_movimientos_caja {
   @@index([id_caja_apertura])
   @@index([fecha])
   @@map("tbl_movimientos_caja")
+}
+
+model tbl_cajas_arqueos {
+  id                     String   @id @default(uuid())
+  id_caja_apertura       String
+  id_usuario             String
+  monto_sistema          Decimal  @db.Decimal(12, 2)
+  monto_contado          Decimal  @db.Decimal(12, 2)
+  diferencia             Decimal  @db.Decimal(12, 2)
+  detalle_denominaciones Json
+  observaciones          String?  @db.VarChar(500)
+  fecha_arqueo           DateTime @default(now())
+
+  caja_apertura tbl_cajas_aperturas @relation(fields: [id_caja_apertura], references: [id])
+  usuario       tbl_usuarios        @relation(fields: [id_usuario], references: [id])
+
+  @@index([id_caja_apertura])
+  @@map("tbl_cajas_arqueos")
 }
 
 // ============================================================

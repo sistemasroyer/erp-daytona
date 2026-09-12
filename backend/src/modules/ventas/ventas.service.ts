@@ -237,12 +237,14 @@ export class VentasService {
       // 12. Descontar stock por cada ítem (dentro de la transacción). Las cotizaciones no afectan stock.
       if (afectaStock) {
         for (const item of dto.detalle) {
+          const productoCosteo = await tx.tbl_productos.findFirst({ where: { id: item.id_producto }, select: { costo_promedio: true } });
           await this.inventarioRepo.registrarMovimientoEnTransaccion(
             {
               idProducto: item.id_producto,
               idAlmacen: almacen.id,
               tipo: 'salida',
               cantidad: item.cantidad,
+              costoUnitario: Number(productoCosteo?.costo_promedio || 0),
               motivo: `Venta ${numeroComprobante}`,
               idReferencia: venta.id,
               tipoReferencia: 'venta',
@@ -392,12 +394,16 @@ export class VentasService {
         const detalles = await tx.tbl_detalle_ventas.findMany({ where: { id_venta: id } });
 
         for (const detalle of detalles) {
+          const productoCosteo = await tx.tbl_productos.findFirst({ where: { id: detalle.id_producto }, select: { costo_promedio: true } });
+          const costoActual = Number(productoCosteo?.costo_promedio || 0);
           await this.inventarioRepo.registrarMovimientoEnTransaccion(
             {
               idProducto: detalle.id_producto,
               idAlmacen: almacen.id,
               tipo: 'entrada',
               cantidad: Number(detalle.cantidad),
+              // Se usa el costo promedio actual (no distorsiona el promedio: promedio ponderado de X y X sigue siendo X).
+              costoUnitario: costoActual > 0 ? costoActual : undefined,
               motivo: `Anulación venta ${venta.numero_comprobante}: ${dto.motivo}`,
               idReferencia: id,
               tipoReferencia: 'venta',
@@ -558,12 +564,14 @@ export class VentasService {
         if (!almacen) throw new BadRequestException('No hay almacén principal configurado');
 
         for (const item of origen.detalle) {
+          const productoCosteo = await tx.tbl_productos.findFirst({ where: { id: item.id_producto }, select: { costo_promedio: true } });
           await this.inventarioRepo.registrarMovimientoEnTransaccion(
             {
               idProducto: item.id_producto,
               idAlmacen: almacen.id,
               tipo: 'salida',
               cantidad: Number(item.cantidad),
+              costoUnitario: Number(productoCosteo?.costo_promedio || 0),
               motivo: `Canje ${origen.numero_comprobante} → ${numeroComprobante}`,
               idReferencia: nueva.id,
               tipoReferencia: 'venta',

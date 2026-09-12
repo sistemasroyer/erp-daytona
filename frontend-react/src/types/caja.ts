@@ -76,3 +76,43 @@ export interface MovimientoCajaDto {
   monto: number;
   id_metodo_pago?: string;
 }
+
+export type TipoDenominacion = 'moneda' | 'billete';
+
+export interface DetalleDenominacion {
+  denominacion: number;
+  tipo: TipoDenominacion;
+  cantidad: number;
+  subtotal: number;
+}
+
+export interface ArqueoCaja {
+  id: string;
+  id_caja_apertura: string;
+  monto_sistema: string;
+  monto_contado: string;
+  diferencia: string;
+  detalle_denominaciones: DetalleDenominacion[];
+  observaciones: string | null;
+  fecha_arqueo: string;
+  usuario?: { nombre: string; apellido: string };
+}
+
+export interface ArqueoCajaDto {
+  detalle: { denominacion: number; tipo: TipoDenominacion; cantidad: number }[];
+  observaciones?: string;
+}
+
+export const DENOMINACIONES: { denominacion: number; tipo: TipoDenominacion }[] = [
+  { denominacion: 0.1, tipo: 'moneda' },
+  { denominacion: 0.2, tipo: 'moneda' },
+  { denominacion: 0.5, tipo: 'moneda' },
+  { denominacion: 1, tipo: 'moneda' },
+  { denominacion: 2, tipo: 'moneda' },
+  { denominacion: 5, tipo: 'moneda' },
+  { denominacion: 10, tipo: 'billete' },
+  { denominacion: 20, tipo: 'billete' },
+  { denominacion: 50, tipo: 'billete' },
+  { denominacion: 100, tipo: 'billete' },
+  { denominacion: 200, tipo: 'billete' },
+];

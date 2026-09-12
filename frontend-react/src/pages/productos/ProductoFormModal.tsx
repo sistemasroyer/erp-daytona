@@ -71,7 +71,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
   const marcas = marcasData?.data || [];
   const unidades = unidadesData?.data || [];
   const proveedores = proveedoresData?.data || [];
-  const margenes = [...(margenesData?.data || [])].sort((a, b) => a.numero - b.numero);
+  const margenes = [...(margenesData?.data || [])].filter((m) => m.activo).sort((a, b) => a.numero - b.numero);
 
   const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -269,12 +269,12 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
           </Col>
           <Col span={6}>
             <Form.Item label="Stock mín. de alerta">
-              <Controller name="stock_minimo" control={control} render={({ field }) => <InputNumber {...field} min={0} style={{ width: '100%' }} />} />
+              <Controller name="stock_minimo" control={control} render={({ field }) => <InputNumber {...field} min={0} step={1} precision={0} style={{ width: '100%' }} />} />
             </Form.Item>
           </Col>
           <Col span={6}>
             <Form.Item label="Stock máx. referencial">
-              <Controller name="stock_maximo" control={control} render={({ field }) => <InputNumber {...field} min={0} style={{ width: '100%' }} />} />
+              <Controller name="stock_maximo" control={control} render={({ field }) => <InputNumber {...field} min={0} step={1} precision={0} style={{ width: '100%' }} />} />
             </Form.Item>
           </Col>
           <Col span={6}>

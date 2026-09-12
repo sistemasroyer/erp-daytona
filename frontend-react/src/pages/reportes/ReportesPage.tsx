@@ -91,7 +91,7 @@ export function ReportesPage() {
     { title: 'Producto', render: (_, i) => i.producto?.nombre || '-' },
     { title: 'Categoría', render: (_, i) => i.producto?.categoria?.nombre || '-' },
     { title: 'Almacén', render: (_, i) => i.almacen?.nombre || '-' },
-    { title: 'Stock', align: 'right', render: (_, i) => Number(i.stock_actual).toFixed(4) },
+    { title: 'Stock', align: 'right', render: (_, i) => Number(i.stock_actual).toFixed(0) },
     { title: 'Costo', align: 'right', render: (_, i) => formatMoneda(i.producto?.costo_promedio) },
     { title: 'Valor Stock', align: 'right', render: (_, i) => <strong>{formatMoneda(Number(i.stock_actual) * Number(i.producto?.costo_promedio || 0))}</strong> },
   ];
@@ -103,13 +103,13 @@ export function ReportesPage() {
     { title: 'Código', render: (_, d) => d.producto.codigo },
     { title: 'Producto', render: (_, d) => d.producto.nombre },
     { title: 'Ubicación', render: (_, d) => d.producto.ubicacion || '-' },
-    { title: 'Stock sistema', align: 'right', render: (_, d) => Number(d.stock_sistema).toFixed(2) },
-    { title: 'Cant. contada', align: 'right', render: (_, d) => Number(d.cantidad_contada).toFixed(2) },
+    { title: 'Stock sistema', align: 'right', render: (_, d) => Number(d.stock_sistema).toFixed(0) },
+    { title: 'Cant. contada', align: 'right', render: (_, d) => Number(d.cantidad_contada).toFixed(0) },
     {
       title: 'Diferencia', align: 'right',
       render: (_, d) => {
         const dif = Number(d.diferencia);
-        return <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'}>{dif > 0 ? '+' : ''}{dif.toFixed(2)}</Typography.Text>;
+        return <Typography.Text strong type={dif === 0 ? undefined : dif > 0 ? 'success' : 'danger'}>{dif > 0 ? '+' : ''}{dif.toFixed(0)}</Typography.Text>;
       },
     },
     { title: 'Responsable', render: (_, d) => d.toma.usuario ? `${d.toma.usuario.nombre} ${d.toma.usuario.apellido}` : '-' },

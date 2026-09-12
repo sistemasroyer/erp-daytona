@@ -208,10 +208,13 @@ export class ComprasService {
         );
 
         // Auto-calcular precios de venta según márgenes configurados
+        // El margen se aplica sobre el costo sin IGV, y el IGV se suma aparte encima
+        // (si no, el IGV se "come" parte del margen en vez de ser un cobro aparte para SUNAT).
         if (margenes.length > 0 && costoFinal > 0) {
+          const factorIgv = item.afecta_igv ? 1 + TASA_IGV : 1;
           const preciosData: Record<string, number> = {};
           for (const m of margenes) {
-            const precio = redondear4(costoFinal * (1 + Number(m.margen) / 100));
+            const precio = redondear4(costoFinal * (1 + Number(m.margen) / 100) * factorIgv);
             preciosData[`precio_venta_${m.numero}`] = precio;
           }
           await tx.tbl_productos.update({
@@ -310,12 +313,14 @@ export class ComprasService {
       });
 
       for (const detalle of compra.detalle) {
+        const productoCosteo = await tx.tbl_productos.findFirst({ where: { id: detalle.id_producto }, select: { costo_promedio: true } });
         await this.inventarioRepo.registrarMovimientoEnTransaccion(
           {
             idProducto: detalle.id_producto,
             idAlmacen: compra.id_almacen,
             tipo: 'salida',
             cantidad: Number(detalle.cantidad),
+            costoUnitario: Number(productoCosteo?.costo_promedio || 0),
             motivo: `Anulación compra ${compra.numero_interno}: ${motivo}`,
             idReferencia: id,
             tipoReferencia: 'compra',
@@ -434,12 +439,14 @@ export class ComprasService {
       if (dto.afecta_stock) {
         const numeroDocProveedor = dto.numero ? `${dto.serie ? dto.serie + '-' : ''}${dto.numero}` : numeroInterno;
         for (const item of detalleCalculado) {
+          const productoCosteo = await tx.tbl_productos.findFirst({ where: { id: item.id_producto }, select: { costo_promedio: true } });
           await this.inventarioRepo.registrarMovimientoEnTransaccion(
             {
               idProducto: item.id_producto,
               idAlmacen: original.id_almacen,
               tipo: 'salida',
               cantidad: Number(item.cantidad),
+              costoUnitario: Number(productoCosteo?.costo_promedio || 0),
               motivo: `Nota de Crédito ${numeroDocProveedor} sobre compra ${original.numero_interno}`,
               idReferencia: nc.id,
               tipoReferencia: 'compra',

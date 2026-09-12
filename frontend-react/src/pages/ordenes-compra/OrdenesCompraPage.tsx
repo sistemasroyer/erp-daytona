@@ -143,8 +143,8 @@ export function OrdenesCompraPage() {
               scroll={{ x: 'max-content' }}
               dataSource={orden.detalle || []}
               columns={[
-                { title: 'Producto', render: (_, d: NonNullable<typeof orden.detalle>[number]) => d.producto?.nombre || d.id_producto },
-                { title: 'Cantidad', align: 'right', render: (_, d: NonNullable<typeof orden.detalle>[number]) => Number(d.cantidad).toFixed(4) },
+                { title: 'Producto', render: (_, d: NonNullable<typeof orden.detalle>[number]) => <>{d.producto?.nombre || d.id_producto} <Typography.Text type="secondary">{d.producto?.codigo}</Typography.Text></> },
+                { title: 'Cantidad', align: 'right', render: (_, d: NonNullable<typeof orden.detalle>[number]) => Number(d.cantidad).toFixed(0) },
                 { title: 'P. Referencial', align: 'right', render: (_, d: NonNullable<typeof orden.detalle>[number]) => formatMoneda(d.precio_referencial, orden.moneda) },
                 { title: 'Total Ref.', align: 'right', render: (_, d: NonNullable<typeof orden.detalle>[number]) => <strong>{formatMoneda(Number(d.cantidad) * Number(d.precio_referencial), orden.moneda)}</strong> },
               ]}

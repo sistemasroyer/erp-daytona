@@ -74,8 +74,8 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
   };
 
   const columns = [
-    { title: 'Producto', render: (_: unknown, d: DetalleVenta) => d.producto?.nombre || d.id_producto },
-    { title: 'Cantidad', align: 'right' as const, render: (_: unknown, d: DetalleVenta) => Number(d.cantidad).toFixed(2) },
+    { title: 'Producto', render: (_: unknown, d: DetalleVenta) => <>{d.producto?.nombre || d.id_producto} <Typography.Text type="secondary">{d.producto?.codigo}</Typography.Text></> },
+    { title: 'Cantidad', align: 'right' as const, render: (_: unknown, d: DetalleVenta) => Number(d.cantidad).toFixed(0) },
     { title: 'P. Unitario', align: 'right' as const, render: (_: unknown, d: DetalleVenta) => formatMoneda(d.precio_unitario, venta?.moneda) },
     { title: 'Descuento', align: 'right' as const, render: (_: unknown, d: DetalleVenta) => formatMoneda(d.descuento || 0, venta?.moneda) },
     { title: 'Subtotal', align: 'right' as const, render: (_: unknown, d: DetalleVenta) => formatMoneda(d.subtotal, venta?.moneda) },

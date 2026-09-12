@@ -93,7 +93,7 @@ export function ImprimirPage() {
           <tbody>
             {detalle.map((d) => (
               <tr key={d.id}>
-                <td>{Number(d.cantidad).toFixed(2)}</td>
+                <td>{Number(d.cantidad).toFixed(0)}</td>
                 <td>{d.producto?.nombre || d.descripcion || d.id_producto}</td>
                 <td className="right">{Number(d.precio_unitario).toFixed(2)}</td>
                 <td className="right">{Number(d.total).toFixed(2)}</td>

@@ -473,7 +473,7 @@ export function NuevaVentaPage() {
                     <td style={{ padding: 6, fontSize: 12, color: '#8c8c8c' }}>{item.producto.codigo}</td>
                     <td style={{ padding: 6 }}>{item.producto.nombre}</td>
                     <td style={{ padding: 6 }}>
-                      <InputNumber size="small" min={1} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
+                      <InputNumber size="small" min={1} step={1} precision={0} value={item.cantidad} onChange={(v) => actualizarItem(idx, { cantidad: v ?? 1 })} style={{ width: '100%' }} />
                     </td>
                     <td style={{ padding: 6 }}>
                       <Select
@@ -505,7 +505,7 @@ export function NuevaVentaPage() {
                 <td style={{ padding: 6 }}>
                   <InputNumber
                     ref={cantidadInputRef}
-                    size="small" min={1} value={cantidadEntrada} disabled={!productoEntrada}
+                    size="small" min={1} step={1} precision={0} value={cantidadEntrada} disabled={!productoEntrada}
                     onChange={(v) => setCantidadEntrada(v ?? 1)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); precioSelectRef.current?.focus(); } }}
                     style={{ width: '100%' }}
