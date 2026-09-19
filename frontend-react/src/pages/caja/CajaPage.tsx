@@ -5,6 +5,7 @@ import { UnlockOutlined, LockOutlined, PlusCircleOutlined, MinusCircleOutlined, 
 import dayjs from 'dayjs';
 import { cajaApi } from '@/api/caja';
 import { metodosPagoApi } from '@/api/metodos-pago';
+import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { CajaResumenVista } from './CajaResumenVista';
@@ -208,20 +209,55 @@ function MovimientoModal({ tipo, idApertura, onClose, onSaved }: {
   tipo: 'ingreso' | 'egreso' | null; idApertura: string; onClose: () => void; onSaved: () => void;
 }) {
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState<number | null>(null);
   const [idMetodoPago, setIdMetodoPago] = useState<string | undefined>(undefined);
+  const [idGasto, setIdGasto] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   const { data: metodosData } = useQuery({ queryKey: ['metodos-pago'], queryFn: metodosPagoApi.listar, enabled: !!tipo });
 
+  // Solo para egresos: gastos registrados y no pagados, para poder vincular el egreso al gasto
+  // en vez de crear un movimiento suelto sin relación (ver PagarGastoModal en GastoDetalleModal.tsx,
+  // que hace lo mismo desde el lado de Gastos — acá se ofrece el mismo camino desde Caja).
+  const { data: gastosData } = useQuery({
+    queryKey: ['gastos-pendientes'],
+    queryFn: () => gastosApi.listar({ estado: 'registrado', pagado: 'false', limit: 100 }),
+    enabled: tipo === 'egreso',
+  });
+  const gastoSeleccionado = gastosData?.data.find((g) => g.id === idGasto);
+
+  const reset = () => {
+    setConcepto(''); setMonto(null); setIdMetodoPago(undefined); setIdGasto(undefined);
+  };
+
   const confirmar = async () => {
+    if (idGasto) {
+      if (!idMetodoPago) { message.warning('Seleccione un método de pago'); return; }
+      setSaving(true);
+      try {
+        await gastosApi.pagar(idGasto, { id_metodo_pago: idMetodoPago, id_caja_apertura: idApertura });
+        message.success('Pago de gasto registrado');
+        queryClient.invalidateQueries({ queryKey: ['gastos-pendientes'] });
+        queryClient.invalidateQueries({ queryKey: ['gastos'] });
+        queryClient.invalidateQueries({ queryKey: ['gasto', idGasto] });
+        reset();
+        onSaved();
+      } catch (err) {
+        message.error(err instanceof ApiError ? err.message : 'Error al registrar el pago del gasto');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (!concepto.trim() || !monto) { message.warning('Complete concepto y monto'); return; }
     setSaving(true);
     try {
       await cajaApi.movimiento(idApertura, { tipo: tipo!, concepto: concepto.trim(), monto, id_metodo_pago: idMetodoPago });
       message.success('Movimiento registrado');
-      setConcepto(''); setMonto(null); setIdMetodoPago(undefined);
+      reset();
       onSaved();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar el movimiento');
@@ -233,15 +269,39 @@ function MovimientoModal({ tipo, idApertura, onClose, onSaved }: {
   return (
     <Modal
       title={tipo === 'ingreso' ? 'Ingreso de Caja' : 'Egreso de Caja'}
-      open={!!tipo} onCancel={onClose} onOk={confirmar} confirmLoading={saving} okText="Registrar" cancelText="Cancelar" destroyOnHidden
+      open={!!tipo} onCancel={() => { reset(); onClose(); }} onOk={confirmar} confirmLoading={saving} okText="Registrar" cancelText="Cancelar" destroyOnHidden
     >
-      <Typography.Text strong>Concepto</Typography.Text>
-      <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Descripción del movimiento" style={{ margin: '4px 0 12px' }} autoFocus />
-      <Typography.Text strong>Monto (S/)</Typography.Text>
-      <InputNumber value={monto} onChange={setMonto} min={0.01} step={0.01} style={{ width: '100%', marginTop: 4, marginBottom: 12 }} />
-      <Typography.Text strong>Método de pago (opcional)</Typography.Text>
+      {tipo === 'egreso' && (
+        <>
+          <Typography.Text strong>¿Es el pago de un gasto pendiente? (opcional)</Typography.Text>
+          <Select
+            value={idGasto} onChange={setIdGasto} allowClear style={{ width: '100%', margin: '4px 0 12px' }}
+            placeholder="Sin vincular a un gasto"
+            options={(gastosData?.data || []).map((g) => ({
+              value: g.id,
+              label: `${g.numero_interno} — ${g.razon_social_emisor} — ${formatMoneda(g.total_pen)}`,
+            }))}
+          />
+        </>
+      )}
+
+      {idGasto ? (
+        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          Se registrará el pago de <strong>{gastoSeleccionado?.numero_interno}</strong> ({gastoSeleccionado?.razon_social_emisor}) por{' '}
+          <strong>{formatMoneda(gastoSeleccionado?.total_pen || 0)}</strong> como egreso de esta caja.
+        </Typography.Text>
+      ) : (
+        <>
+          <Typography.Text strong>Concepto</Typography.Text>
+          <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Descripción del movimiento" style={{ margin: '4px 0 12px' }} autoFocus />
+          <Typography.Text strong>Monto (S/)</Typography.Text>
+          <InputNumber value={monto} onChange={setMonto} min={0.01} step={0.01} style={{ width: '100%', marginTop: 4, marginBottom: 12 }} />
+        </>
+      )}
+
+      <Typography.Text strong>Método de pago {idGasto ? '' : '(opcional)'}</Typography.Text>
       <Select
-        value={idMetodoPago} onChange={setIdMetodoPago} allowClear style={{ width: '100%', marginTop: 4 }}
+        value={idMetodoPago} onChange={setIdMetodoPago} allowClear={!idGasto} style={{ width: '100%', marginTop: 4 }}
         placeholder="Sin especificar"
         options={(metodosData?.data || []).map((m) => ({ value: m.id, label: m.nombre }))}
       />

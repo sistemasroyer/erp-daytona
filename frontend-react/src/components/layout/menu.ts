@@ -72,7 +72,13 @@ export const MENU: MenuGroupDef[] = [
   },
   {
     header: 'Reportes',
-    items: [{ key: 'reportes', label: 'Reportes', icon: 'BarChartOutlined', href: '/reportes', perm: 'reportes:ver' }],
+    items: [
+      { key: 'reportes-ventas-producto', label: 'Ventas por Producto', icon: 'BarChartOutlined', href: '/reportes/ventas-por-producto', perm: 'reportes:ver' },
+      { key: 'reportes-ventas-marca', label: 'Ventas por Marca', icon: 'BarChartOutlined', href: '/reportes/ventas-por-marca', perm: 'reportes:ver' },
+      { key: 'reportes-ventas-punto-venta', label: 'Ventas por Punto de Venta', icon: 'BarChartOutlined', href: '/reportes/ventas-por-punto-venta', perm: 'reportes:ver' },
+      { key: 'reportes-toma-inventario', label: 'Toma de Inventario', icon: 'BarChartOutlined', href: '/reportes/toma-inventario', perm: 'reportes:ver' },
+      { key: 'reportes', label: 'Ventas, Compras, Inventario y Auditoría', icon: 'FileTextOutlined', href: '/reportes', perm: 'reportes:ver' },
+    ],
   },
   {
     header: 'Administracion',

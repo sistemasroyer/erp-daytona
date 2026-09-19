@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Table, Button, Input, Select, Tag, Space, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons';
 import { productosApi } from '@/api/productos';
 import { categoriasApi } from '@/api/categorias';
 import { ApiError } from '@/api/types';
@@ -10,6 +10,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { formatMoneda } from '@/utils/format';
 import { useConfirmar } from '@/components/ConfirmModal';
 import { ProductoFormModal } from './ProductoFormModal';
+import { ImportarProductosModal } from './ImportarProductosModal';
 import type { Producto } from '@/types/producto';
 
 export function ProductosPage() {
@@ -18,6 +19,7 @@ export function ProductosPage() {
   const [categoriaFiltro, setCategoriaFiltro] = useState<string | undefined>(undefined);
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
+  const [importarOpen, setImportarOpen] = useState(false);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
   const { confirmar } = useConfirmar();
@@ -109,7 +111,10 @@ export function ProductosPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>Catálogo de Repuestos</Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditando(null); setModalOpen(true); }}>Nuevo Producto</Button>
+        <Space>
+          <Button icon={<ImportOutlined />} onClick={() => setImportarOpen(true)}>Importar catálogo</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditando(null); setModalOpen(true); }}>Nuevo Producto</Button>
+        </Space>
       </div>
 
       <Space style={{ marginBottom: 16 }}>
@@ -147,6 +152,12 @@ export function ProductosPage() {
         producto={editando}
         onClose={() => setModalOpen(false)}
         onSaved={() => { setModalOpen(false); recargar(); }}
+      />
+
+      <ImportarProductosModal
+        open={importarOpen}
+        onClose={() => setImportarOpen(false)}
+        onImportado={recargar}
       />
     </div>
   );

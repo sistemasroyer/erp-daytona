@@ -37,6 +37,12 @@ export class ArqueoCajaDto {
   @IsOptional() @IsString() observaciones?: string;
 }
 
+export class CreateCajaDto {
+  @IsString() @IsNotEmpty() id_punto_venta: string;
+  @IsString() @IsNotEmpty() nombre: string;
+  @IsOptional() @IsString() descripcion?: string;
+}
+
 @Injectable()
 export class CajaService {
   constructor(private prisma: PrismaService) {}
@@ -49,15 +55,24 @@ export class CajaService {
     }
   }
 
-  /** Saldo esperado por sistema: monto_apertura + ingresos - egresos registrados hasta el momento. */
+  /**
+   * Filtro de movimientos que efectivamente ponen o sacan billetes/monedas físicas de la caja:
+   * método de pago marcado como es_efectivo, o sin método especificado (movimiento manual, que
+   * por defecto se asume en efectivo — es la única forma de mover dinero físico a mano).
+   */
+  private static readonly FILTRO_MOVIMIENTO_EFECTIVO = {
+    OR: [{ id_metodo_pago: null }, { metodo_pago: { es_efectivo: true } }],
+  };
+
+  /** Saldo esperado por sistema EN EFECTIVO: monto_apertura + ingresos - egresos en efectivo hasta el momento. */
   private async calcularSaldoSistema(idCajaApertura: string, montoApertura: number): Promise<number> {
     const [ingresos, egresos] = await Promise.all([
       this.prisma.tbl_movimientos_caja.aggregate({
-        where: { id_caja_apertura: idCajaApertura, tipo: 'ingreso' },
+        where: { id_caja_apertura: idCajaApertura, tipo: 'ingreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
       }),
       this.prisma.tbl_movimientos_caja.aggregate({
-        where: { id_caja_apertura: idCajaApertura, tipo: 'egreso' },
+        where: { id_caja_apertura: idCajaApertura, tipo: 'egreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
       }),
     ]);
@@ -220,13 +235,16 @@ export class CajaService {
     this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
 
     const [ingresos, egresos, movimientos, porMetodo, metodosPago] = await Promise.all([
+      // Solo movimientos en efectivo: total_ingresos/total_egresos/saldo_actual reflejan el
+      // dinero físico esperado en el cajón, no el total vendido por todos los métodos (ese
+      // desglose ya está disponible aparte en por_metodo_pago).
       this.prisma.tbl_movimientos_caja.aggregate({
-        where: { id_caja_apertura: idApertura, tipo: 'ingreso' },
+        where: { id_caja_apertura: idApertura, tipo: 'ingreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
         _count: true,
       }),
       this.prisma.tbl_movimientos_caja.aggregate({
-        where: { id_caja_apertura: idApertura, tipo: 'egreso' },
+        where: { id_caja_apertura: idApertura, tipo: 'egreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
         _count: true,
       }),
@@ -290,7 +308,7 @@ export class CajaService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
-  async createCaja(dto: { id_punto_venta: string; nombre: string; descripcion?: string }, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+  async createCaja(dto: CreateCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
     if (!esSuperadmin && idPuntoVenta && dto.id_punto_venta !== idPuntoVenta) {
       throw new ForbiddenException('No puede crear una caja para otro punto de venta');
     }

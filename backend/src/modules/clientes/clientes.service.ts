@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PeruApiService } from '../peru-api/peru-api.service';
+import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
 import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, IsEnum, Min } from 'class-validator';
 
 export class CreateClienteDto {
@@ -37,24 +38,28 @@ export class ClientesService {
     });
     if (existente) throw new ConflictException('Ya existe un cliente con ese documento');
 
-    return this.prisma.tbl_clientes.create({
-      data: {
-        tipo_documento: dto.tipo_documento as any,
-        numero_documento: dto.numero_documento,
-        razon_social: dto.razon_social,
-        nombre_comercial: dto.nombre_comercial,
-        direccion: dto.direccion,
-        ubigeo: dto.ubigeo,
-        departamento: dto.departamento,
-        provincia: dto.provincia,
-        distrito: dto.distrito,
-        email: dto.email,
-        telefono: dto.telefono,
-        limite_credito: dto.limite_credito || 0,
-        dias_credito: dto.dias_credito || 0,
-        usuario_creacion: creadorId,
-      },
-    });
+    try {
+      return await this.prisma.tbl_clientes.create({
+        data: {
+          tipo_documento: dto.tipo_documento as any,
+          numero_documento: dto.numero_documento,
+          razon_social: dto.razon_social,
+          nombre_comercial: dto.nombre_comercial,
+          direccion: dto.direccion,
+          ubigeo: dto.ubigeo,
+          departamento: dto.departamento,
+          provincia: dto.provincia,
+          distrito: dto.distrito,
+          email: dto.email,
+          telefono: dto.telefono,
+          limite_credito: dto.limite_credito || 0,
+          dias_credito: dto.dias_credito || 0,
+          usuario_creacion: creadorId,
+        },
+      });
+    } catch (e) {
+      relanzarSiEsDuplicado(e, 'Ya existe un cliente con ese documento (posiblemente eliminado)');
+    }
   }
 
   async consultarDni(dni: string) {

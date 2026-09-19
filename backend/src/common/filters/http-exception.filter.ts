@@ -6,16 +6,20 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  constructor(private readonly configService: ConfigService) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const esProduccion = this.configService.get<string>('nodeEnv') === 'production';
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Error interno del servidor';
@@ -35,8 +39,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
       this.logger.error(`Error no controlado: ${exception.message}`, exception.stack);
+      // En producción no se devuelve exception.message tal cual: puede ser un error crudo de
+      // Prisma/DB con nombres de tabla/columna. El mensaje real queda solo en el log de arriba.
+      message = esProduccion ? 'Error interno del servidor' : exception.message;
     }
 
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {

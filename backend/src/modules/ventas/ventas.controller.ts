@@ -20,8 +20,9 @@ export class VentasController {
     @Body() dto: CreateVentaDto,
     @CurrentUser('sub') userId: string,
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.create(dto, userId, idPuntoVenta);
+    return this.service.create(dto, userId, idPuntoVenta, esSuperadmin);
   }
 
   @Get()

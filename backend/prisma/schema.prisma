@@ -843,6 +843,10 @@ model tbl_metodos_pago {
   nombre               String   @unique @db.VarChar(100)
   codigo               String?  @db.VarChar(20)
   requiere_referencia  Boolean  @default(false)
+  // Si el pago con este método pone dinero físico en la caja (billetes/monedas). Se usa para
+  // calcular el "saldo sistema" que se compara contra el conteo físico en Arqueo/Cierre de Caja —
+  // un pago con Yape/tarjeta/transferencia no debe contar como efectivo esperado en el cajón.
+  es_efectivo          Boolean  @default(false)
   activo               Boolean  @default(true)
   estado               Boolean  @default(true)
   eliminado            Boolean  @default(false)

@@ -46,7 +46,7 @@ export class TomaInventarioController {
 
   @Patch(':id/finalizar')
   @Permisos('inventario:editar')
-  @ApiOperation({ summary: 'Finalizar la toma y aplicar las correcciones de stock' })
+  @ApiOperation({ summary: 'Congela el conteo y bloquea la toma para más ediciones. No corrige el stock — eso se hace aparte, a mano, vía Ajustes de Inventario' })
   finalizar(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.service.finalizar(id, userId);
   }

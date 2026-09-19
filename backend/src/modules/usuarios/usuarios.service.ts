@@ -1,9 +1,24 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+
+const USUARIO_SELECT_SEGURO = {
+  id: true,
+  email: true,
+  nombre: true,
+  apellido: true,
+  dni: true,
+  telefono: true,
+  estado: true,
+  eliminado: true,
+  ultimo_acceso: true,
+  fecha_creacion: true,
+  fecha_modificacion: true,
+  punto_venta: { select: { id: true, nombre: true } },
+} as const;
 
 @Injectable()
 export class UsuariosService {
@@ -122,7 +137,7 @@ export class UsuariosService {
     return usuario;
   }
 
-  async update(id: string, dto: Partial<CreateUsuarioDto>, modificadorId: string) {
+  async update(id: string, dto: Partial<CreateUsuarioDto>, modificadorId: string, modificadorEsSuperadmin?: boolean) {
     await this.findOne(id);
 
     const data: any = {
@@ -138,6 +153,16 @@ export class UsuariosService {
     if (dto.password) {
       const rounds = this.configService.get<number>('security.bcryptRounds') || 12;
       data.password_hash = await bcrypt.hash(dto.password, rounds);
+    }
+
+    if (dto.roles !== undefined && !modificadorEsSuperadmin) {
+      // Un usuario sin superadmin no puede autoasignarse (ni asignarle a otro) un rol con acceso total.
+      const rolesSuperadmin = await this.prisma.tbl_roles.count({
+        where: { id: { in: dto.roles }, es_superadmin: true, eliminado: false },
+      });
+      if (rolesSuperadmin > 0) {
+        throw new ForbiddenException('Solo un administrador puede asignar un rol con acceso total (superadmin)');
+      }
     }
 
     await this.prisma.tbl_usuarios.update({ where: { id }, data });
@@ -170,6 +195,7 @@ export class UsuariosService {
     return this.prisma.tbl_usuarios.update({
       where: { id },
       data: { estado: !usuario.estado, usuario_modificacion: modificadorId },
+      select: USUARIO_SELECT_SEGURO,
     });
   }
 
@@ -178,6 +204,7 @@ export class UsuariosService {
     return this.prisma.tbl_usuarios.update({
       where: { id },
       data: { eliminado: true, estado: false, usuario_modificacion: modificadorId },
+      select: USUARIO_SELECT_SEGURO,
     });
   }
 }

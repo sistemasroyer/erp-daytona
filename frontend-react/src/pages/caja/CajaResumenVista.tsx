@@ -1,26 +1,14 @@
 import { useState } from 'react';
-import { Card, Table, Typography, Tag, Empty, Row, Col, Modal, Descriptions } from 'antd';
+import { Card, Table, Typography, Tag, Empty, Row, Col, Modal, Descriptions, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { WalletOutlined, AuditOutlined } from '@ant-design/icons';
+import { WalletOutlined, AuditOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatMoneda } from '@/utils/format';
 import type { MovimientoCaja, ResumenCaja, ArqueoCaja } from '@/types/caja';
+import { VentaDetalleModal } from '@/pages/ventas/VentaDetalleModal';
+import { GastoDetalleModal } from '@/pages/gastos/GastoDetalleModal';
 
-const columns: ColumnsType<MovimientoCaja> = [
-  { title: 'Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('HH:mm:ss') },
-  { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={v === 'ingreso' ? 'success' : 'error'}>{v}</Tag> },
-  { title: 'Concepto', dataIndex: 'concepto' },
-  { title: 'Comprobante', render: (_, m) => m.numero_comprobante || '-' },
-  { title: 'Método', render: (_, m) => m.metodo_pago?.nombre || '-' },
-  {
-    title: 'Monto', align: 'right',
-    render: (_, m) => (
-      <Typography.Text strong type={m.tipo === 'ingreso' ? 'success' : 'danger'}>
-        {m.tipo === 'ingreso' ? '+' : '-'}{formatMoneda(m.monto)}
-      </Typography.Text>
-    ),
-  },
-];
+const TIPOS_REFERENCIA_CON_DOCUMENTO = ['venta', 'gasto'];
 
 function ArqueoDetalleModal({ arqueo, onClose }: { arqueo: ArqueoCaja | null; onClose: () => void }) {
   return (
@@ -53,6 +41,37 @@ function ArqueoDetalleModal({ arqueo, onClose }: { arqueo: ArqueoCaja | null; on
 
 export function CajaResumenVista({ resumen, arqueos }: { resumen: ResumenCaja; arqueos?: ArqueoCaja[] }) {
   const [arqueoSeleccionado, setArqueoSeleccionado] = useState<ArqueoCaja | null>(null);
+  const [ventaDetalleId, setVentaDetalleId] = useState<string | null>(null);
+  const [gastoDetalleId, setGastoDetalleId] = useState<string | null>(null);
+
+  const abrirDocumento = (m: MovimientoCaja) => {
+    if (!m.id_referencia) return;
+    if (m.tipo_referencia === 'venta') setVentaDetalleId(m.id_referencia);
+    else if (m.tipo_referencia === 'gasto') setGastoDetalleId(m.id_referencia);
+  };
+
+  const columnsMovimientos: ColumnsType<MovimientoCaja> = [
+    { title: 'Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('HH:mm:ss') },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={v === 'ingreso' ? 'success' : 'error'}>{v}</Tag> },
+    { title: 'Concepto', dataIndex: 'concepto' },
+    { title: 'Comprobante', render: (_, m) => m.numero_comprobante || '-' },
+    { title: 'Método', render: (_, m) => m.metodo_pago?.nombre || '-' },
+    {
+      title: 'Monto', align: 'right',
+      render: (_, m) => (
+        <Typography.Text strong type={m.tipo === 'ingreso' ? 'success' : 'danger'}>
+          {m.tipo === 'ingreso' ? '+' : '-'}{formatMoneda(m.monto)}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: '', width: 50, render: (_, m) => (
+        TIPOS_REFERENCIA_CON_DOCUMENTO.includes(m.tipo_referencia || '') && m.id_referencia
+          ? <Button size="small" icon={<EyeOutlined />} onClick={() => abrirDocumento(m)} />
+          : null
+      ),
+    },
+  ];
 
   const columnsArqueos: ColumnsType<ArqueoCaja> = [
     { title: 'Hora', dataIndex: 'fecha_arqueo', render: (v) => dayjs(v).format('HH:mm:ss') },
@@ -105,9 +124,12 @@ export function CajaResumenVista({ resumen, arqueos }: { resumen: ResumenCaja; a
 
       <Card title={<><WalletOutlined style={{ marginRight: 8 }} />Movimientos de caja</>}>
         {resumen.movimientos.length
-          ? <Table<MovimientoCaja> rowKey="id" columns={columns} dataSource={resumen.movimientos} pagination={false} scroll={{ x: 'max-content' }} />
+          ? <Table<MovimientoCaja> rowKey="id" columns={columnsMovimientos} dataSource={resumen.movimientos} pagination={false} scroll={{ x: 'max-content' }} />
           : <Empty description="Sin movimientos" />}
       </Card>
+
+      <VentaDetalleModal id={ventaDetalleId} onClose={() => setVentaDetalleId(null)} onCambiado={() => {}} />
+      <GastoDetalleModal id={gastoDetalleId} onClose={() => setGastoDetalleId(null)} onCambiado={() => {}} />
     </>
   );
 }

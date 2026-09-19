@@ -44,6 +44,8 @@ export class GastosController {
   @ApiQuery({ name: 'id_compra_relacionada', required: false })
   findAll(
     @Query() pagination: PaginationDto,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
     @Query('categoria') categoria?: string,
     @Query('estado') estado?: string,
     @Query('pagado') pagado?: string,
@@ -56,26 +58,42 @@ export class GastosController {
     return this.service.findAll({
       ...pagination, skip: Number(pagination.skip) || 0,
       categoria, estado, pagado, fecha_desde, fecha_hasta, id_proveedor, sin_vincular, id_compra_relacionada,
-    } as any);
+    } as any, idPuntoVenta, esSuperadmin);
   }
 
   @Get(':id')
   @Permisos('gastos:ver')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.findOne(id, idPuntoVenta, esSuperadmin);
   }
 
   @Patch(':id/anular')
   @Permisos('gastos:anular')
   @ApiOperation({ summary: 'Anular un gasto (no pagado)' })
-  anular(@Param('id') id: string, @Body() body: { motivo: string }, @CurrentUser('sub') userId: string) {
-    return this.service.anular(id, body.motivo, userId);
+  anular(
+    @Param('id') id: string,
+    @Body() body: { motivo: string },
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.anular(id, body.motivo, userId, idPuntoVenta, esSuperadmin);
   }
 
   @Patch(':id/pagar')
   @Permisos('gastos:editar')
   @ApiOperation({ summary: 'Registrar el pago de un gasto' })
-  pagar(@Param('id') id: string, @Body() dto: PagarGastoDto, @CurrentUser('sub') userId: string) {
-    return this.service.pagar(id, dto, userId);
+  pagar(
+    @Param('id') id: string,
+    @Body() dto: PagarGastoDto,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.service.pagar(id, dto, userId, idPuntoVenta, esSuperadmin);
   }
 }

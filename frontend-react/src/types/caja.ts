@@ -14,6 +14,8 @@ export interface MovimientoCaja {
   monto: string;
   id_metodo_pago: string | null;
   numero_comprobante: string | null;
+  id_referencia: string | null;
+  tipo_referencia: string | null;
   metodo_pago?: { nombre: string };
 }
 

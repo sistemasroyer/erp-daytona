@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray } from 'class-validator';
@@ -14,7 +14,11 @@ export class CreateRolDto {
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateRolDto, creadorId: string) {
+  async create(dto: CreateRolDto, creadorId: string, creadorEsSuperadmin?: boolean) {
+    if (dto.es_superadmin && !creadorEsSuperadmin) {
+      throw new ForbiddenException('Solo un administrador puede crear un rol con acceso total (superadmin)');
+    }
+
     const existente = await this.prisma.tbl_roles.findFirst({
       where: { nombre: dto.nombre, eliminado: false },
     });
@@ -83,8 +87,12 @@ export class RolesService {
     return rol;
   }
 
-  async update(id: string, dto: Partial<CreateRolDto>, modificadorId: string) {
+  async update(id: string, dto: Partial<CreateRolDto>, modificadorId: string, modificadorEsSuperadmin?: boolean) {
     await this.findOne(id);
+
+    if (dto.es_superadmin !== undefined && !modificadorEsSuperadmin) {
+      throw new ForbiddenException('Solo un administrador puede otorgar o quitar el acceso total (superadmin) de un rol');
+    }
 
     const data: any = { usuario_modificacion: modificadorId };
     if (dto.nombre) data.nombre = dto.nombre;

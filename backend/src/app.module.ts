@@ -39,6 +39,7 @@ import { EmpresaModule } from './modules/empresa/empresa.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermisosGuard } from './common/guards/permisos.guard';
+import { DispositivoGuard } from './common/guards/dispositivo.guard';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -104,6 +105,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: DispositivoGuard },
     { provide: APP_GUARD, useClass: PermisosGuard },
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseTransformInterceptor },

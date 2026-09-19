@@ -1,7 +1,7 @@
-import { Controller, Get, Query, Param, Res } from '@nestjs/common';
+import { Controller, Get, Query, Param, Res, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
-import { ReportesService, FiltroReporte } from './reportes.service';
+import { ReportesService, FiltroReporte, AgrupacionVentas } from './reportes.service';
 import { Permisos } from '../../common/decorators/permisos.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -26,6 +26,44 @@ export class ReportesController {
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
     return this.service.reporteVentas(this.filtrarPorPuntoVenta(filtros, idPuntoVenta, esSuperadmin));
+  }
+
+  private validarAgrupacion(valor: string): AgrupacionVentas {
+    if (!['producto', 'marca', 'punto_venta'].includes(valor)) {
+      throw new BadRequestException('agrupar_por debe ser "producto", "marca" o "punto_venta"');
+    }
+    return valor as AgrupacionVentas;
+  }
+
+  @Get('ventas-agrupado')
+  @Permisos('reportes:ver')
+  @ApiOperation({ summary: 'Ventas agrupadas por producto, marca o punto de venta (unidades y soles)' })
+  @ApiQuery({ name: 'agrupar_por', enum: ['producto', 'marca', 'punto_venta'] })
+  reporteVentasAgrupado(
+    @Query() filtros: FiltroReporte & { agrupar_por: string },
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    const agrupar_por = this.validarAgrupacion(filtros.agrupar_por);
+    return this.service.reporteVentasAgrupado({ ...this.filtrarPorPuntoVenta(filtros, idPuntoVenta, esSuperadmin), agrupar_por });
+  }
+
+  @Get('ventas-agrupado/export/excel')
+  @Permisos('reportes:ver')
+  @ApiOperation({ summary: 'Exportar ventas agrupadas a Excel' })
+  @ApiQuery({ name: 'agrupar_por', enum: ['producto', 'marca', 'punto_venta'] })
+  async exportarVentasAgrupadoExcel(
+    @Query() filtros: FiltroReporte & { agrupar_por: string },
+    @Res() res: Response,
+    @CurrentUser('idPuntoVenta') idPuntoVenta: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    const agrupar_por = this.validarAgrupacion(filtros.agrupar_por);
+    const buffer = await this.service.exportarVentasAgrupadoExcel({ ...this.filtrarPorPuntoVenta(filtros, idPuntoVenta, esSuperadmin), agrupar_por });
+    const fecha = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ventas_por_${agrupar_por}_${fecha}.xlsx`);
+    res.send(buffer);
   }
 
   @Get('compras')
@@ -60,7 +98,11 @@ export class ReportesController {
 
   @Get('auditoria')
   @Permisos('reportes:ver')
-  reporteAuditoria(@Query() filtros: any) {
+  @ApiOperation({ summary: 'Reporte de auditoría (solo administradores)' })
+  reporteAuditoria(@Query() filtros: any, @CurrentUser('esSuperadmin') esSuperadmin: boolean) {
+    if (!esSuperadmin) {
+      throw new ForbiddenException('Solo un administrador puede ver el reporte de auditoría');
+    }
     return this.service.reporteAuditoria(filtros);
   }
 
@@ -88,6 +130,20 @@ export class ReportesController {
     const fecha = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=inventario_${fecha}.xlsx`);
+    res.send(buffer);
+  }
+
+  @Get('tomas-inventario/export/excel')
+  @Permisos('reportes:ver')
+  @ApiOperation({ summary: 'Exportar diferencias de tomas de inventario a Excel' })
+  async exportarTomasInventarioExcel(
+    @Query() filtros: FiltroReporte & { search?: string; tipo_diferencia?: 'sobra' | 'falta' | 'ok'; estado_toma?: string },
+    @Res() res: Response,
+  ) {
+    const buffer = await this.service.exportarTomasInventarioExcel(filtros);
+    const fecha = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=tomas_inventario_${fecha}.xlsx`);
     res.send(buffer);
   }
 }

@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateGastoDto } from './dto/create-gasto.dto';
 import { PagarGastoDto } from './dto/pagar-gasto.dto';
@@ -18,6 +19,22 @@ const INCLUDE_DETALLE = {
 @Injectable()
 export class GastosService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Un gasto con id_punto_venta = null es de alcance general (visible para todos).
+   * Uno con id_punto_venta seteado solo lo puede ver/tocar ese punto de venta (salvo superadmin).
+   */
+  private assertMismoPuntoVenta(
+    idPuntoVentaGasto: string | null,
+    idPuntoVentaUsuario?: string,
+    esSuperadmin?: boolean,
+  ) {
+    if (esSuperadmin) return;
+    if (!idPuntoVentaGasto) return;
+    if (!idPuntoVentaUsuario || idPuntoVentaGasto !== idPuntoVentaUsuario) {
+      throw new ForbiddenException('No tiene acceso a gastos de otro punto de venta');
+    }
+  }
 
   async create(dto: CreateGastoDto, usuarioId: string) {
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
@@ -101,8 +118,12 @@ export class GastosService {
   async findAll(pagination: PaginationDto & {
     categoria?: string; estado?: string; pagado?: string;
     fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string; sin_vincular?: string; id_compra_relacionada?: string;
-  }) {
+  }, idPuntoVenta?: string, esSuperadmin?: boolean) {
     const where: any = { eliminado: false };
+
+    if (!esSuperadmin && idPuntoVenta) {
+      where.OR = [{ id_punto_venta: null }, { id_punto_venta: idPuntoVenta }];
+    }
 
     if (pagination.categoria) where.categoria = pagination.categoria;
     if (pagination.estado) where.estado = pagination.estado;
@@ -112,12 +133,19 @@ export class GastosService {
     if (pagination.id_compra_relacionada) where.id_compra_relacionada = pagination.id_compra_relacionada;
 
     if (pagination.search) {
-      where.OR = [
+      const busquedaTexto = [
         { numero_interno: { contains: pagination.search } },
         { numero: { contains: pagination.search } },
         { ruc_emisor: { contains: pagination.search } },
         { razon_social_emisor: { contains: pagination.search, mode: 'insensitive' } },
       ];
+      // Si ya hay un OR de scoping por tienda, combinar ambos con AND para no perder el filtro de tienda.
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: busquedaTexto }];
+        delete where.OR;
+      } else {
+        where.OR = busquedaTexto;
+      }
     }
 
     if (pagination.fecha_desde || pagination.fecha_hasta) {
@@ -140,17 +168,18 @@ export class GastosService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
     const gasto = await this.prisma.tbl_gastos.findFirst({
       where: { id, eliminado: false },
       include: { ...INCLUDE_DETALLE, detalle: true },
     });
     if (!gasto) throw new NotFoundException('Gasto no encontrado');
+    this.assertMismoPuntoVenta(gasto.id_punto_venta, idPuntoVenta, esSuperadmin);
     return gasto;
   }
 
-  async anular(id: string, motivo: string, usuarioId: string) {
-    const gasto = await this.findOne(id);
+  async anular(id: string, motivo: string, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const gasto = await this.findOne(id, idPuntoVenta, esSuperadmin);
     if (gasto.estado === 'anulado') throw new BadRequestException('El gasto ya está anulado');
     if (gasto.pagado) throw new BadRequestException('No se puede anular un gasto ya pagado');
 
@@ -161,14 +190,15 @@ export class GastosService {
     });
   }
 
-  async pagar(id: string, dto: PagarGastoDto, usuarioId: string) {
-    const gasto = await this.findOne(id);
-    if (gasto.pagado) throw new BadRequestException('El gasto ya fue marcado como pagado');
+  async pagar(id: string, dto: PagarGastoDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const gasto = await this.findOne(id, idPuntoVenta, esSuperadmin);
     if (gasto.estado === 'anulado') throw new BadRequestException('No se puede pagar un gasto anulado');
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.tbl_gastos.update({
-        where: { id },
+      // Update condicional (pagado: false) + verificación de count en vez de un findFirst previo:
+      // evita que dos solicitudes de pago concurrentes paguen dos veces el mismo gasto (race condition).
+      const actualizados = await tx.tbl_gastos.updateMany({
+        where: { id, pagado: false },
         data: {
           pagado: true,
           fecha_pago: new Date(),
@@ -177,8 +207,20 @@ export class GastosService {
           usuario_modificacion: usuarioId,
         },
       });
+      if (actualizados.count === 0) {
+        throw new BadRequestException('El gasto ya fue marcado como pagado');
+      }
 
       if (dto.id_caja_apertura) {
+        const apertura = await tx.tbl_cajas_aperturas.findFirst({
+          where: { id: dto.id_caja_apertura, estado: 'abierta', eliminado: false },
+          include: { caja: { select: { id_punto_venta: true } } },
+        });
+        if (!apertura) {
+          throw new BadRequestException('La apertura de caja indicada no existe o ya está cerrada');
+        }
+        this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
+
         await tx.tbl_movimientos_caja.create({
           data: {
             id_caja_apertura: dto.id_caja_apertura,
@@ -195,6 +237,10 @@ export class GastosService {
       }
 
       return tx.tbl_gastos.findFirst({ where: { id }, include: INCLUDE_DETALLE });
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
   }
 }

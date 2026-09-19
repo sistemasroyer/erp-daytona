@@ -2,7 +2,7 @@
 
 > Este documento es un **registro vivo** del estado del proyecto: reglas de negocio, modelo de datos, rutas, decisiones tomadas y avances. Se actualiza al cerrar cada funcionalidad importante. Las convenciones de código (cómo está estructurado el repo, patrones a seguir) están en `CLAUDE.md` — este archivo es el complemento de "qué se hizo, por qué, y en qué estado quedó".
 
-Última actualización: **2026-09-12** (mismo día: Arqueo de Caja §6, Kardex §7, Compras en moneda original §10, bug de Subtotal/IGV/Total en soles disfrazados de USD §11, de 5 a 3 precios de venta §12, bug del IGV comiéndose el margen real §13, Kardex no guardaba costo en ventas/anulaciones §14, cantidades siempre enteras §15).
+Última actualización: **2026-09-19** (auditoría de seguridad completa §16, Caja: el cuadre ya no lo desvían pagos no-efectivo §17, Gastos vinculados con sus egresos de Caja §18, Kardex: Notas de Crédito de Compra ya no pueden sobre-acreditar §19, Reportes reorganizados en páginas dedicadas + reporte de Toma de Inventario mejorado §20, Importación masiva de catálogo de Productos §21). Anterior: 2026-09-12 (Arqueo de Caja §6, Kardex §7, Compras en moneda original §10, bug de Subtotal/IGV/Total en soles disfrazados de USD §11, de 5 a 3 precios de venta §12, bug del IGV comiéndose el margen real §13, Kardex no guardaba costo en ventas/anulaciones §14, cantidades siempre enteras §15).
 
 ---
 
@@ -103,6 +103,13 @@ Prefijo global `/api/v1`. Fuente de verdad siempre actualizada: **Swagger en `ht
 
 Orden cronológico, más reciente primero. Resume el "por qué" detrás de cambios no obvios por el código solo (el historial completo de commits está en `git log`).
 
+- **2026-09-19 — Importación masiva de catálogo de Productos** (ver detalle en §21). Plantilla Excel descargable + import con reporte fila por fila.
+- **2026-09-19 — Nota de Crédito de Compra: aclarado el switch "afecta stock"**: se agregó un texto de ayuda explicando que hay que desactivarlo cuando el stock ya se sacó a mano (Ajuste de Inventario) antes de que llegue la NC del proveedor — la funcionalidad ya existía (`afecta_stock` en el DTO, gatea todo el bloque de movimiento de inventario en `compras.service.ts`), solo no era obvio para el usuario que resolvía justo ese caso.
+- **2026-09-19 — Reportes reorganizados en páginas dedicadas** (ver detalle en §20): Ventas por Producto/Marca/Punto de Venta (con gráfico) + reporte de Toma de Inventario mejorado (con valorización de diferencias). La pestaña vieja de Tomas de Inventario en el Centro de Reportes se retiró (las demás pestañas —Ventas, Compras, Inventario, Auditoría— siguen ahí, decisión del usuario de migrar de a poco).
+- **2026-09-19 — Kardex: Notas de Crédito de Compra ya no pueden sobre-acreditar** (ver detalle en §19).
+- **2026-09-19 — Gastos vinculados con sus egresos de Caja** (ver detalle en §18): se puede ver el Gasto desde el movimiento de Caja y viceversa, y pagar un Gasto pendiente desde la pantalla de Caja usa el mismo flujo que "Pagar" desde Gastos.
+- **2026-09-19 — Caja: el cuadre/arqueo ya no lo desvían los pagos no-efectivo** (ver detalle en §17). Bug real: Yape/tarjeta/transferencia se contaban como si fueran efectivo físico al calcular el saldo esperado.
+- **2026-09-19 — Auditoría de seguridad completa** (ver detalle en §16): 13 hallazgos revisados y corregidos (fuga de `password_hash`, endpoint de auditoría sin restringir a superadmin, falta de scoping por tienda en Gastos, anulación de venta que no revertía el ingreso de Caja, entre otros).
 - **2026-09-12 — Cantidades de producto siempre como enteros** (ver detalle en §15): tanto en pantallas de solo lectura como en los campos donde se escribe una cantidad, en todo el sistema.
 - **2026-09-12 — Kardex no guardaba costo en ventas ni en varias anulaciones** (ver detalle en §14). Corregido hacia adelante (movimientos nuevos), no se tocó el historial ya guardado.
 - **2026-09-12 — Bug grave: el IGV se comía el margen real de utilidad** (ver detalle en §13). El precio "Distribuidor" (10%) estaba dando pérdida real en cada venta. Corregido + recalculados 11 de 12 productos + descubierto y corregido un producto de prueba (REP-003) con 2 compras falsas que distorsionaban su costo promedio.
@@ -271,3 +278,85 @@ Un Kardex "valorizado" (lo que pide SUNAT) debe mostrar el costo en cada movimie
 
 - **"P. Referencial" en Órdenes de Compra** (`OrdenesCompraPage.tsx`, campo `precio_referencial`): es un cuarto término distinto a Precio/Costo para el mismo concepto (precio por unidad). Detectado en la investigación de terminología del 2026-09-12, no corregido — el usuario prefirió dejarlo para después.
 - **Label engañoso en Productos**: "Último costo de compra (sin IGV)" (`ProductoFormModal.tsx`, campo `precio_compra_sin_igv`) no es en realidad el precio de la última factura — el sistema lo sobreescribe con el costo promedio ponderado después de cada compra, quedando igual al campo de al lado ("Costo promedio (ponderado)"). Mismo dato, dos labels. No corregido — pendiente para después.
+- **Margen/utilidad en los reportes de Ventas Agrupadas** (§20): hoy solo muestran ingresos y unidades. El usuario decidió arrancar así ("fase 1") y dejar margen/utilidad para una fase 2, cuando haga falta.
+- **Migrar el resto de `ReportesPage.tsx`** (§20): quedan las pestañas Ventas (listado crudo), Compras, Inventario valorizado y Auditoría sin página dedicada propia. El usuario prefirió sacar solo la pestaña de Tomas de Inventario por ahora y dejar el resto para más adelante.
+
+## 16. Auditoría de seguridad completa (2026-09-19)
+
+**Qué se hizo**: revisión de seguridad de todo el repo (backend + frontend), sin alcance acotado a un módulo. Metodología: revisión manual guiada por categorías típicas de OWASP/control de acceso (autenticación, autorización, IDOR, fuga de datos sensibles, condiciones de carrera, inyección, manejo de errores) — no fue un scan automático. Se encontraron y corrigieron los siguientes hallazgos, de más a menos severo:
+
+1. **Fuga de `password_hash`** en las respuestas de `PATCH /usuarios/:id/estado` (activar/desactivar) y `DELETE /usuarios/:id`: devolvían el registro completo de `tbl_usuarios`, incluido el hash de la contraseña. Fix: `USUARIO_SELECT_SEGURO` (select explícito sin `password_hash`) en `usuarios.service.ts`.
+2. **Escalación de privilegios**: cualquier usuario con permiso `usuarios:editar` podía asignarle a alguien (o a sí mismo) un rol `es_superadmin: true` vía `PATCH /usuarios/:id`. Fix: `usuarios.service.ts.update()` ahora cuenta cuántos de los roles que se están asignando son superadmin y bloquea con `ForbiddenException` si el que hace el cambio no es superadmin él mismo. Mismo problema y mismo fix en `roles.service.ts` (`create`/`update` de un rol con `es_superadmin: true`).
+3. **`GET /reportes/auditoria` sin restringir**: cualquier usuario con `reportes:ver` (casi todos) podía leer el log de auditoría completo del sistema (quién hizo qué). Fix: `reportes.controller.ts` ahora exige `esSuperadmin`.
+4. **Ventas: la apertura de caja no se validaba** al registrar una venta (`POST /ventas` con `id_caja_apertura`) — se podía mandar el id de una apertura de otra tienda, o de una ya cerrada. Fix: `assertCajaAperturaValida()` en `ventas.service.ts`, valida existencia + estado `abierta` + mismo punto de venta (vía `assertMismoPuntoVenta()`, ya existente).
+5. **Anular una venta no revertía el ingreso de Caja**: dejaba un ingreso "fantasma" en `tbl_movimientos_caja` que descuadraba el cierre de caja del día. Fix: `ventas.service.ts.anular()` ahora busca el ingreso original (por `id_referencia`+`tipo_referencia:'venta'`) y genera el egreso compensatorio automáticamente; si la apertura de caja de esa venta ya está cerrada, bloquea la anulación automática y pide ajuste manual de un administrador (no intenta tocar una caja ya cerrada). También bloquea anular directamente una venta que ya tiene una Nota de Crédito activa (evitaría duplicar la reversión de stock).
+6. **Gastos sin scoping por tienda**: a diferencia de Ventas/Caja, el módulo de Gastos no tenía el patrón `assertMismoPuntoVenta()` — un vendedor de la Tienda 1 podía ver/anular/pagar gastos de la Tienda 2. Fix: se agregó el mismo patrón (`id_punto_venta: null` = alcance general, visible para todos; con valor = solo esa tienda o superadmin).
+7. **Condición de carrera al pagar un Gasto**: dos solicitudes de pago simultáneas sobre el mismo gasto podían generar dos movimientos de egreso en Caja para un solo gasto. Fix: `gastos.service.ts.pagar()` usa `updateMany({ where: { id, pagado: false } })` dentro de una transacción `Serializable` y revisa el `count` del resultado, en vez de un `findFirst` seguido de `update` (que deja una ventana de carrera).
+8. **Reportes de Ventas/Compras incluían comprobantes anulados** en los totales — `reportes.service.ts` (`reporteVentas`/`reporteCompras`) ahora excluye `estado_venta: 'anulada'` / `estado: 'anulada'`.
+9. **`DispositivoGuard` no respetaba `@Public()`**: se ejecutaba incluso en rutas públicas (ej. login), evaluando datos de request antes de que hubiera sesión. Fix: inyecta `Reflector` y sale temprano si la ruta tiene `@Public()`. Confirmado que hoy es un no-op real (el frontend nunca manda `X-Device-Token`), pero queda correcto para cuando se use.
+10. **Mensajes de error crudos en producción**: `GlobalExceptionFilter` devolvía el `.message` de cualquier excepción no controlada (podía filtrar detalles internos, ej. de Prisma). Fix: en producción (`NODE_ENV`), los errores que no son `HttpException` se sanitizan a un mensaje genérico.
+11. **Duplicados (`P2002` de Prisma) sin manejar** en `clientes`, `proveedores` y `productos` (`create()`): el usuario veía un error 500 genérico en vez de un mensaje claro de "ya existe". Fix: helper nuevo `relanzarSiEsDuplicado()` (`backend/src/common/utils/prisma-errors.util.ts`), usado en los 3 services con try/catch alrededor del `create()`.
+12. **`AuditInterceptor` no redactaba campos sensibles**: el log de auditoría (`tbl_auditoria`) guardaba el body completo de cada request, incluidas contraseñas y tokens en texto plano. Fix: `CAMPOS_SENSIBLES` (`password`, `password_hash`, `refresh_token(_hash)`, `access_token`, `token`, `secret`) + `redactar()`, que recorre el objeto pero solo entra en objetos planos (`Object.getPrototypeOf(v) === Object.prototype`) para no romper `Date`/`Decimal` al redactar.
+13. **`POST /caja` sin DTO validado**: `caja.service.ts.createCaja()` recibía `dto: any` sin ningún `class-validator`. Fix: `CreateCajaDto` con validadores explícitos.
+
+**Estado**: los 13 hallazgos corregidos y verificados (`tsc --noEmit` limpio en ambos proyectos; los de mayor riesgo — fuga de `password_hash`, escalación de privilegios, reversión de caja al anular venta — se probaron en vivo contra el backend real, no solo por tipos). No se encontraron vulnerabilidades de inyección SQL (Prisma parametriza todo) ni XSS obvio (React escapa por defecto, no hay `dangerouslySetInnerHTML` en el repo).
+
+## 17. Caja: el cuadre/arqueo ya no lo desvían los pagos no-efectivo (2026-09-19)
+
+**El problema**: el usuario pidió revisar que el Arqueo/Cuadre de Caja funcionara bien. Investigando el cálculo del "saldo esperado por sistema" (`calcularSaldoSistema()` en `caja.service.ts`), se encontró que sumaba **todos** los movimientos de `tbl_movimientos_caja` de la apertura, sin importar el método de pago — es decir, una venta cobrada por Yape o tarjeta sumaba al saldo esperado de **efectivo físico**, aunque ese dinero nunca entró a la caja física. Esto hacía que cualquier venta con método de pago distinto a efectivo generara un "faltante" falso al arquear o cerrar caja.
+
+**Fix**:
+- `tbl_metodos_pago` (schema + migración `20260919142256_metodos_pago_es_efectivo`): columna nueva `es_efectivo Boolean @default(false)`, poblada por la migración (`UPDATE ... SET es_efectivo=true WHERE codigo='EFE' OR nombre='EFECTIVO'`) y en `seed.ts` (cada método de pago del seed ahora declara `es_efectivo: true/false`).
+- `caja.service.ts`: `FILTRO_MOVIMIENTO_EFECTIVO = { OR: [{ id_metodo_pago: null }, { metodo_pago: { es_efectivo: true } }] }` (movimientos manuales sin método de pago asociado —`id_metodo_pago: null`— se siguen contando como efectivo, ya que son ingresos/egresos manuales de caja). Aplicado tanto en `calcularSaldoSistema()` (usado por Cierre y Arqueo) como en `getResumenCaja()` (los totales de ingresos/egresos que se muestran en pantalla).
+
+**Estado**: implementado, migración aplicada, verificado en vivo con Claude-in-Chrome (venta en efectivo sí afecta el saldo esperado, venta con otro método de pago ya no).
+
+## 18. Gastos vinculados con sus egresos de Caja (2026-09-19)
+
+**Pedido**: poder relacionar un Gasto con el movimiento de egreso de Caja que generó su pago (y viceversa), para que sean trazables en ambos sentidos — mismo patrón que ya existía para Ventas/Kardex.
+
+**Qué se hizo**:
+- `frontend-react/src/types/caja.ts`: `MovimientoCaja` ganó `id_referencia`/`tipo_referencia` (ya venían del backend, solo faltaba tiparlos).
+- `CajaResumenVista.tsx`: columna nueva "Ver documento" (ícono de ojo) en la tabla de movimientos, que abre `VentaDetalleModal`/`GastoDetalleModal` según `tipo_referencia` — mismo patrón ya usado en Kardex.
+- `CajaPage.tsx` (`MovimientoModal`): al registrar un egreso manual, aparece un select "¿Es el pago de un gasto pendiente?"; si se elige un gasto, el modal llama a `gastosApi.pagar()` en vez de `cajaApi.movimiento()` — unificando los dos puntos de entrada (pagar desde Gastos, o registrar el egreso desde Caja) en el mismo flujo de negocio, para que ambos generen el vínculo `id_referencia`/`tipo_referencia:'gasto'` correctamente.
+
+**Estado**: implementado, `tsc --noEmit` limpio.
+
+## 19. Kardex: Notas de Crédito de Compra ya no pueden sobre-acreditar (2026-09-19)
+
+**El problema**: revisando el Kardex a pedido del usuario, se encontró que `compras.service.ts.crearNotaCreditoCompra()` no llevaba la cuenta de cuánto de cada línea de una compra ya había sido acreditado por Notas de Crédito anteriores — se podía registrar más de una NC sobre la misma compra y terminar acreditando (y sacando de stock) más cantidad de la que realmente se compró. Mismo tipo de bug que ya se había corregido antes del lado de Ventas (acreditar de más una venta), pero no se había replicado en Compras.
+
+**Fix**: `crearNotaCreditoCompra()` ahora suma, por `(id_producto, precio_unitario_pen)`, la cantidad ya acreditada en NCs previas no anuladas de la misma compra, y rechaza la nueva NC si se pasa del disponible. También se bloqueó anular una Compra si ya tiene una NC activa (`id_compra_original`) — mismo criterio que ya existía para Ventas (ver §16, punto 5).
+
+**Relacionado — aclarado, no es un bug**: el switch "Implica devolución física de mercadería al proveedor (descuenta stock)" (`afecta_stock` en el DTO) ya permitía registrar una NC de Compra **sin** tocar stock, para el caso de una factura vieja donde el stock ya se había sacado a mano con un Ajuste de Inventario antes de que llegara la NC del proveedor. La funcionalidad ya estaba bien — solo se agregó un texto de ayuda debajo del switch aclarando explícitamente ese caso, porque no era obvio a partir del label solo.
+
+**Estado**: implementado, `tsc --noEmit` limpio.
+
+## 20. Reportes reorganizados en páginas dedicadas (2026-09-19)
+
+**El problema**: todos los reportes vivían en una sola pantalla con pestañas (`ReportesPage.tsx`: Ventas, Compras, Inventario, Auditoría) — sin gráficos, sin desglose por producto/marca/tienda, y el reporte de Toma de Inventario todavía no existía como tal (el módulo de Toma de Inventario en sí ya existía, pero no había una vista de reporte/análisis de sus resultados).
+
+**Qué se agregó** (todo nuevo, no reemplaza lo existente salvo un punto abajo):
+- **Reporte de Ventas Agrupadas** (`VentasAgrupadoVista.tsx`, componente compartido) — filtros de fecha y punto de venta, KPIs, gráfico de barras (top 15) con `@ant-design/plots`, tabla ordenable, export a Excel. Tres páginas delgadas sobre el mismo componente: **Ventas por Producto**, **Ventas por Marca**, **Ventas por Punto de Venta** (`/reportes/ventas-por-producto|marca|punto-venta`). Backend: `GET /reportes/ventas-agrupado?agrupar_por=producto|marca|punto_venta` (une `tbl_detalle_ventas`→`tbl_ventas`, excluye canjeadas/anuladas/cotizaciones, resta las Notas de Crédito) + export a Excel.
+  - **Alcance decidido con el usuario**: por ahora solo ingresos (S/) y unidades — margen/utilidad queda para una fase 2 (ver §9).
+- **Reporte de Toma de Inventario** (`TomaInventarioReportePage.tsx`, nuevo) — filtros (fecha, producto, tipo de diferencia), KPIs (conteos, faltan, sobran, valor neto), gráfico de barras con color por tipo (rojo=Falta, verde=Sobra), tabla, export a Excel. Backend: `reporteTomasInventario()` ampliado con `valor_diferencia` por línea (`diferencia × costo_promedio`) y un ranking `porProducto`.
+- **Aclaración de texto** (encontrada de paso mientras se revisaba este reporte): el `@ApiOperation summary` del endpoint `PATCH /toma-inventario/:id/finalizar` decía que aplicaba correcciones de stock — no es así, "Finalizar" solo congela el conteo; la corrección de stock se hace aparte, a mano, vía Ajustes de Inventario. El texto del frontend ya estaba bien, se corrigió solo el de Swagger.
+- **Retirada la pestaña "Tomas de Inventario"** del `ReportesPage.tsx` viejo (reemplazada por la página nueva). Las demás pestañas (Ventas, Compras, Inventario, Auditoría) siguen ahí — el usuario decidió migrar de a poco, no de una vez (ver §9).
+- `menu.ts` / `App.tsx`: grupo "Reportes" ahora tiene 5 ítems — los 4 nuevos + "Ventas, Compras, Inventario y Auditoría" (la pantalla vieja, con ese nombre para que quede claro qué le falta migrar).
+
+**Estado**: implementado, `tsc --noEmit` limpio en ambos proyectos, verificado en vivo con Claude-in-Chrome (incluida una corrección del eje/orden de las barras de `@ant-design/plots`, que no se comportaba como la documentación sugiere — ver detalle técnico en `CLAUDE.md` si hace falta tocar gráficos de nuevo).
+
+## 21. Importación masiva de catálogo de Productos (2026-09-19)
+
+**Pedido**: poder cargar el catálogo de productos en lote (no uno por uno desde el formulario), con una plantilla descargable que indique los campos necesarios y sus opciones válidas.
+
+**Qué se hizo** (módulo nuevo dentro de Productos, `ProductoImportacionService` — mismo patrón que `CompraXmlService` en Compras: un service aparte inyectado en el mismo `ProductosModule`, no todo amontonado en `productos.service.ts`):
+
+- **`GET /productos/importar/plantilla`** — genera un `.xlsx` (ExcelJS) con 3 hojas: *Instrucciones* (qué es cada columna, obligatorio vs. opcional), *Listas* (valores válidos de unidad de medida/categoría/marca/tipo de existencia/almacén — también sirve de fuente para los desplegables) y *Productos* (una fila de ejemplo + validaciones de Excel que bloquean valores fuera de lista en unidad/tipo/IGV/almacén). Las columnas de precio de venta se arman dinámicamente según los márgenes **activos** en `tbl_config_margenes` (hoy 3: Minorista/Mayorista/Distribuidor — ver §12), con el nombre real del margen en el encabezado.
+- **`POST /productos/importar`** (`{ file_base64 }`) — procesa el Excel fila por fila, cada una en su propia transacción independiente (si una fila falla, las demás igual se crean). Por fila: valida código no repetido (ni dentro del archivo ni contra el catálogo existente) y unidad de medida reconocida; **categoría y marca se crean automáticamente** si el nombre no existe (a diferencia de unidad de medida, que debe matchear exacto — por los códigos SUNAT); si la fila trae `stock_inicial > 0`, registra un movimiento real de "Carga inicial de inventario" (mismo mecanismo que ya usa `POST /inventario/inicializar`, con Kardex incluido) en el almacén indicado o, si no se especifica, en el almacén marcado como principal. Devuelve un resumen `{ total, creados, errores, detalle: [{fila, codigo, ok, mensaje}] }`.
+- **Frontend**: botón "Importar catálogo" en `ProductosPage.tsx` → `ImportarProductosModal.tsx` (nuevo): descargar plantilla, subir archivo completado (se lee como base64 en el navegador, no hay subida multipart — mismo patrón ya usado por la importación de XML de Compras), tabla de resultados fila por fila.
+- **Fuera de alcance a propósito**: códigos alternos por proveedor (`tbl_producto_codigos_proveedor`) no se importan en lote — se siguen cargando desde el formulario normal del producto, uno por uno.
+
+**Bug encontrado y corregido antes de terminar**: la plantilla generaba columnas de precio solo para los márgenes *activos* (hoy 3), pero el parser de importación al principio contaba *todos* los márgenes configurados (activos e inactivos, 5) para saber en qué columna esperar cada precio — con esta instalación (que tiene 2 márgenes desactivados) las columnas quedaban desalineadas y la columna "descripción" se habría leído como si fuera un precio. Se corrigió filtrando `activo: true` también en el import, igual que ya hacía la generación de la plantilla.
+
+**Estado**: implementado y verificado extremo a extremo contra la API real (no solo por tipos): se armó un Excel de prueba con una fila válida, una con unidad inválida y una con código duplicado dentro del mismo archivo, y el resultado coincidió exactamente con lo esperado (1 creado con stock/categoría/marca/costo correctos verificados en Kardex e Inventario, 2 rechazados con el mensaje correcto). Los datos de prueba (producto, categoría y marca) se borraron al terminar. `tsc --noEmit` limpio en ambos proyectos.

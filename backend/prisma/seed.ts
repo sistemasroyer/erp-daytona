@@ -363,14 +363,14 @@ async function main() {
   // ─── MÉTODOS DE PAGO ─────────────────────────────────────────────────────────
   console.log('💳 Creando métodos de pago...');
   const metodosPago = [
-    { nombre: 'EFECTIVO', codigo: 'EFE', requiere_referencia: false },
-    { nombre: 'TARJETA DÉBITO', codigo: 'TDB', requiere_referencia: true },
-    { nombre: 'TARJETA CRÉDITO', codigo: 'TRC', requiere_referencia: true },
-    { nombre: 'TRANSFERENCIA', codigo: 'TRF', requiere_referencia: true },
-    { nombre: 'YAPE', codigo: 'YAP', requiere_referencia: true },
-    { nombre: 'PLIN', codigo: 'PLN', requiere_referencia: true },
-    { nombre: 'CHEQUE', codigo: 'CHQ', requiere_referencia: true },
-    { nombre: 'CRÉDITO', codigo: 'CRD', requiere_referencia: false },
+    { nombre: 'EFECTIVO', codigo: 'EFE', requiere_referencia: false, es_efectivo: true },
+    { nombre: 'TARJETA DÉBITO', codigo: 'TDB', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'TARJETA CRÉDITO', codigo: 'TRC', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'TRANSFERENCIA', codigo: 'TRF', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'YAPE', codigo: 'YAP', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'PLIN', codigo: 'PLN', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'CHEQUE', codigo: 'CHQ', requiere_referencia: true, es_efectivo: false },
+    { nombre: 'CRÉDITO', codigo: 'CRD', requiere_referencia: false, es_efectivo: false },
   ];
 
   for (const mp of metodosPago) {

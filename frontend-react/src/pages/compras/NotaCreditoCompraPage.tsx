@@ -231,6 +231,10 @@ export function NotaCreditoCompraPage() {
         <div style={{ marginBottom: 16 }}>
           <Switch checked={afectaStock} onChange={setAfectaStock} style={{ marginRight: 8 }} />
           <Typography.Text>Implica devolución física de mercadería al proveedor (descuenta stock)</Typography.Text>
+          <br />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Desactive esta opción si el stock de esta mercadería ya fue retirado antes (por ejemplo, mediante un Ajuste de Inventario) — así la NC no descuenta el stock por segunda vez.
+          </Typography.Text>
         </div>
 
         <Typography.Title level={5}>Ítems a acreditar</Typography.Title>

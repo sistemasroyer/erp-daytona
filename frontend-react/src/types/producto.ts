@@ -62,6 +62,20 @@ export interface CreateProductoDto {
   precio_venta_5?: number;
 }
 
+export interface FilaResultadoImportacion {
+  fila: number;
+  codigo: string;
+  ok: boolean;
+  mensaje: string;
+}
+
+export interface ResultadoImportacionProductos {
+  total: number;
+  creados: number;
+  errores: number;
+  detalle: FilaResultadoImportacion[];
+}
+
 export const TIPOS_EXISTENCIA = [
   { value: '01', label: '01 – Mercadería' },
   { value: '02', label: '02 – Productos terminados' },

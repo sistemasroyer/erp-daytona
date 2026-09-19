@@ -24,6 +24,23 @@ export interface ReporteVentas {
   totales: { subtotal: number; igv: number; total: number; cantidad: number };
 }
 
+export type AgrupacionVentas = 'producto' | 'marca' | 'punto_venta';
+
+export interface GrupoVentaAgrupada {
+  clave: string;
+  nombre: string;
+  unidades: number;
+  comprobantes: number;
+  subtotal: number;
+  igv: number;
+  total: number;
+}
+
+export interface ReporteVentasAgrupado {
+  data: GrupoVentaAgrupada[];
+  totales: { unidades: number; comprobantes: number; subtotal: number; igv: number; total: number };
+}
+
 export interface CompraReporte {
   id: string;
   numero: string | null;
@@ -59,15 +76,25 @@ export interface ItemReporteTomaInventario {
   stock_sistema: string;
   cantidad_contada: string;
   diferencia: string;
+  valor_diferencia: number;
   observaciones: string | null;
   fecha_conteo: string;
-  producto: { codigo: string; nombre: string; ubicacion: string | null; unidad_medida?: { simbolo: string } };
+  producto: { codigo: string; nombre: string; ubicacion: string | null; costo_promedio: string; unidad_medida?: { simbolo: string } };
   toma: { numero_interno: string; estado: string; fecha_inicio: string; usuario?: { nombre: string; apellido: string } };
+}
+
+export interface GrupoProductoTomaInventario {
+  clave: string;
+  nombre: string;
+  diferencia_unidades: number;
+  valor_diferencia: number;
+  veces_contado: number;
 }
 
 export interface ReporteTomasInventario {
   detalle: ItemReporteTomaInventario[];
-  totales: { cantidad: number; sobran: number; faltan: number; ok: number };
+  totales: { cantidad: number; sobran: number; faltan: number; ok: number; valor_sobrante: number; valor_faltante: number; valor_neto: number };
+  porProducto: GrupoProductoTomaInventario[];
 }
 
 export interface RegistroAuditoria {

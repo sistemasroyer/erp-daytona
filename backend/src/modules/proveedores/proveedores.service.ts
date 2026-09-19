@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PeruApiService } from '../peru-api/peru-api.service';
+import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
 import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, Min, Length } from 'class-validator';
 
 export class CreateProveedorDto {
@@ -35,9 +36,13 @@ export class ProveedoresService {
     });
     if (existente) throw new ConflictException('Ya existe un proveedor con ese RUC');
 
-    return this.prisma.tbl_proveedores.create({
-      data: { ...dto, usuario_creacion: creadorId } as any,
-    });
+    try {
+      return await this.prisma.tbl_proveedores.create({
+        data: { ...dto, usuario_creacion: creadorId } as any,
+      });
+    } catch (e) {
+      relanzarSiEsDuplicado(e, 'Ya existe un proveedor con ese RUC (posiblemente eliminado)');
+    }
   }
 
   async consultarRuc(ruc: string) {

@@ -13,8 +13,12 @@ export class RolesController {
 
   @Post()
   @Permisos('roles:crear')
-  create(@Body() dto: CreateRolDto, @CurrentUser('sub') userId: string) {
-    return this.rolesService.create(dto, userId);
+  create(
+    @Body() dto: CreateRolDto,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.rolesService.create(dto, userId, esSuperadmin);
   }
 
   @Get()
@@ -31,8 +35,13 @@ export class RolesController {
 
   @Patch(':id')
   @Permisos('roles:editar')
-  update(@Param('id') id: string, @Body() dto: Partial<CreateRolDto>, @CurrentUser('sub') userId: string) {
-    return this.rolesService.update(id, dto, userId);
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateRolDto>,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.rolesService.update(id, dto, userId, esSuperadmin);
   }
 
   @Delete(':id')

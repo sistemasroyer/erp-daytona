@@ -46,7 +46,24 @@ export class VentasService {
   // se hace manualmente desde la página "Facturación → Enviar a SUNAT" (ver
   // reenviarSunat más abajo), o eventualmente vía un job programado.
 
-  async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string) {
+  /** Valida que una apertura de caja exista, esté abierta y pertenezca al punto de venta del usuario. */
+  private async assertCajaAperturaValida(
+    tx: Prisma.TransactionClient,
+    idCajaApertura: string,
+    idPuntoVentaUsuario?: string,
+    esSuperadmin?: boolean,
+  ) {
+    const apertura = await tx.tbl_cajas_aperturas.findFirst({
+      where: { id: idCajaApertura, estado: 'abierta', eliminado: false },
+      include: { caja: { select: { id_punto_venta: true } } },
+    });
+    if (!apertura) {
+      throw new BadRequestException('La apertura de caja indicada no existe o ya está cerrada');
+    }
+    this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVentaUsuario, esSuperadmin);
+  }
+
+  async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
     return this.prisma.$transaction(async (tx) => {
       // 1. Validar y obtener serie → bloquear para correlativo único
       const series = await tx.$queryRaw<any[]>`
@@ -163,6 +180,11 @@ export class VentasService {
         throw new BadRequestException(
           `El total de pagos (${totalPagos}) es menor al total de la venta (${totalVenta})`,
         );
+      }
+
+      // 6b. La apertura de caja donde se registra el ingreso debe ser del punto de venta del usuario
+      if (dto.id_caja_apertura) {
+        await this.assertCajaAperturaValida(tx, dto.id_caja_apertura, idPuntoVenta, esSuperadmin);
       }
 
       // 7. Obtener número interno secuencial
@@ -369,6 +391,16 @@ export class VentasService {
       );
     }
 
+    const notaCreditoExistente = await this.prisma.tbl_ventas.findFirst({
+      where: { id_nota_original: id, eliminado: false, estado_venta: { not: 'anulada' } },
+    });
+    if (notaCreditoExistente) {
+      throw new BadRequestException(
+        'Esta venta ya tiene una Nota de Crédito registrada. No se puede anular directamente (duplicaría la '
+        + 'reversión de stock) — emita o complete la Nota de Crédito por el resto en su lugar.',
+      );
+    }
+
     const esOficial = venta.tipo_documento === 'FACTURA' || venta.tipo_documento === 'BOLETA';
     // No derivar de tipo_documento: un documento canjeado desde Nota de Venta no afectó
     // stock por sí mismo (ya lo hizo el original), así que se usa el flag guardado en creación.
@@ -411,6 +443,44 @@ export class VentasService {
             },
             tx as unknown as Prisma.TransactionClient,
           );
+        }
+      }
+
+      // Revertir el ingreso de caja que generó esta venta (si hubo cobro en efectivo/caja registrado),
+      // para que el cierre de caja no quede descuadrado con un ingreso "fantasma" de una venta anulada.
+      if (venta.id_caja_apertura) {
+        const ingresos = await tx.tbl_movimientos_caja.aggregate({
+          where: {
+            id_caja_apertura: venta.id_caja_apertura,
+            id_referencia: id,
+            tipo_referencia: 'venta',
+            tipo: 'ingreso',
+          },
+          _sum: { monto: true },
+        });
+        const totalIngreso = Number(ingresos._sum.monto || 0);
+
+        if (totalIngreso > 0) {
+          const apertura = await tx.tbl_cajas_aperturas.findFirst({
+            where: { id: venta.id_caja_apertura, estado: 'abierta', eliminado: false },
+          });
+          if (!apertura) {
+            throw new BadRequestException(
+              'Esta venta tiene un cobro registrado en una caja que ya fue cerrada. No se puede anular automáticamente: pida a un administrador que haga el ajuste manual de caja.',
+            );
+          }
+
+          await tx.tbl_movimientos_caja.create({
+            data: {
+              id_caja_apertura: venta.id_caja_apertura,
+              tipo: 'egreso',
+              concepto: `Anulación venta ${venta.numero_comprobante}: ${dto.motivo}`,
+              monto: totalIngreso,
+              id_referencia: id,
+              tipo_referencia: 'venta',
+              id_usuario: usuarioId,
+            },
+          });
         }
       }
 
@@ -653,6 +723,27 @@ export class VentasService {
       `;
       const numeroComprobante = generarNumeroComprobante(serieDoc.serie, nuevoCorrelativo);
 
+      // 1b. tbl_detalle_ventas no guarda un id_detalle_original (FK) hacia la línea que acredita,
+      // así que para saber cuánto de cada línea ya fue acreditado por Notas de Crédito previas se
+      // suma por (id_producto, precio_unitario) entre todas las NC vigentes emitidas sobre esta venta.
+      const notasCreditoPrevias = await tx.tbl_ventas.findMany({
+        where: { id_nota_original: original.id, eliminado: false, estado_venta: { not: 'anulada' } },
+        select: { id: true },
+      });
+      const detallesPrevios = notasCreditoPrevias.length
+        ? await tx.tbl_detalle_ventas.findMany({
+            where: { id_venta: { in: notasCreditoPrevias.map((n) => n.id) } },
+            select: { id_producto: true, precio_unitario: true, cantidad: true },
+          })
+        : [];
+      const claveLinea = (idProducto: string, precioUnitario: number | Prisma.Decimal) =>
+        `${idProducto}|${Number(precioUnitario).toFixed(4)}`;
+      const acreditadoPrevio = new Map<string, number>();
+      for (const d of detallesPrevios) {
+        const clave = claveLinea(d.id_producto, d.precio_unitario);
+        acreditadoPrevio.set(clave, (acreditadoPrevio.get(clave) || 0) + Number(d.cantidad));
+      }
+
       // 2. Construir el detalle a partir de las líneas ORIGINALES (nunca de precios actuales,
       // para no acreditar a un precio distinto al que realmente se cobró).
       const detalleCalculado = dto.detalle.map((item) => {
@@ -660,9 +751,14 @@ export class VentasService {
         if (!detOriginal) {
           throw new BadRequestException('Uno de los ítems indicados no pertenece a la venta original');
         }
-        if (item.cantidad > Number(detOriginal.cantidad)) {
+
+        const yaAcreditado = acreditadoPrevio.get(claveLinea(detOriginal.id_producto, detOriginal.precio_unitario)) || 0;
+        const disponibleParaAcreditar = redondear4(Number(detOriginal.cantidad) - yaAcreditado);
+        if (item.cantidad > disponibleParaAcreditar) {
           throw new BadRequestException(
-            `La cantidad a acreditar de "${detOriginal.descripcion}" excede la cantidad original (${detOriginal.cantidad})`,
+            `La cantidad a acreditar de "${detOriginal.descripcion}" (${item.cantidad}) excede lo disponible para `
+            + `acreditar (${disponibleParaAcreditar}). Ya se acreditaron ${yaAcreditado} de ${detOriginal.cantidad} `
+            + 'en notas de crédito anteriores.',
           );
         }
 

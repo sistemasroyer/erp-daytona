@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { CajaService, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ArqueoCajaDto } from './caja.service';
+import { CajaService, AbrirCajaDto, CerrarCajaDto, MovimientoCajaDto, ArqueoCajaDto, CreateCajaDto } from './caja.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -24,7 +24,7 @@ export class CajaController {
   @Post('cajas')
   @Permisos('caja:crear')
   createCaja(
-    @Body() dto: any,
+    @Body() dto: CreateCajaDto,
     @CurrentUser('sub') userId: string,
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,

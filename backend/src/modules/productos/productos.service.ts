@@ -4,6 +4,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
 import { calcularIgv, redondear4 } from '../../common/utils/numero-documento.util';
+import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
 
 @Injectable()
 export class ProductosService {
@@ -33,50 +34,54 @@ export class ProductosService {
       }
     }
 
-    return this.prisma.tbl_productos.create({
-      data: {
-        codigo: dto.codigo,
-        codigo_barras: dto.codigo_barras,
-        codigo_sunat: dto.codigo_sunat,
-        nombre: dto.nombre,
-        descripcion: dto.descripcion,
-        id_categoria: dto.id_categoria,
-        id_subcategoria: dto.id_subcategoria,
-        id_marca: dto.id_marca,
-        id_unidad_medida: dto.id_unidad_medida,
-        ubicacion: dto.ubicacion,
-        tipo_existencia: dto.tipo_existencia || '01',
-        afecta_igv: dto.afecta_igv !== false,
-        stock_minimo: dto.stock_minimo || 0,
-        stock_maximo: dto.stock_maximo || 0,
-        precio_compra_sin_igv: precioCompraSinIgv,
-        precio_compra_con_igv: precioCompraConIgv,
-        precio_venta_1: dto.precio_venta_1 || 0,
-        precio_venta_2: dto.precio_venta_2 || 0,
-        precio_venta_3: dto.precio_venta_3 || 0,
-        precio_venta_4: dto.precio_venta_4 || 0,
-        precio_venta_5: dto.precio_venta_5 || 0,
-        costo_promedio: precioCompraSinIgv,
-        usuario_creacion: creadorId,
-        codigos_proveedor: dto.codigos_proveedor?.length
-          ? {
-              create: dto.codigos_proveedor.map((c) => ({
-                id_proveedor: c.id_proveedor,
-                codigo_alterno: c.codigo_alterno,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        categoria: { select: { id: true, nombre: true } },
-        subcategoria: { select: { id: true, nombre: true } },
-        marca: { select: { id: true, nombre: true } },
-        unidad_medida: { select: { id: true, descripcion: true, simbolo: true } },
-        codigos_proveedor: {
-          include: { proveedor: { select: { id: true, razon_social: true } } },
+    try {
+      return await this.prisma.tbl_productos.create({
+        data: {
+          codigo: dto.codigo,
+          codigo_barras: dto.codigo_barras,
+          codigo_sunat: dto.codigo_sunat,
+          nombre: dto.nombre,
+          descripcion: dto.descripcion,
+          id_categoria: dto.id_categoria,
+          id_subcategoria: dto.id_subcategoria,
+          id_marca: dto.id_marca,
+          id_unidad_medida: dto.id_unidad_medida,
+          ubicacion: dto.ubicacion,
+          tipo_existencia: dto.tipo_existencia || '01',
+          afecta_igv: dto.afecta_igv !== false,
+          stock_minimo: dto.stock_minimo || 0,
+          stock_maximo: dto.stock_maximo || 0,
+          precio_compra_sin_igv: precioCompraSinIgv,
+          precio_compra_con_igv: precioCompraConIgv,
+          precio_venta_1: dto.precio_venta_1 || 0,
+          precio_venta_2: dto.precio_venta_2 || 0,
+          precio_venta_3: dto.precio_venta_3 || 0,
+          precio_venta_4: dto.precio_venta_4 || 0,
+          precio_venta_5: dto.precio_venta_5 || 0,
+          costo_promedio: precioCompraSinIgv,
+          usuario_creacion: creadorId,
+          codigos_proveedor: dto.codigos_proveedor?.length
+            ? {
+                create: dto.codigos_proveedor.map((c) => ({
+                  id_proveedor: c.id_proveedor,
+                  codigo_alterno: c.codigo_alterno,
+                })),
+              }
+            : undefined,
         },
-      },
-    });
+        include: {
+          categoria: { select: { id: true, nombre: true } },
+          subcategoria: { select: { id: true, nombre: true } },
+          marca: { select: { id: true, nombre: true } },
+          unidad_medida: { select: { id: true, descripcion: true, simbolo: true } },
+          codigos_proveedor: {
+            include: { proveedor: { select: { id: true, razon_social: true } } },
+          },
+        },
+      });
+    } catch (e) {
+      relanzarSiEsDuplicado(e, 'Ya existe un producto con ese código (posiblemente eliminado)');
+    }
   }
 
   async findAll(pagination: PaginationDto & { id_categoria?: string; con_stock?: boolean }) {

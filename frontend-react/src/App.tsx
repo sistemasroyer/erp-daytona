@@ -30,6 +30,10 @@ import { TomasInventarioPage } from '@/pages/inventario/TomasInventarioPage';
 import { TomaInventarioDetallePage } from '@/pages/inventario/TomaInventarioDetallePage';
 import { OrdenesCompraPage } from '@/pages/ordenes-compra/OrdenesCompraPage';
 import { ReportesPage } from '@/pages/reportes/ReportesPage';
+import { VentasPorProductoPage } from '@/pages/reportes/VentasPorProductoPage';
+import { VentasPorMarcaPage } from '@/pages/reportes/VentasPorMarcaPage';
+import { VentasPorPuntoVentaPage } from '@/pages/reportes/VentasPorPuntoVentaPage';
+import { TomaInventarioReportePage } from '@/pages/reportes/TomaInventarioReportePage';
 import { CajaPage } from '@/pages/caja/CajaPage';
 import { CajaHistorialPage } from '@/pages/caja/CajaHistorialPage';
 import { ComprasPage } from '@/pages/compras/ComprasPage';
@@ -131,6 +135,10 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="reportes:ver" />}>
                       <Route path="/reportes" element={<ReportesPage />} />
+                      <Route path="/reportes/ventas-por-producto" element={<VentasPorProductoPage />} />
+                      <Route path="/reportes/ventas-por-marca" element={<VentasPorMarcaPage />} />
+                      <Route path="/reportes/ventas-por-punto-venta" element={<VentasPorPuntoVentaPage />} />
+                      <Route path="/reportes/toma-inventario" element={<TomaInventarioReportePage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="caja:ver" />}>

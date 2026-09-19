@@ -36,8 +36,13 @@ export class UsuariosController {
   @Patch(':id')
   @Permisos('usuarios:editar')
   @ApiOperation({ summary: 'Actualizar usuario' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateUsuarioDto>, @CurrentUser('sub') userId: string) {
-    return this.usuariosService.update(id, dto, userId);
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateUsuarioDto>,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('esSuperadmin') esSuperadmin: boolean,
+  ) {
+    return this.usuariosService.update(id, dto, userId, esSuperadmin);
   }
 
   @Patch(':id/toggle-estado')

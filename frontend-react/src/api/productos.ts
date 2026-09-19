@@ -1,5 +1,6 @@
 import { api } from './client';
-import type { Producto, CreateProductoDto, CodigoProveedor } from '@/types/producto';
+import type { Producto, CreateProductoDto, CodigoProveedor, ResultadoImportacionProductos } from '@/types/producto';
+import { descargarBlob } from '@/utils/download';
 
 export interface ListarProductosParams {
   page?: number;
@@ -16,4 +17,9 @@ export const productosApi = {
   eliminar: (id: string) => api.delete<Producto>(`/productos/${id}`),
   agregarCodigoProveedor: (id: string, dto: { id_proveedor: string; codigo_alterno: string }) =>
     api.post<CodigoProveedor>(`/productos/${id}/codigos-proveedor`, dto),
+  descargarPlantillaImportacion: async () => {
+    const blob = await api.getBlob('/productos/importar/plantilla');
+    descargarBlob(blob, 'plantilla_importacion_productos.xlsx');
+  },
+  importar: (file_base64: string) => api.post<ResultadoImportacionProductos>('/productos/importar', { file_base64 }),
 };

@@ -306,6 +306,16 @@ export class ComprasService {
     const compra = await this.findOne(id);
     if (compra.estado === 'anulada') throw new BadRequestException('La compra ya está anulada');
 
+    const notaCreditoExistente = await this.prisma.tbl_compras.findFirst({
+      where: { id_compra_original: id, eliminado: false, estado: { not: 'anulada' } },
+    });
+    if (notaCreditoExistente) {
+      throw new BadRequestException(
+        'Esta compra ya tiene una Nota de Crédito registrada. No se puede anular directamente (duplicaría la '
+        + 'reversión de stock) — emita o complete la Nota de Crédito por el resto en su lugar.',
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       await tx.tbl_compras.update({
         where: { id },
@@ -349,6 +359,27 @@ export class ComprasService {
         throw new BadRequestException(`No se puede emitir una Nota de Crédito sobre una compra en estado "${original.estado}"`);
       }
 
+      // tbl_detalle_compras no guarda un id_detalle_original (FK) hacia la línea que acredita,
+      // así que para saber cuánto de cada línea ya fue acreditado por Notas de Crédito previas se
+      // suma por (id_producto, precio_unitario_pen) entre todas las NC vigentes sobre esta compra.
+      const notasCreditoPrevias = await tx.tbl_compras.findMany({
+        where: { id_compra_original: original.id, eliminado: false, estado: { not: 'anulada' } },
+        select: { id: true },
+      });
+      const detallesPrevios = notasCreditoPrevias.length
+        ? await tx.tbl_detalle_compras.findMany({
+            where: { id_compra: { in: notasCreditoPrevias.map((n) => n.id) } },
+            select: { id_producto: true, precio_unitario_pen: true, cantidad: true },
+          })
+        : [];
+      const claveLinea = (idProducto: string, precioUnitarioPen: number | Prisma.Decimal) =>
+        `${idProducto}|${Number(precioUnitarioPen).toFixed(4)}`;
+      const acreditadoPrevio = new Map<string, number>();
+      for (const d of detallesPrevios) {
+        const clave = claveLinea(d.id_producto, d.precio_unitario_pen);
+        acreditadoPrevio.set(clave, (acreditadoPrevio.get(clave) || 0) + Number(d.cantidad));
+      }
+
       // Construir el detalle a partir de las líneas ORIGINALES (para saber si cada
       // una afecta IGV) — el importe a acreditar por línea lo indica el proveedor
       // en su propio documento, no se recalcula desde precios actuales.
@@ -357,9 +388,14 @@ export class ComprasService {
         if (!detOriginal) {
           throw new BadRequestException('Uno de los ítems indicados no pertenece a la compra original');
         }
-        if (item.cantidad > Number(detOriginal.cantidad)) {
+
+        const yaAcreditado = acreditadoPrevio.get(claveLinea(detOriginal.id_producto, detOriginal.precio_unitario_pen)) || 0;
+        const disponibleParaAcreditar = redondear4(Number(detOriginal.cantidad) - yaAcreditado);
+        if (item.cantidad > disponibleParaAcreditar) {
           throw new BadRequestException(
-            `La cantidad a acreditar de "${detOriginal.descripcion}" excede la cantidad original (${detOriginal.cantidad})`,
+            `La cantidad a acreditar de "${detOriginal.descripcion}" (${item.cantidad}) excede lo disponible para `
+            + `acreditar (${disponibleParaAcreditar}). Ya se acreditaron ${yaAcreditado} de ${detOriginal.cantidad} `
+            + 'en notas de crédito anteriores.',
           );
         }
 
