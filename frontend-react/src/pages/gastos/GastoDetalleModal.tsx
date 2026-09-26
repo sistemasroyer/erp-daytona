@@ -1,3 +1,4 @@
+import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography, Select, Input } from 'antd';
@@ -6,7 +7,6 @@ import { gastosApi } from '@/api/gastos';
 import { metodosPagoApi } from '@/api/metodos-pago';
 import { cajaApi } from '@/api/caja';
 import { ApiError } from '@/api/types';
-import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import { CATEGORIAS_GASTO_LABEL } from '@/types/gasto';
@@ -20,7 +20,7 @@ interface Props {
 
 export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
   const { message } = App.useApp();
-  const { confirmar } = useConfirmar();
+  const { solicitar } = useAprobarAnulacion();
   const queryClient = useQueryClient();
   const [modalPago, setModalPago] = useState(false);
 
@@ -38,12 +38,10 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
 
   const anular = async () => {
     if (!gasto) return;
-    const ok = await confirmar(`¿Anular el gasto ${gasto.numero_interno}?`, 'Anular Gasto');
-    if (!ok) return;
-    const motivo = window.prompt('Motivo de anulación (requerido):');
-    if (!motivo?.trim()) { message.warning('Ingrese un motivo de anulación'); return; }
+    const aprobacion = await solicitar('gastos', gasto.id, gasto.numero_interno);
+    if (!aprobacion) return;
     try {
-      await gastosApi.anular(gasto.id, motivo.trim());
+      await gastosApi.anular(gasto.id, aprobacion);
       message.success('Gasto anulado correctamente');
       recargar();
       onClose();
@@ -179,10 +177,10 @@ function PagarGastoModal({ open, gasto, onClose, onPagado }: { open: boolean; ga
       />
       {apertura ? (
         <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-          Se registrará como egreso en la caja abierta: {apertura.caja?.nombre || 'Caja'}
+          Caja de egreso: {apertura.caja?.nombre || 'Caja'}
         </Typography.Text>
       ) : (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="No hay una caja abierta — el gasto se marcará como pagado sin afectar caja." />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Sin caja abierta. El pago no generará un movimiento de caja." />
       )}
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Método de pago *</Typography.Text>
       <Select

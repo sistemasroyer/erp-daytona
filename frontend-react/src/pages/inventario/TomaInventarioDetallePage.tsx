@@ -1,3 +1,4 @@
+import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +22,7 @@ export function TomaInventarioDetallePage() {
   const { id } = useParams<{ id: string }>();
   const { message } = App.useApp();
   const { confirmar } = useConfirmar();
+  const { solicitar } = useAprobarAnulacion();
   const queryClient = useQueryClient();
 
   const [productoEntrada, setProductoEntrada] = useState<Producto | null>(null);
@@ -61,7 +63,7 @@ export function TomaInventarioDetallePage() {
   const finalizar = async () => {
     if (!toma) return;
     const ok = await confirmar(
-      `¿Finalizar la toma ${toma.numero_interno}? Se congelan el stock del sistema y la diferencia de cada línea con su valor actual, y ya no se podrán agregar ni editar productos contados. Esto no modifica el stock — si hay diferencias a corregir, se hace aparte desde Ajustes de Inventario.`,
+      `¿Finalizar la toma ${toma.numero_interno}? El conteo y las diferencias quedarán bloqueados. El stock se corrige por separado en Ajustes de Inventario.`,
       'Finalizar Toma de Inventario',
     );
     if (!ok) return;
@@ -79,10 +81,10 @@ export function TomaInventarioDetallePage() {
 
   const anular = async () => {
     if (!toma) return;
-    const ok = await confirmar(`¿Anular la toma ${toma.numero_interno}? No se aplicará ninguna corrección de stock.`, 'Anular Toma de Inventario');
-    if (!ok) return;
+    const aprobacion = await solicitar('toma_inventario', toma.id, toma.numero_interno);
+    if (!aprobacion) return;
     try {
-      await tomaInventarioApi.anular(toma.id);
+      await tomaInventarioApi.anular(toma.id, aprobacion);
       message.success('Toma de inventario anulada');
       refrescar();
     } catch (err) {
@@ -173,7 +175,7 @@ export function TomaInventarioDetallePage() {
       </Typography.Text>
 
       {!toma.detalle || toma.detalle.length === 0 ? (
-        <Card size="small"><Empty description="Todavía no se contó ningún producto" /></Card>
+        <Card size="small"><Empty description="Sin productos contados" /></Card>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
           {toma.detalle.map((d) => (

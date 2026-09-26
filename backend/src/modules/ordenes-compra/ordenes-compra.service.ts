@@ -1,3 +1,5 @@
+import { AprobacionesService } from '../aprobaciones/aprobaciones.service';
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -28,7 +30,7 @@ export class CreateOrdenCompraDto {
 
 @Injectable()
 export class OrdenesCompraService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private aprobaciones: AprobacionesService) {}
 
   async create(dto: CreateOrdenCompraDto, usuarioId: string) {
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
@@ -136,15 +138,18 @@ export class OrdenesCompraService {
     });
   }
 
-  async anular(id: string, usuarioId: string) {
+  async anular(id: string, usuarioId: string, dto: AnulacionAprobadaDto) {
     const orden = await this.findOne(id);
     if (orden.estado === 'convertido') {
       throw new BadRequestException('No se puede anular una orden ya convertida en compra');
     }
 
-    return this.prisma.tbl_ordenes_compra.update({
+    return this.prisma.$transaction(async (tx) => {
+      await this.aprobaciones.consumir(tx, 'ordenes_compra', id, usuarioId, dto);
+      return tx.tbl_ordenes_compra.update({
       where: { id },
       data: { estado: 'anulado', usuario_modificacion: usuarioId },
+      });
     });
   }
 

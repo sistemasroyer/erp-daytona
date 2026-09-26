@@ -1,3 +1,4 @@
+import { AnulacionAprobadaDto } from '../../aprobaciones/aprobaciones.dto';
 import {
   IsString,
   IsNotEmpty,
@@ -115,12 +116,7 @@ export class CreateVentaDto {
   pagos?: PagoVentaDto[];
 }
 
-export class AnularVentaDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  motivo: string;
-}
+export class AnularVentaDto extends AnulacionAprobadaDto {}
 
 export class CanjearVentaDto {
   @ApiProperty({ enum: ['FACTURA', 'BOLETA'], description: 'Documento oficial al que se canjea' })

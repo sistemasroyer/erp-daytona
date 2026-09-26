@@ -160,7 +160,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Punto de venta" help="Define a qué caja, series de documentos y reportes de ventas tiene acceso.">
+          <Form.Item label="Punto de venta" help="Limita el acceso a cajas, series y reportes de ese punto.">
             <Controller name="id_punto_venta" control={control} render={({ field }) => (
               <Select
                 {...field}

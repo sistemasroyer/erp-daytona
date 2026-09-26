@@ -100,7 +100,7 @@ export function RolesPage() {
           >
             {rolSeleccionado
               ? <PermisosMatrix permisos={permisos} seleccionados={seleccionados} onChange={setSeleccionados} />
-              : <Empty description="Seleccione un rol para ver sus permisos" />}
+              : <Empty description="Seleccione un rol" />}
           </Card>
         </Col>
       </Row>

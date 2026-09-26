@@ -85,6 +85,8 @@ export const MENU: MenuGroupDef[] = [
     items: [
       { key: 'rrhh', label: 'RRHH', icon: 'IdcardOutlined', href: '/rrhh', perm: 'rrhh:ver' },
       { key: 'usuarios', label: 'Usuarios', icon: 'UserSwitchOutlined', href: '/usuarios', perm: 'usuarios:ver' },
+      { key: 'dispositivos', label: 'Dispositivos y accesos', icon: 'SafetyCertificateOutlined', href: '/dispositivos', perm: 'seguridad:ver' },
+      { key: 'aprobaciones', label: 'Aprobaciones', icon: 'SafetyCertificateOutlined', href: '/aprobaciones', perm: 'seguridad:aprobar' },
       { key: 'roles', label: 'Roles', icon: 'SafetyCertificateOutlined', href: '/roles', perm: 'roles:ver' },
     ],
   },

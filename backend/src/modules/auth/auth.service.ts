@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDeviceDto } from './dto/register-device.dto';
+import { DispositivosService } from './dispositivos.service';
 
 const MAX_INTENTOS = 5;
 const BLOQUEO_MINUTOS = 30;
@@ -23,9 +23,10 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private dispositivos: DispositivosService,
   ) {}
 
-  async login(dto: LoginDto, ip: string, userAgent: string) {
+  async login(dto: LoginDto, ip: string, userAgent: string, deviceCookie: string) {
     const usuario = await this.prisma.tbl_usuarios.findFirst({
       where: { email: dto.email, eliminado: false },
       include: {
@@ -112,17 +113,20 @@ export class AuthService {
       data: {
         intentos_fallidos: 0,
         bloqueado_hasta: null,
-        ultimo_acceso: new Date(),
+
       },
     });
 
+    usuario.roles = usuario.roles.filter(ur => ur.rol.estado && !ur.rol.eliminado);
     const esSuperadmin = usuario.roles.some((ur) => ur.rol.es_superadmin);
+    const deviceId = await this.dispositivos.acceso(usuario.id, esSuperadmin, deviceCookie, ip, userAgent, dto);
+    await this.prisma.tbl_usuarios.update({ where: { id: usuario.id }, data: { ultimo_acceso: new Date() } });
     const permisos = esSuperadmin
       ? ['*']
       : [
           ...new Set(
             usuario.roles.flatMap((ur) =>
-              ur.rol.permisos.map((rp) => `${rp.permiso.modulo}:${rp.permiso.accion}`),
+              ur.rol.permisos.filter(rp => rp.permiso.estado && !rp.permiso.eliminado).map((rp) => `${rp.permiso.modulo}:${rp.permiso.accion}`),
             ),
           ),
         ];
@@ -130,6 +134,7 @@ export class AuthService {
     const roles = usuario.roles.map((ur) => ur.rol.nombre);
 
     const payload = {
+      deviceId,
       sub: usuario.id,
       email: usuario.email,
       nombre: `${usuario.nombre} ${usuario.apellido}`,
@@ -145,7 +150,7 @@ export class AuthService {
     });
 
     const refreshToken = this.jwtService.sign(
-      { sub: usuario.id, email: usuario.email },
+      { sub: usuario.id, email: usuario.email, deviceId },
       {
         secret: this.configService.get('jwt.refreshSecret'),
         expiresIn: this.configService.get('jwt.refreshExpiresIn'),
@@ -165,6 +170,7 @@ export class AuthService {
         ip,
         accion: 'login',
         resultado: 'exitoso',
+        detalle: deviceId,
         user_agent: userAgent,
       },
     });
@@ -184,7 +190,7 @@ export class AuthService {
     };
   }
 
-  async refresh(userId: string, refreshToken: string) {
+  async refresh(userId: string, refreshToken: string, deviceId?: string, deviceCookie?: string) {
     const usuario = await this.prisma.tbl_usuarios.findFirst({
       where: { id: userId, eliminado: false, estado: true },
       include: {
@@ -208,21 +214,25 @@ export class AuthService {
       throw new UnauthorizedException('Sesión inválida');
     }
 
+    await this.dispositivos.validar(userId, deviceId, deviceCookie);
+    if (usuario.bloqueado_hasta && usuario.bloqueado_hasta > new Date()) throw new UnauthorizedException();
     const tokenValido = await bcrypt.compare(refreshToken, usuario.refresh_token_hash);
     if (!tokenValido) throw new UnauthorizedException('Refresh token inválido');
 
+    usuario.roles = usuario.roles.filter(ur => ur.rol.estado && !ur.rol.eliminado);
     const esSuperadmin = usuario.roles.some((ur) => ur.rol.es_superadmin);
     const permisos = esSuperadmin
       ? ['*']
       : [
           ...new Set(
             usuario.roles.flatMap((ur) =>
-              ur.rol.permisos.map((rp) => `${rp.permiso.modulo}:${rp.permiso.accion}`),
+              ur.rol.permisos.filter(rp => rp.permiso.estado && !rp.permiso.eliminado).map((rp) => `${rp.permiso.modulo}:${rp.permiso.accion}`),
             ),
           ),
         ];
 
     const payload = {
+      deviceId,
       sub: usuario.id,
       email: usuario.email,
       nombre: `${usuario.nombre} ${usuario.apellido}`,
@@ -238,7 +248,7 @@ export class AuthService {
     });
 
     const nuevoRefreshToken = this.jwtService.sign(
-      { sub: usuario.id, email: usuario.email },
+      { sub: usuario.id, email: usuario.email, deviceId },
       {
         secret: this.configService.get('jwt.refreshSecret'),
         expiresIn: this.configService.get('jwt.refreshExpiresIn'),
@@ -260,70 +270,6 @@ export class AuthService {
       data: { refresh_token_hash: null },
     });
     return { message: 'Sesión cerrada correctamente' };
-  }
-
-  async registrarDispositivo(userId: string, dto: RegisterDeviceDto, ip: string) {
-    const existente = await this.prisma.tbl_dispositivos.findFirst({
-      where: {
-        id_usuario: userId,
-        token_dispositivo: dto.token_dispositivo,
-        eliminado: false,
-      },
-    });
-
-    if (existente) {
-      return {
-        message: 'Dispositivo ya registrado',
-        estado: existente.estado,
-        dispositivo: existente,
-      };
-    }
-
-    const dispositivo = await this.prisma.tbl_dispositivos.create({
-      data: {
-        id_usuario: userId,
-        ip,
-        navegador: dto.navegador,
-        sistema_operativo: dto.sistema_operativo,
-        user_agent: dto.user_agent,
-        token_dispositivo: dto.token_dispositivo,
-        estado: 'pendiente',
-      },
-    });
-
-    return {
-      message: 'Dispositivo registrado. Pendiente de aprobación por el administrador.',
-      estado: 'pendiente',
-      dispositivo,
-    };
-  }
-
-  async aprobarDispositivo(dispositivoId: string, adminId: string) {
-    const dispositivo = await this.prisma.tbl_dispositivos.findFirst({
-      where: { id: dispositivoId, eliminado: false },
-    });
-
-    if (!dispositivo) throw new BadRequestException('Dispositivo no encontrado');
-
-    return this.prisma.tbl_dispositivos.update({
-      where: { id: dispositivoId },
-      data: { estado: 'aprobado', usuario_modificacion: adminId },
-    });
-  }
-
-  async bloquearDispositivo(dispositivoId: string, adminId: string) {
-    return this.prisma.tbl_dispositivos.update({
-      where: { id: dispositivoId },
-      data: { estado: 'bloqueado', usuario_modificacion: adminId },
-    });
-  }
-
-  async getDispositivosPendientes() {
-    return this.prisma.tbl_dispositivos.findMany({
-      where: { estado: 'pendiente', eliminado: false },
-      include: { usuario: { select: { nombre: true, apellido: true, email: true } } },
-      orderBy: { fecha_creacion: 'desc' },
-    });
   }
 
   async cambiarPassword(userId: string, passwordActual: string, passwordNuevo: string) {

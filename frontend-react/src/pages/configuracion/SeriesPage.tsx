@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Table, Button, Typography, Select, Switch, Modal, Form, Input, InputNumber, Tag, Alert, Space } from 'antd';
+import { App, Table, Button, Typography, Select, Switch, Modal, Form, Input, InputNumber, Tag, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { seriesDocumentoApi } from '@/api/series-documento';
@@ -103,13 +103,6 @@ export function SeriesPage() {
           Nueva Serie
         </Button>
       </div>
-
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        title={<>Las series definen el prefijo y correlativo para cada tipo de documento por punto de venta. Ejemplo: <code>F001</code> para Factura, <code>B001</code> para Boleta.</>}
-      />
 
       <Select
         allowClear

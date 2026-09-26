@@ -1,3 +1,4 @@
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TomaInventarioService } from './toma-inventario.service';
@@ -53,7 +54,7 @@ export class TomaInventarioController {
 
   @Patch(':id/anular')
   @Permisos('inventario:anular')
-  anular(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.anular(id, userId);
+  anular(@Param('id') id: string, @CurrentUser('sub') userId: string, @Body() body: AnulacionAprobadaDto) {
+    return this.service.anular(id, userId, body);
   }
 }

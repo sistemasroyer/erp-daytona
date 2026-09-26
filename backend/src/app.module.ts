@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AprobacionesModule } from './modules/aprobaciones/aprobaciones.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -73,6 +74,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     }),
 
     PrismaModule,
+    AprobacionesModule,
     PeruApiModule,
 
     AuthModule,

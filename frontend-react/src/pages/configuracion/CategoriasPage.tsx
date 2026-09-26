@@ -118,7 +118,7 @@ export function CategoriasPage() {
                   )
                   : <Empty description="Sin subcategorías" />
               )
-              : <Empty description="Selecciona una categoría para ver sus subcategorías" />}
+              : <Empty description="Seleccione una categoría" />}
           </Card>
         </Col>
       </Row>

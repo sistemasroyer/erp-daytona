@@ -17,7 +17,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDeviceDto } from './dto/register-device.dto';
+import { DispositivosService, DEVICE_COOKIE } from './dispositivos.service';
+import { randomBytes } from 'crypto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
@@ -25,7 +26,7 @@ import { Permisos } from '../../common/decorators/permisos.decorator';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService, private readonly dispositivos: DispositivosService) {}
 
   @Public()
   @Throttle({ default: { limit: () => parseInt(process.env.RATE_LIMIT_LOGIN || '10', 10), ttl: 60000 } })
@@ -34,15 +35,19 @@ export class AuthController {
   @ApiOperation({ summary: 'Iniciar sesión' })
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent'] || '';
-    const resultado = await this.authService.login(dto, ip, userAgent);
+    const userAgent = (req.headers['user-agent'] || '').slice(0, 500);
+    let deviceCookie = req.cookies?.[DEVICE_COOKIE];
+    if (typeof deviceCookie !== 'string' || !/^[a-f0-9]{64}$/.test(deviceCookie)) deviceCookie = randomBytes(32).toString('hex');
+    res.cookie(DEVICE_COOKIE, deviceCookie, { httpOnly: true, secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict', maxAge: 365 * 24 * 60 * 60 * 1000, path: '/api/v1' });
+    const resultado = await this.authService.login(dto, ip, userAgent, deviceCookie);
 
     res.cookie('refresh_token', resultado.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth/refresh',
+      path: '/api/v1/auth/refresh',
     });
 
     return {
@@ -58,14 +63,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Renovar access token' })
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const { sub, refreshToken } = req.user;
-    const tokens = await this.authService.refresh(sub, refreshToken);
+    const tokens = await this.authService.refresh(sub, refreshToken, req.user.deviceId, req.cookies?.[DEVICE_COOKIE]);
 
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth/refresh',
+      path: '/api/v1/auth/refresh',
     });
 
     return { accessToken: tokens.accessToken };
@@ -76,44 +81,28 @@ export class AuthController {
   @ApiOperation({ summary: 'Cerrar sesión' })
   @ApiBearerAuth()
   async logout(@CurrentUser('sub') userId: string, @Res({ passthrough: true }) res: Response) {
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('refresh_token', { path: '/api/v1/auth/refresh' });
     return this.authService.logout(userId);
   }
 
-  @Post('dispositivos/registrar')
-  @ApiOperation({ summary: 'Registrar dispositivo actual' })
-  @ApiBearerAuth()
-  async registrarDispositivo(
-    @Body() dto: RegisterDeviceDto,
-    @CurrentUser('sub') userId: string,
-    @Req() req: Request,
-  ) {
-    const ip = req.ip || 'unknown';
-    return this.authService.registrarDispositivo(userId, dto, ip);
-  }
-
-  @Get('dispositivos/pendientes')
+  @Get('dispositivos')
   @Permisos('seguridad:ver')
-  @ApiOperation({ summary: 'Listar dispositivos pendientes de aprobación' })
-  @ApiBearerAuth()
-  async getDispositivosPendientes() {
-    return this.authService.getDispositivosPendientes();
-  }
+  listar(@CurrentUser('sub') admin: string) { return this.dispositivos.listar(admin); }
+
+  @Get('accesos')
+  @Permisos('seguridad:ver')
+  accesos(@CurrentUser('sub') admin: string) { return this.dispositivos.historial(admin); }
 
   @Patch('dispositivos/:id/aprobar')
   @Permisos('seguridad:aprobar')
-  @ApiOperation({ summary: 'Aprobar dispositivo' })
-  @ApiBearerAuth()
-  async aprobarDispositivo(@Param('id') id: string, @CurrentUser('sub') adminId: string) {
-    return this.authService.aprobarDispositivo(id, adminId);
+  aprobar(@Param('id') id: string, @CurrentUser('sub') admin: string, @Req() req: Request) {
+    return this.dispositivos.decidir(id, admin, 'aprobado', req.ip || 'unknown');
   }
 
   @Patch('dispositivos/:id/bloquear')
   @Permisos('seguridad:anular')
-  @ApiOperation({ summary: 'Bloquear dispositivo' })
-  @ApiBearerAuth()
-  async bloquearDispositivo(@Param('id') id: string, @CurrentUser('sub') adminId: string) {
-    return this.authService.bloquearDispositivo(id, adminId);
+  bloquear(@Param('id') id: string, @CurrentUser('sub') admin: string, @Req() req: Request) {
+    return this.dispositivos.decidir(id, admin, 'bloqueado', req.ip || 'unknown');
   }
 
   @Post('cambiar-password')

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Card, Alert, Row, Col, Input, InputNumber, Switch, Button, Typography, Tag, Space } from 'antd';
+import { App, Card, Row, Col, Input, InputNumber, Switch, Button, Typography, Tag, Space } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { configMargenesApi } from '@/api/config-margenes';
 import { ApiError } from '@/api/types';
@@ -56,19 +56,10 @@ export function MargenesPage() {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        title={<strong>¿Cómo funcionan los márgenes?</strong>}
-        description={<>Al registrar una compra, el sistema calcula automáticamente los precios de venta de cada producto usando estas configuraciones:<br /><code>Precio de venta = Costo unitario sin IGV × (1 + Margen%)</code></>}
-      />
-
       <Card title="Configuración de Listas de Precio" extra={<Tag>{margenes.length} listas</Tag>}>
         {margenes.map((m) => {
           const fila = filas[m.numero];
           if (!fila) return null;
-          const precio = costoEjemplo * (1 + fila.margen / 100);
           return (
             <Card key={m.numero} size="small" style={{ marginBottom: 12, borderColor: fila.activo ? '#52c41a' : undefined, opacity: fila.activo ? 1 : 0.75 }}>
               <Row gutter={8} align="middle">
@@ -93,15 +84,12 @@ export function MargenesPage() {
                   <Button size="small" type="primary" icon={<SaveOutlined />} loading={fila.saving} onClick={() => guardar(m)}>Guardar</Button>
                 </Col>
               </Row>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                Con costo S/ 100 → {formatMoneda(precio)} (+{fila.margen}%)
-              </Typography.Text>
             </Card>
           );
         })}
       </Card>
 
-      <Card title="Ejemplo de cálculo" style={{ marginTop: 16 }}>
+      <Card title="Simular precios" style={{ marginTop: 16 }}>
         <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
             <Typography.Text type="secondary">Costo de compra (sin IGV)</Typography.Text>

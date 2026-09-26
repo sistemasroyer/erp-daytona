@@ -11,6 +11,10 @@ const CAMPOS_SENSIBLES = new Set([
   'access_token',
   'token',
   'secret',
+  'pin',
+  'pin_hash',
+  'autorizacion',
+  'token_hash',
 ]);
 
 @Injectable()

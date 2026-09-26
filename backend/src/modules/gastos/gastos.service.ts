@@ -1,3 +1,5 @@
+import { AprobacionesService } from '../aprobaciones/aprobaciones.service';
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -18,7 +20,7 @@ const INCLUDE_DETALLE = {
 
 @Injectable()
 export class GastosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private aprobaciones: AprobacionesService) {}
 
   /**
    * Un gasto con id_punto_venta = null es de alcance general (visible para todos).
@@ -178,15 +180,21 @@ export class GastosService {
     return gasto;
   }
 
-  async anular(id: string, motivo: string, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+  async anular(id: string, dto: AnulacionAprobadaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const { motivo } = dto;
     const gasto = await this.findOne(id, idPuntoVenta, esSuperadmin);
     if (gasto.estado === 'anulado') throw new BadRequestException('El gasto ya está anulado');
     if (gasto.pagado) throw new BadRequestException('No se puede anular un gasto ya pagado');
 
-    return this.prisma.tbl_gastos.update({
+    return this.prisma.$transaction(async (tx) => {
+      await this.aprobaciones.consumir(tx, 'gastos', id, usuarioId, dto);
+      const actual = await tx.tbl_gastos.findUniqueOrThrow({ where: { id } });
+      if (actual.pagado) throw new BadRequestException('No se puede anular un gasto ya pagado');
+      return tx.tbl_gastos.update({
       where: { id },
       data: { estado: 'anulado', observaciones: `ANULADO: ${motivo}`, usuario_modificacion: usuarioId },
       include: INCLUDE_DETALLE,
+      });
     });
   }
 
@@ -198,7 +206,7 @@ export class GastosService {
       // Update condicional (pagado: false) + verificación de count en vez de un findFirst previo:
       // evita que dos solicitudes de pago concurrentes paguen dos veces el mismo gasto (race condition).
       const actualizados = await tx.tbl_gastos.updateMany({
-        where: { id, pagado: false },
+        where: { id, pagado: false, estado: { not: 'anulado' } },
         data: {
           pagado: true,
           fecha_pago: new Date(),
@@ -208,7 +216,7 @@ export class GastosService {
         },
       });
       if (actualizados.count === 0) {
-        throw new BadRequestException('El gasto ya fue marcado como pagado');
+        throw new BadRequestException('El gasto ya fue pagado o anulado');
       }
 
       if (dto.id_caja_apertura) {

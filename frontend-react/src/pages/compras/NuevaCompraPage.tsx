@@ -44,26 +44,18 @@ interface ItemCompra {
   afecta_igv: boolean;
 }
 
-const MODO_INFO: Record<ModoIngreso, { label: (simb: string) => string; desc: string; ejemplo: (simb: string) => string }> = {
+const MODO_INFO: Record<ModoIngreso, { label: (simb: string) => string }> = {
   precio_sin_igv: {
     label: (simb) => `Precio unit. sin IGV (${simb})`,
-    desc: 'Ingresa el precio por unidad sin IGV. El sistema calcula el total de la línea multiplicando por la cantidad y agrega el IGV.',
-    ejemplo: (simb) => `Ej: precio 100.00 × 5 und × 1.18 = ${simb} 590.00`,
   },
   precio_con_igv: {
     label: (simb) => `Precio unit. con IGV (${simb})`,
-    desc: 'Ingresa el precio por unidad con IGV incluido. El sistema multiplica por la cantidad.',
-    ejemplo: (simb) => `Ej: precio 118.00 × 5 und = ${simb} 590.00`,
   },
   total_sin_igv: {
     label: (simb) => `Total línea sin IGV (${simb})`,
-    desc: 'Ingresa el importe total de la línea sin IGV. El sistema agrega el 18% de IGV.',
-    ejemplo: (simb) => `Ej: subtotal 500.00 × 1.18 = ${simb} 590.00`,
   },
   total_con_igv: {
     label: (simb) => `Total línea con IGV (${simb})`,
-    desc: 'Ingresa el importe total de la línea tal como aparece en la factura (ya incluye IGV).',
-    ejemplo: (simb) => `Ej: total factura 590.00 → base 500.00 + IGV 90.00 (en ${simb})`,
   },
 };
 
@@ -367,7 +359,7 @@ export function NuevaCompraPage() {
           afecta_igv: i.afecta_igv,
         })),
       });
-      message.success('¡Compra registrada! Stock y precios actualizados.');
+      message.success('Compra registrada');
       limpiarBorrador();
       navigate('/compras');
     } catch (err) {
@@ -533,8 +525,8 @@ export function NuevaCompraPage() {
                 </div>
                 <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
                   {gastoFlete
-                    ? 'Monto y transportista tomados de la factura vinculada — la registrarás como pagada desde el módulo Gastos.'
-                    : 'El flete es un gasto aparte de la factura del proveedor: no se suma al total a pagar por la mercadería, solo aumenta el costo del inventario. Si todavía no tenés la factura, escribí el monto estimado — luego podés registrarla como Gasto desde el detalle de esta compra.'}
+                    ? 'Registre el pago del flete en Gastos.'
+                    : 'El flete aumenta el costo del inventario y se paga por separado.'}
                 </Typography.Paragraph>
               </>
             )}
@@ -562,7 +554,6 @@ export function NuevaCompraPage() {
               </Space>
             }
           >
-            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>{MODO_INFO[modoIngreso].desc} {MODO_INFO[modoIngreso].ejemplo(simb)}</Typography.Text>
 
             {items.length === 0 ? <Empty description="Agregue los productos de la factura" /> : items.map((item, idx) => {
               const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso);

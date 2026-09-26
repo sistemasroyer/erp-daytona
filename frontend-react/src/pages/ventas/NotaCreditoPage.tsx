@@ -253,7 +253,7 @@ export function NotaCreditoPage() {
         </div>
 
         <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-          Si el motivo es "Anulación de la operación", debe incluir todos los ítems por su cantidad completa — el sistema marcará la venta original como anulada automáticamente.
+          Para anular la venta, incluya todos los productos por su cantidad completa.
         </Typography.Paragraph>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>

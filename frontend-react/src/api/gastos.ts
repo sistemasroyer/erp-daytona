@@ -1,3 +1,4 @@
+import type { AnulacionAprobada } from './aprobaciones';
 import { api } from './client';
 import type { Gasto, ListarGastosParams, CreateGastoDto, PagarGastoDto, ImportarXmlGastoResult } from '@/types/gasto';
 
@@ -5,7 +6,7 @@ export const gastosApi = {
   listar: (params: ListarGastosParams) => api.get<Gasto[]>('/gastos', params),
   obtener: (id: string) => api.get<Gasto>(`/gastos/${id}`),
   crear: (dto: CreateGastoDto) => api.post<Gasto>('/gastos', dto),
-  anular: (id: string, motivo: string) => api.patch<Gasto>(`/gastos/${id}/anular`, { motivo }),
+  anular: (id: string, aprobacion: AnulacionAprobada) => api.patch<Gasto>(`/gastos/${id}/anular`, aprobacion),
   pagar: (id: string, dto: PagarGastoDto) => api.patch<Gasto>(`/gastos/${id}/pagar`, dto),
   importarXml: (xml: string) => api.post<ImportarXmlGastoResult>('/gastos/importar-xml', { xml }),
 };

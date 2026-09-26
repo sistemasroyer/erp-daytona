@@ -1,3 +1,4 @@
+import { DispositivosService } from './dispositivos.service';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -20,7 +21,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
-  exports: [AuthService, JwtModule],
+  providers: [DispositivosService, AuthService, JwtStrategy, JwtRefreshStrategy],
+  exports: [DispositivosService, AuthService, JwtModule],
 })
 export class AuthModule {}

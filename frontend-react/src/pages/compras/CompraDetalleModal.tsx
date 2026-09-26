@@ -1,3 +1,4 @@
+import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography } from 'antd';
@@ -6,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { comprasApi } from '@/api/compras';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
-import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
@@ -20,7 +20,7 @@ interface Props {
 
 export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   const { message } = App.useApp();
-  const { confirmar } = useConfirmar();
+  const { solicitar } = useAprobarAnulacion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [modalGastoFlete, setModalGastoFlete] = useState(false);
@@ -48,12 +48,10 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   const anular = async () => {
     if (!compra) return;
     const numero = compra.serie ? `${compra.serie}-${compra.numero}` : compra.numero;
-    const ok = await confirmar(`¿Anular la compra ${numero}?`, 'Anular Compra');
-    if (!ok) return;
-    const motivo = window.prompt('Motivo de anulación (requerido):');
-    if (!motivo?.trim()) { message.warning('Ingrese un motivo de anulación'); return; }
+    const aprobacion = await solicitar('compras', compra.id, numero || compra.numero_interno);
+    if (!aprobacion) return;
     try {
-      await comprasApi.anular(compra.id, motivo.trim());
+      await comprasApi.anular(compra.id, aprobacion);
       message.success('Compra anulada correctamente');
       recargar();
       onClose();
@@ -154,7 +152,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
               </Typography.Text>
             ) : (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                Registra la factura real del flete y su pago en "Registrar factura de flete" (queda como un Gasto vinculado a esta compra).
+                Factura de flete pendiente de registro.
               </Typography.Text>
             )}
           </div>
@@ -163,7 +161,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         <Typography.Title level={5} style={{ marginTop: 16 }}>Costeo de inventario</Typography.Title>
         <Alert
           type="info" showIcon style={{ marginBottom: 8 }}
-          title="Este cálculo es independiente de la factura del proveedor: toma el costo unitario de la factura y le suma el flete prorrateado (si aplica) para obtener el costo real con el que se valoriza el inventario."
+          title="El costo de inventario incluye el flete prorrateado."
         />
         <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered scroll={{ x: 'max-content' }} />
       </Modal>

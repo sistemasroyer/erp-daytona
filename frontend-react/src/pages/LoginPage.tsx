@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Card, Form, Input, Alert, Typography } from 'antd';
+import { Button, Card, Form, Input, Alert, Typography, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '@/auth/AuthContext';
 import { ApiError } from '@/api/types';
@@ -20,6 +20,7 @@ export function LoginPage() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compartirUbicacion, setCompartirUbicacion] = useState(false);
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -35,7 +36,13 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(values);
+      const ubicacion = compartirUbicacion && navigator.geolocation
+        ? await new Promise<{ latitud?: number; longitud?: number; precision?: number }>((resolve) => {
+          navigator.geolocation.getCurrentPosition(p => resolve({ latitud: p.coords.latitude, longitud: p.coords.longitude, precision: p.coords.accuracy }),
+            () => resolve({}), { timeout: 8000, maximumAge: 60000 });
+        }) : {};
+      await login({ ...values, zona_horaria: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        idioma: navigator.language, pantalla: `${screen.width} × ${screen.height}`, ...ubicacion });
       const from = (location.state as { from?: Location })?.from?.pathname || '/';
       navigate(from, { replace: true });
     } catch (err) {
@@ -71,6 +78,9 @@ export function LoginPage() {
             />
           </Form.Item>
 
+          <Checkbox checked={compartirUbicacion} onChange={e => setCompartirUbicacion(e.target.checked)} style={{ marginBottom: 16 }}>
+            Compartir ubicación con el administrador (opcional)
+          </Checkbox>
           <Button type="primary" htmlType="submit" block loading={loading}>
             Iniciar sesión
           </Button>

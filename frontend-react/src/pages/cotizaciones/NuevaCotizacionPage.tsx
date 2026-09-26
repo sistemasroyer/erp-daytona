@@ -1,5 +1,8 @@
+import { Autocomplete } from '@/components/Autocomplete';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
+import { configMargenesApi } from '@/api/config-margenes';
 import { Link } from 'react-router-dom';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Space, Collapse, Modal } from 'antd';
 import { CheckOutlined, UserAddOutlined, UserOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -33,16 +36,21 @@ interface BorradorCotizacion {
   items: ItemCotizacion[];
 }
 
-function preciosDisponibles(producto: Producto): { numero: number; valor: number }[] {
-  return [1, 2, 3, 4, 5]
-    .map((n) => ({ numero: n, valor: Number((producto as unknown as Record<string, string>)[`precio_venta_${n}`] || 0) }))
-    .filter((p) => p.valor > 0);
-}
-
 export function NuevaCotizacionPage() {
   const { message } = App.useApp();
   const { user } = useAuth();
   const idPuntoVenta = user?.idPuntoVenta || undefined;
+
+  const { data: listasData, isPending: cargandoPrecios, isError: errorPrecios } = useQuery({
+    queryKey: ['precios-venta-activos'],
+    queryFn: configMargenesApi.preciosVenta,
+    staleTime: 0,
+    refetchOnWindowFocus: 'always',
+  });
+  const preciosDisponibles = (producto: Producto) => (listasData?.data ?? [])
+    .map(({ numero }) => ({ numero, valor: Number(producto[`precio_venta_${numero}` as keyof Producto]) }))
+    .filter((p) => Number.isFinite(p.valor) && p.valor > 0);
+
 
   // Cabecera
   const [series, setSeries] = useState<SerieDocumento[]>([]);
@@ -52,12 +60,8 @@ export function NuevaCotizacionPage() {
 
   // Cliente
   const [clienteQuery, setClienteQuery] = useState('');
-  const [clienteResultados, setClienteResultados] = useState<Cliente[]>([]);
-  const [mostrarClienteResultados, setMostrarClienteResultados] = useState(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [modalClienteNuevo, setModalClienteNuevo] = useState(false);
-  const clienteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clienteBoxRef = useRef<HTMLDivElement>(null);
 
   // Entrada de producto
   const [items, setItems] = useState<ItemCotizacion[]>([]);
@@ -67,6 +71,8 @@ export function NuevaCotizacionPage() {
   const [productoEntrada, setProductoEntrada] = useState<Producto | null>(null);
   const [cantidadEntrada, setCantidadEntrada] = useState(1);
   const [precioTipoEntrada, setPrecioTipoEntrada] = useState<number | undefined>(undefined);
+  const [precioMenuAbierto, setPrecioMenuAbierto] = useState(false);
+  const busquedaVersionRef = useRef(0);
   const entradaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codigoInputRef = useRef<ComponentRef<typeof Input>>(null);
   const cantidadInputRef = useRef<ComponentRef<typeof InputNumber>>(null);
@@ -74,6 +80,15 @@ export function NuevaCotizacionPage() {
   const entradaBoxRef = useRef<HTMLDivElement>(null);
   const sugerenciasDropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useEffect(() => {
+    sugerenciasDropdownRef.current?.querySelector('[data-producto-activo="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [sugerenciaActiva]);
+
+  useEffect(() => () => {
+    busquedaVersionRef.current++;
+    if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
+  }, []);
 
   const [guardando, setGuardando] = useState(false);
   const [modalImpresionOpen, setModalImpresionOpen] = useState(false);
@@ -121,10 +136,13 @@ export function NuevaCotizacionPage() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (clienteBoxRef.current && !clienteBoxRef.current.contains(e.target as Node)) setMostrarClienteResultados(false);
       const dentroEntrada = entradaBoxRef.current?.contains(e.target as Node);
       const dentroDropdown = sugerenciasDropdownRef.current?.contains(e.target as Node);
-      if (!dentroEntrada && !dentroDropdown) setSugerencias([]);
+      if (!dentroEntrada && !dentroDropdown) {
+        busquedaVersionRef.current++;
+        if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
+        setSugerencias([]);
+      }
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -158,23 +176,9 @@ export function NuevaCotizacionPage() {
   }, [series]);
 
   // ==================== CLIENTE ====================
-  const buscarCliente = (q: string) => {
-    setClienteQuery(q);
-    if (clienteTimerRef.current) clearTimeout(clienteTimerRef.current);
-    if (q.trim().length < 2) { setClienteResultados([]); setMostrarClienteResultados(false); return; }
-    clienteTimerRef.current = setTimeout(async () => {
-      try {
-        const { data } = await clientesApi.listar({ search: q.trim(), limit: 8 });
-        setClienteResultados(data);
-        setMostrarClienteResultados(data.length > 0);
-      } catch { /* búsqueda silenciosa */ }
-    }, 350);
-  };
-
   const seleccionarCliente = (c: Cliente) => {
     setCliente(c);
     setClienteQuery(c.razon_social);
-    setMostrarClienteResultados(false);
   };
 
   const usarClienteGenerico = async () => {
@@ -189,22 +193,28 @@ export function NuevaCotizacionPage() {
 
   // ==================== ENTRADA DE PRODUCTO ====================
   const resetEntrada = () => {
+    setPrecioMenuAbierto(false);
     setProductoEntrada(null);
     setCantidadEntrada(1);
     setPrecioTipoEntrada(undefined);
   };
 
-  const seleccionarProductoEntrada = (p: Producto) => {
+  const seleccionarProductoEntrada = (p: Producto, numeroPrecio?: number) => {
+    busquedaVersionRef.current++;
+    if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
     setProductoEntrada(p);
     setCodigoInput(p.codigo);
     setSugerencias([]);
     const precios = preciosDisponibles(p);
-    setPrecioTipoEntrada(precios[0]?.numero);
+    setPrecioTipoEntrada(precios.find((precio) => precio.numero === numeroPrecio)?.numero ?? precios[0]?.numero);
     setCantidadEntrada(1);
     setTimeout(() => { cantidadInputRef.current?.focus(); cantidadInputRef.current?.select(); }, 0);
   };
 
   const buscarSugerencias = (q: string) => {
+    const version = ++busquedaVersionRef.current;
+    setSugerencias([]);
+    setSugerenciaActiva(-1);
     setCodigoInput(q);
     if (productoEntrada) resetEntrada();
     if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
@@ -212,6 +222,7 @@ export function NuevaCotizacionPage() {
     entradaTimerRef.current = setTimeout(async () => {
       try {
         const { data } = await productosApi.listar({ search: q.trim(), limit: 8 });
+        if (version !== busquedaVersionRef.current) return;
         setSugerencias(data);
         setSugerenciaActiva(-1);
       } catch { /* búsqueda silenciosa */ }
@@ -221,7 +232,9 @@ export function NuevaCotizacionPage() {
   const confirmarFilaEntrada = () => {
     if (!productoEntrada || !precioTipoEntrada) return;
     const cantidad = Math.max(1, cantidadEntrada || 1);
-    const precio = Number((productoEntrada as unknown as Record<string, string>)[`precio_venta_${precioTipoEntrada}`] || productoEntrada.precio_venta_1);
+    const precioActivo = preciosDisponibles(productoEntrada).find((p) => p.numero === precioTipoEntrada);
+    if (!precioActivo) { message.warning('Seleccione un precio activo'); return; }
+    const precio = precioActivo.valor;
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.producto.id === productoEntrada.id && i.precio_tipo === precioTipoEntrada);
       if (idx >= 0) {
@@ -244,19 +257,24 @@ export function NuevaCotizacionPage() {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (!sugerencias.length) return;
-      setSugerenciaActiva((prev) => (prev - 1 + sugerencias.length) % sugerencias.length);
-    } else if (e.key === 'Escape') {
+      setSugerenciaActiva((prev) => prev < 0 ? sugerencias.length - 1 : (prev - 1 + sugerencias.length) % sugerencias.length);
+    } else if (e.key === 'Escape' || e.key === 'Tab') {
+      busquedaVersionRef.current++;
+      if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
       setSugerencias([]);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva]) {
-        seleccionarProductoEntrada(sugerencias[sugerenciaActiva]);
+      if (sugerencias.length) {
+        seleccionarProductoEntrada(sugerencias[Math.max(0, sugerenciaActiva)]);
         return;
       }
+      const version = ++busquedaVersionRef.current;
+      if (entradaTimerRef.current) clearTimeout(entradaTimerRef.current);
       const q = codigoInput.trim();
       if (!q) return;
       try {
         const { data: prods } = await productosApi.listar({ search: q, limit: 8 });
+        if (version !== busquedaVersionRef.current) return;
         const exacto = prods.find((p) => p.codigo?.toLowerCase() === q.toLowerCase());
         if (exacto) { seleccionarProductoEntrada(exacto); return; }
         if (prods.length === 1) { seleccionarProductoEntrada(prods[0]); return; }
@@ -265,6 +283,19 @@ export function NuevaCotizacionPage() {
       } catch (err) {
         message.error(err instanceof ApiError ? err.message : 'Error al buscar producto');
       }
+    }
+  };
+
+  const handlePrecioKeyDown = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+    if (precioMenuAbierto) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) confirmarFilaEntrada();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cantidadInputRef.current?.focus();
     }
   };
 
@@ -301,6 +332,10 @@ export function NuevaCotizacionPage() {
     if (!cliente) { message.warning('Seleccione un cliente'); return; }
     if (!idSerie) { message.warning('No hay una serie configurada para Cotización. Configúrela en Configuración → Series.'); return; }
     if (items.length === 0) { message.warning('Agregue al menos un producto'); return; }
+    if (items.some((item) => !preciosDisponibles(item.producto).some((p) => p.numero === item.precio_tipo))) {
+      message.warning('Hay productos con precios desactivados. Seleccione un precio activo.');
+      return;
+    }
 
     setGuardando(true);
     try {
@@ -342,27 +377,22 @@ export function NuevaCotizacionPage() {
               options={seriesDisponibles.map((s) => ({ value: s.id, label: s.serie }))}
             />
           </div>
-          <div ref={clienteBoxRef} style={{ position: 'relative' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>Cliente *</Typography.Text>
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                size="small"
-                placeholder="Buscar cliente por nombre o documento..."
-                value={clienteQuery}
-                onChange={(e) => buscarCliente(e.target.value)}
-              />
-              <Button size="small" icon={<UserOutlined />} title="Usar cliente genérico" onClick={usarClienteGenerico} />
-              <Button size="small" icon={<UserAddOutlined />} title="Nuevo cliente (consulta SUNAT/RENIEC)" onClick={() => setModalClienteNuevo(true)} />
-            </Space.Compact>
-            {mostrarClienteResultados && clienteResultados.length > 0 && (
-              <div style={{ position: 'absolute', zIndex: 1000, width: '100%', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, marginTop: 4, maxHeight: 200, overflowY: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                {clienteResultados.map((c) => (
-                  <div key={c.id} onClick={() => seleccionarCliente(c)} style={{ padding: '6px 12px', cursor: 'pointer' }} onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5f5')} onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}>
-                    <strong>{c.razon_social}</strong> <Typography.Text type="secondary" style={{ fontSize: 12 }}>{c.numero_documento}</Typography.Text>
-                  </div>
-                ))}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                <Autocomplete<Cliente>
+                  placeholder="Buscar cliente por nombre o documento..."
+                  value={clienteQuery}
+                  buscar={async (q) => (await clientesApi.listar({ search: q, limit: 8 })).data}
+                  getLabel={(c) => c.razon_social}
+                  renderOpcion={(c) => <><strong>{c.razon_social}</strong> {c.numero_documento}</>}
+                  onSelect={seleccionarCliente}
+                />
               </div>
-            )}
+              <Button icon={<UserOutlined />} onClick={usarClienteGenerico}>Cliente genérico</Button>
+              <Button type="primary" icon={<UserAddOutlined />} onClick={() => setModalClienteNuevo(true)}>Nuevo cliente</Button>
+            </div>
           </div>
           <div>
             {cliente && <Typography.Text type="success" style={{ fontSize: 12 }}>✓ {cliente.razon_social} ({cliente.numero_documento})</Typography.Text>}
@@ -379,7 +409,7 @@ export function NuevaCotizacionPage() {
       </Card>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-        <Card size="small" style={{ flex: '3 1 480px' }} title={<><Typography.Text strong>Productos</Typography.Text> <Typography.Text type="secondary" style={{ fontSize: 12 }}>Escriba el código o nombre y presione Enter para avanzar</Typography.Text></>}>
+        <Card size="small" style={{ flex: '3 1 480px' }} title="Productos">
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
             <thead>
@@ -404,7 +434,9 @@ export function NuevaCotizacionPage() {
                     </td>
                     <td style={{ padding: 6 }}>
                       <Select
-                        size="small" value={item.precio_tipo} style={{ width: '100%' }}
+                        size="small" value={precios.some((p) => p.numero === item.precio_tipo) ? item.precio_tipo : undefined} style={{ width: '100%' }}
+                        placeholder="Seleccione un precio activo"
+                        status={precios.some((p) => p.numero === item.precio_tipo) ? undefined : 'error'}
                         onChange={(v) => actualizarItem(idx, { precio_tipo: v, precio: precios.find((p) => p.numero === v)?.valor || item.precio })}
                         options={precios.map((p) => ({ value: p.numero, label: `P${p.numero}: ${formatMoneda(p.valor)}` }))}
                       />
@@ -420,6 +452,11 @@ export function NuevaCotizacionPage() {
                 <td style={{ padding: 6, position: 'relative' }} ref={entradaBoxRef as never}>
                   <Input
                     ref={codigoInputRef}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={sugerencias.length > 0}
+                    aria-controls={sugerencias.length ? 'productos-resultados' : undefined}
+                    aria-activedescendant={sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva] ? 'producto-opcion-' + sugerenciaActiva : undefined}
                     size="small"
                     placeholder="Código o nombre..."
                     value={codigoInput}
@@ -434,16 +471,19 @@ export function NuevaCotizacionPage() {
                     ref={cantidadInputRef}
                     size="small" min={1} step={1} precision={0} value={cantidadEntrada} disabled={!productoEntrada}
                     onChange={(v) => setCantidadEntrada(v ?? 1)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); precioSelectRef.current?.focus(); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); precioSelectRef.current?.focus(); setPrecioMenuAbierto(true); } }}
                     style={{ width: '100%' }}
                   />
                 </td>
-                <td style={{ padding: 6 }}>
+                <td style={{ padding: 6 }} onKeyDownCapture={handlePrecioKeyDown}>
                   <Select
                     ref={precioSelectRef}
-                    size="small" value={precioTipoEntrada} disabled={!productoEntrada} style={{ width: '100%' }}
+                    open={precioMenuAbierto}
+                    onOpenChange={setPrecioMenuAbierto}
+                    size="small" value={productoEntrada && preciosDisponibles(productoEntrada).some((p) => p.numero === precioTipoEntrada) ? precioTipoEntrada : undefined} disabled={!productoEntrada || cargandoPrecios || errorPrecios} style={{ width: '100%' }}
+                    placeholder="Seleccione un precio activo"
                     onChange={setPrecioTipoEntrada}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarFilaEntrada(); } }}
+                    onSelect={() => setPrecioMenuAbierto(false)}
                     options={productoEntrada ? preciosDisponibles(productoEntrada).map((p) => ({ value: p.numero, label: `P${p.numero}: ${formatMoneda(p.valor)}` })) : []}
                   />
                 </td>
@@ -458,6 +498,8 @@ export function NuevaCotizacionPage() {
           {dropdownPos && sugerencias.length > 0 && createPortal(
             <div
               ref={sugerenciasDropdownRef}
+              id="productos-resultados"
+              role="listbox"
               style={{
                 position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 1060,
                 background: '#fff', border: '1px solid #d9d9d9', borderRadius: 10, maxHeight: 360, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
@@ -468,8 +510,13 @@ export function NuevaCotizacionPage() {
                 return (
                   <div
                     key={p.id}
+                    id={'producto-opcion-' + i}
+                    role="option"
+                    aria-selected={i === sugerenciaActiva}
+                    data-producto-activo={i === sugerenciaActiva}
+                    onMouseEnter={() => setSugerenciaActiva(i)}
                     onMouseDown={(e) => { e.preventDefault(); seleccionarProductoEntrada(p); }}
-                    style={{ padding: '10px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#f0f7ff' : '#fff', borderBottom: i < sugerencias.length - 1 ? '1px solid #f0f0f0' : undefined }}
+                    style={{ padding: '10px 12px', cursor: 'pointer', background: i === sugerenciaActiva ? '#bae0ff' : '#fff', borderBottom: i < sugerencias.length - 1 ? '1px solid #f0f0f0' : undefined }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>{p.codigo}</Typography.Text>
@@ -483,12 +530,19 @@ export function NuevaCotizacionPage() {
                       {precios.length > 0 && (
                         <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {precios.map((pr) => (
-                            <span key={pr.numero} style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 999, padding: '3px 10px', fontSize: 12, color: '#389e0d', fontWeight: 700 }}>
+                            <Button key={pr.numero} size="small"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => { e.stopPropagation(); seleccionarProductoEntrada(p, pr.numero); }}
+                              aria-label={`Seleccionar ${p.nombre} con precio P${pr.numero}: ${formatMoneda(pr.valor)}`}
+                              style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 999, padding: '3px 10px', fontSize: 12, color: '#389e0d', fontWeight: 700 }}>
                               P{pr.numero}: {formatMoneda(pr.valor)}
-                            </span>
+                            </Button>
                           ))}
                         </span>
                       )}
+                      {!precios.length && <Typography.Text type="secondary">
+                        {cargandoPrecios ? 'Cargando precios…' : errorPrecios ? 'No se pudieron cargar los precios' : 'Sin precios activos'}
+                      </Typography.Text>}
                     </div>
                   </div>
                 );

@@ -1,3 +1,4 @@
+import type { AnulacionAprobada } from './aprobaciones';
 import { api } from './client';
 import type { OrdenCompra, CreateOrdenCompraDto } from '@/types/orden-compra';
 
@@ -12,5 +13,5 @@ export const ordenesCompraApi = {
   obtener: (id: string) => api.get<OrdenCompra>(`/ordenes-compra/${id}`),
   crear: (dto: CreateOrdenCompraDto) => api.post<OrdenCompra>('/ordenes-compra', dto),
   aprobar: (id: string) => api.patch<OrdenCompra>(`/ordenes-compra/${id}/aprobar`),
-  anular: (id: string) => api.patch<OrdenCompra>(`/ordenes-compra/${id}/anular`),
+  anular: (id: string, aprobacion: AnulacionAprobada) => api.patch<OrdenCompra>(`/ordenes-compra/${id}/anular`, aprobacion),
 };

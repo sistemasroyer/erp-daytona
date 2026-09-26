@@ -20,6 +20,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('port') || 3000;
   const nodeEnv = configService.get<string>('nodeEnv');
+  const trustedProxies = (process.env.TRUSTED_PROXIES ?? (nodeEnv === 'development' ? 'loopback' : ''))
+    .split(',').map(value => value.trim()).filter(Boolean);
+  if (trustedProxies.length) app.getHttpAdapter().getInstance().set('trust proxy', trustedProxies);
   const frontendUrl = configService.get<string>('frontendUrl');
   const corsOrigins = configService.get<string[]>('corsOrigins') || [frontendUrl];
 

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsEnum, IsArray, IsInt, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { redondear2 } from '../../common/utils/numero-documento.util';
@@ -9,11 +10,6 @@ import { finDeDia } from '../../common/utils/fecha.util';
 export class AbrirCajaDto {
   @IsString() @IsNotEmpty() id_caja: string;
   @IsNumber() @Min(0) monto_apertura: number;
-}
-
-export class CerrarCajaDto {
-  @IsNumber() @Min(0) monto_cierre: number;
-  @IsOptional() @IsString() observaciones?: string;
 }
 
 export class MovimientoCajaDto {
@@ -43,6 +39,8 @@ export class CreateCajaDto {
   @IsOptional() @IsString() descripcion?: string;
 }
 
+export class CerrarCajaDto extends ArqueoCajaDto {}
+
 @Injectable()
 export class CajaService {
   constructor(private prisma: PrismaService) {}
@@ -65,13 +63,13 @@ export class CajaService {
   };
 
   /** Saldo esperado por sistema EN EFECTIVO: monto_apertura + ingresos - egresos en efectivo hasta el momento. */
-  private async calcularSaldoSistema(idCajaApertura: string, montoApertura: number): Promise<number> {
+  private async calcularSaldoSistema(idCajaApertura: string, montoApertura: number, db: Prisma.TransactionClient = this.prisma): Promise<number> {
     const [ingresos, egresos] = await Promise.all([
-      this.prisma.tbl_movimientos_caja.aggregate({
+      db.tbl_movimientos_caja.aggregate({
         where: { id_caja_apertura: idCajaApertura, tipo: 'ingreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
       }),
-      this.prisma.tbl_movimientos_caja.aggregate({
+      db.tbl_movimientos_caja.aggregate({
         where: { id_caja_apertura: idCajaApertura, tipo: 'egreso', ...CajaService.FILTRO_MOVIMIENTO_EFECTIVO },
         _sum: { monto: true },
       }),
@@ -108,27 +106,59 @@ export class CajaService {
   }
 
   async cerrarCaja(idApertura: string, dto: CerrarCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
-    const apertura = await this.prisma.tbl_cajas_aperturas.findFirst({
-      where: { id: idApertura, estado: 'abierta', eliminado: false },
-      include: { caja: { select: { id_punto_venta: true } } },
-    });
-    if (!apertura) throw new NotFoundException('Apertura de caja no encontrada o ya cerrada');
-    this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
+    const detalle = this.prepararConteo(dto.detalle);
+    const montoContado = redondear2(detalle.reduce((acc, d) => acc + d.subtotal, 0));
+    return this.prisma.$transaction(async (tx) => {
+      const apertura = await tx.tbl_cajas_aperturas.findFirst({
+        where: { id: idApertura, estado: 'abierta', eliminado: false },
+        include: { caja: { select: { id_punto_venta: true } } },
+      });
+      if (!apertura) throw new NotFoundException('Apertura de caja no encontrada o ya cerrada');
+      this.assertMismoPuntoVenta(apertura.caja.id_punto_venta, idPuntoVenta, esSuperadmin);
 
-    const montoSistema = await this.calcularSaldoSistema(idApertura, Number(apertura.monto_apertura));
-    const diferencia = redondear2(dto.monto_cierre - montoSistema);
+      const montoSistema = await this.calcularSaldoSistema(idApertura, Number(apertura.monto_apertura), tx);
+      const diferencia = redondear2(montoContado - montoSistema);
+      const fechaCierre = new Date();
 
-    return this.prisma.tbl_cajas_aperturas.update({
-      where: { id: idApertura },
-      data: {
-        monto_cierre: dto.monto_cierre,
-        monto_sistema: montoSistema,
-        diferencia,
-        observaciones_cierre: dto.observaciones,
-        estado: 'cerrada',
-        fecha_cierre: new Date(),
-        usuario_modificacion: usuarioId,
-      },
+      const cierre = await tx.tbl_cajas_aperturas.updateMany({
+        where: { id: idApertura, estado: 'abierta', eliminado: false },
+        data: {
+          monto_cierre: montoContado,
+          monto_sistema: montoSistema,
+          diferencia,
+          observaciones_cierre: dto.observaciones,
+          estado: 'cerrada',
+          fecha_cierre: fechaCierre,
+          usuario_modificacion: usuarioId,
+        },
+      });
+      if (cierre.count !== 1) throw new BadRequestException('La caja ya fue cerrada');
+      await tx.tbl_cajas_arqueos.create({
+        data: {
+          id_caja_apertura: idApertura, id_usuario: usuarioId,
+          monto_sistema: montoSistema, monto_contado: montoContado, diferencia,
+          detalle_denominaciones: detalle, observaciones: dto.observaciones,
+          fecha_arqueo: fechaCierre,
+        },
+      });
+      return tx.tbl_cajas_aperturas.findUniqueOrThrow({ where: { id: idApertura } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  private prepararConteo(filas: DetalleDenominacionDto[]) {
+    if (!Array.isArray(filas) || !filas.length) {
+      throw new BadRequestException('Debe registrar el conteo por denominaciones');
+    }
+    const usadas = new Set<number>();
+    return filas.map((d) => {
+      if (!d || !CajaService.DENOMINACIONES_VALIDAS.has(d.denominacion)
+        || d.tipo !== (d.denominacion <= 5 ? 'moneda' : 'billete')
+        || !Number.isSafeInteger(d.cantidad) || d.cantidad < 0
+        || usadas.has(d.denominacion)) {
+        throw new BadRequestException('Conteo de denominaciones inválido');
+      }
+      usadas.add(d.denominacion);
+      return { denominacion: d.denominacion, tipo: d.tipo, cantidad: d.cantidad, subtotal: redondear2(d.denominacion * d.cantidad) };
     });
   }
 

@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, MaxLength, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -13,6 +13,36 @@ export class LoginDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ required: false, description: 'Token único del dispositivo' })
-  token_dispositivo?: string;
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  zona_horaria?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  idioma?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  pantalla?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitud?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitud?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precision?: number;
 }

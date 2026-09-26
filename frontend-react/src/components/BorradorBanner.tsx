@@ -17,7 +17,7 @@ export function BorradorBanner<T>({ borradores, resumen, onRestaurar, onDescarta
       type="warning"
       showIcon
       style={{ marginBottom: 16 }}
-      message={borradores.length === 1 ? 'Tenés un borrador sin terminar' : `Tenés ${borradores.length} borradores sin terminar`}
+      message={borradores.length === 1 ? 'Borrador pendiente' : `${borradores.length} borradores pendientes`}
       description={
         <Space orientation="vertical" style={{ width: '100%' }}>
           {borradores.map((b) => (

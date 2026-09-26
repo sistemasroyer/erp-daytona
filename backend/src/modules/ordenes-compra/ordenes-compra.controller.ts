@@ -1,3 +1,4 @@
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { OrdenesCompraService, CreateOrdenCompraDto } from './ordenes-compra.service';
@@ -48,7 +49,7 @@ export class OrdenesCompraController {
   @Patch(':id/anular')
   @Permisos('ordenes_compra:anular')
   @ApiOperation({ summary: 'Anular orden de compra' })
-  anular(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    return this.service.anular(id, userId);
+  anular(@Param('id') id: string, @CurrentUser('sub') userId: string, @Body() body: AnulacionAprobadaDto) {
+    return this.service.anular(id, userId, body);
   }
 }

@@ -17,6 +17,7 @@ export interface DetalleVenta {
   subtotal: string;
   igv: string;
   total: string;
+  afecta_igv?: boolean;
   producto?: { codigo: string; nombre: string; unidad_medida?: { simbolo: string } };
 }
 
@@ -55,7 +56,7 @@ export interface Venta {
   estado_venta: EstadoVenta;
   observaciones: string | null;
   id_venta_origen: string | null;
-  cliente?: { razon_social: string; numero_documento: string; tipo_documento?: string };
+  cliente?: { razon_social: string; numero_documento: string; tipo_documento?: string; direccion?: string | null };
   vendedor?: { nombre: string; apellido: string; email?: string };
   detalle?: DetalleVenta[];
   pagos?: PagoVenta[];

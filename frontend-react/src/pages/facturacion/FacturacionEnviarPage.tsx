@@ -83,7 +83,7 @@ export function FacturacionEnviarPage() {
 
       <Alert
         type="info" showIcon style={{ marginBottom: 16 }}
-        title="Los comprobantes ya no se envían automáticamente a SUNAT al emitirse. Desde aquí puedes enviarlos (o reintentar los que fallaron) manualmente, uno por uno o todos los pendientes de una vez."
+        title="El envío a SUNAT es manual. Revise los comprobantes pendientes."
       />
 
       <Card size="small" style={{ marginBottom: 16 }}>

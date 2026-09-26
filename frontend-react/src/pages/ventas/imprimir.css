@@ -3,6 +3,7 @@
 body { background: #e9ecef; }
 
 .ticket {
+  box-sizing: border-box;
   width: 80mm;
   margin: 16px auto;
   background: #fff;
@@ -24,7 +25,8 @@ body { background: #e9ecef; }
 .ticket table.items th, .ticket table.items td { padding: 1px 2px; vertical-align: top; }
 .ticket table.items th { border-bottom: 1px solid #000; text-align: left; }
 .ticket .qr-wrap { text-align: center; margin-top: 6px; }
-.ticket .qr-wrap canvas { margin: 0 auto; }
+.ticket .qr-wrap img { width: 35mm; height: 35mm; display: block; margin: 0 auto; }
+.ticket p { overflow-wrap: anywhere; }
 
 @media print {
   body { background: #fff; }

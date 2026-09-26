@@ -91,14 +91,7 @@ export function ImportarProductosModal({ open, onClose, onImportado }: Props) {
         <Alert
           type="info"
           showIcon
-          title="Cómo funciona"
-          description={
-            <>
-              1. Descargue la plantilla y complete una fila por producto (respete las columnas y las listas desplegables).<br />
-              2. Suba el archivo completado y presione Importar.<br />
-              3. Cada fila se procesa de forma independiente: si una falla, las demás igual se crean — el detalle le muestra qué pasó con cada una.
-            </>
-          }
+          title="Use la plantilla Excel sin cambiar las columnas. Las filas con errores no se importan."
         />
 
         <Button icon={<DownloadOutlined />} onClick={descargarPlantilla}>Descargar plantilla Excel</Button>

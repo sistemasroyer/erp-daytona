@@ -1,3 +1,5 @@
+import { AprobacionesService } from '../aprobaciones/aprobaciones.service';
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
@@ -15,6 +17,7 @@ const TASA_IGV = 0.18;
 @Injectable()
 export class ComprasService {
   constructor(
+    private aprobaciones: AprobacionesService,
     private prisma: PrismaService,
     private inventarioRepo: InventarioRepository,
     private eventEmitter: EventEmitter2,
@@ -302,7 +305,8 @@ export class ComprasService {
     return compra;
   }
 
-  async anular(id: string, motivo: string, usuarioId: string) {
+  async anular(id: string, dto: AnulacionAprobadaDto, usuarioId: string) {
+    const { motivo } = dto;
     const compra = await this.findOne(id);
     if (compra.estado === 'anulada') throw new BadRequestException('La compra ya está anulada');
 
@@ -317,6 +321,7 @@ export class ComprasService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await this.aprobaciones.consumir(tx, 'compras', id, usuarioId, dto);
       await tx.tbl_compras.update({
         where: { id },
         data: { estado: 'anulada', observaciones: `ANULADA: ${motivo}`, usuario_modificacion: usuarioId },

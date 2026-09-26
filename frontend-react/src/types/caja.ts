@@ -68,9 +68,7 @@ export interface AbrirCajaDto {
   monto_apertura: number;
 }
 
-export interface CerrarCajaDto {
-  monto_cierre: number;
-}
+export type CerrarCajaDto = ArqueoCajaDto;
 
 export interface MovimientoCajaDto {
   tipo: 'ingreso' | 'egreso';

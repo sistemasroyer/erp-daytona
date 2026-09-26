@@ -108,7 +108,8 @@ export function CajaPage() {
 
       {resumen && <CajaResumenVista resumen={resumen} arqueos={arqueosData?.data} />}
 
-      <CerrarCajaModal
+      <ArqueoCajaModal
+        cierre
         open={modalCerrar}
         idApertura={apertura.id}
         saldoSistema={saldoSistema}
@@ -161,46 +162,6 @@ function AbrirCajaModal({ open, onClose, onSaved }: { open: boolean; onClose: ()
       <Select value={idCaja} onChange={setIdCaja} style={{ width: '100%', margin: '4px 0 12px' }} options={(data?.data || []).map((c) => ({ value: c.id, label: c.nombre }))} />
       <Typography.Text strong>Monto de apertura (S/)</Typography.Text>
       <InputNumber value={monto} onChange={(v) => setMonto(v ?? 0)} min={0} step={0.01} style={{ width: '100%', marginTop: 4 }} />
-    </Modal>
-  );
-}
-
-function CerrarCajaModal({ open, idApertura, saldoSistema, onClose, onSaved }: {
-  open: boolean; idApertura: string; saldoSistema: number; onClose: () => void; onSaved: () => void;
-}) {
-  const { message } = App.useApp();
-  const [monto, setMonto] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const diferencia = monto !== null ? monto - saldoSistema : null;
-
-  const confirmar = async () => {
-    if (monto === null || monto < 0) { message.warning('Ingrese el monto contado'); return; }
-    setSaving(true);
-    try {
-      await cajaApi.cerrar(idApertura, { monto_cierre: monto });
-      message.success('Caja cerrada correctamente');
-      setMonto(null);
-      onSaved();
-    } catch (err) {
-      message.error(err instanceof ApiError ? err.message : 'Error al cerrar la caja');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="Cerrar Caja" open={open} onCancel={onClose} onOk={confirmar} confirmLoading={saving} okText="Cerrar Caja" okButtonProps={{ style: { background: '#faad14', borderColor: '#faad14' } }} cancelText="Cancelar" destroyOnHidden>
-      <div style={{ background: '#e6f4ff', borderRadius: 6, padding: 12, marginBottom: 12, display: 'flex', justifyContent: 'space-between' }}>
-        <span>Saldo sistema:</span>
-        <strong>{formatMoneda(saldoSistema)}</strong>
-      </div>
-      <Typography.Text strong>Monto contado en caja (S/)</Typography.Text>
-      <InputNumber value={monto} onChange={setMonto} min={0} step={0.01} style={{ width: '100%', marginTop: 4 }} autoFocus />
-      {diferencia !== null && (
-        <Typography.Title level={5} style={{ textAlign: 'center', marginTop: 16, color: diferencia >= 0 ? '#52c41a' : '#ff4d4f' }}>
-          Diferencia: {diferencia >= 0 ? '+' : ''}{formatMoneda(diferencia)}
-        </Typography.Title>
-      )}
     </Modal>
   );
 }
@@ -287,8 +248,8 @@ function MovimientoModal({ tipo, idApertura, onClose, onSaved }: {
 
       {idGasto ? (
         <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-          Se registrará el pago de <strong>{gastoSeleccionado?.numero_interno}</strong> ({gastoSeleccionado?.razon_social_emisor}) por{' '}
-          <strong>{formatMoneda(gastoSeleccionado?.total_pen || 0)}</strong> como egreso de esta caja.
+          Egreso por <strong>{gastoSeleccionado?.numero_interno}</strong> ({gastoSeleccionado?.razon_social_emisor}):{' '}
+          <strong>{formatMoneda(gastoSeleccionado?.total_pen || 0)}</strong>.
         </Typography.Text>
       ) : (
         <>

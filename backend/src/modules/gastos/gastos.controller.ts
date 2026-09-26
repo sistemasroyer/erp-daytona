@@ -1,3 +1,4 @@
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { GastosService } from './gastos.service';
@@ -76,12 +77,12 @@ export class GastosController {
   @ApiOperation({ summary: 'Anular un gasto (no pagado)' })
   anular(
     @Param('id') id: string,
-    @Body() body: { motivo: string },
+    @Body() body: AnulacionAprobadaDto,
     @CurrentUser('sub') userId: string,
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.anular(id, body.motivo, userId, idPuntoVenta, esSuperadmin);
+    return this.service.anular(id, body, userId, idPuntoVenta, esSuperadmin);
   }
 
   @Patch(':id/pagar')

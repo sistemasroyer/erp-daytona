@@ -16,6 +16,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            // Solo el proxy local informa la IP del cliente, sin reutilizar cabeceras recibidas.
+            proxyReq.setHeader('X-Forwarded-For', req.socket.remoteAddress || '127.0.0.1');
+          });
+        },
       },
     },
   },

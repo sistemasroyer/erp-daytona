@@ -1,3 +1,4 @@
+import { AprobacionesService } from '../aprobaciones/aprobaciones.service';
 import {
   Injectable,
   NotFoundException,
@@ -24,6 +25,7 @@ const TASA_IGV = 0.18;
 @Injectable()
 export class VentasService {
   constructor(
+    private aprobaciones: AprobacionesService,
     private prisma: PrismaService,
     private inventarioRepo: InventarioRepository,
     private sunatEnvio: SunatEnvioService,
@@ -111,8 +113,15 @@ export class VentasService {
       if (!almacen) throw new BadRequestException('No hay almacén principal configurado');
 
       // 5. Calcular totales del detalle
+      const listasActivas = await tx.tbl_config_margenes.findMany({
+        where: { activo: true }, select: { numero: true },
+      });
+      const numerosActivos = new Set(listasActivas.map((lista) => lista.numero));
       const detalleCalculado = await Promise.all(
         dto.detalle.map(async (item) => {
+          if (!numerosActivos.has(item.precio_tipo)) {
+            throw new BadRequestException(`El precio P${item.precio_tipo} está desactivado. Seleccione un precio activo.`);
+          }
           const producto = await tx.tbl_productos.findFirst({
             where: { id: item.id_producto, eliminado: false, estado: true },
             select: {
@@ -407,6 +416,7 @@ export class VentasService {
     const afectoStock = venta.afecto_stock;
 
     return this.prisma.$transaction(async (tx) => {
+      await this.aprobaciones.consumir(tx, 'ventas', id, usuarioId, dto);
       await tx.tbl_ventas.update({
         where: { id },
         data: {

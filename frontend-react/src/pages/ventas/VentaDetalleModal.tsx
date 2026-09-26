@@ -1,3 +1,4 @@
+import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Modal, Descriptions, Table, Row, Col, Button, Alert, Space, Typography } from 'antd';
@@ -5,7 +6,6 @@ import { PrinterOutlined, SendOutlined, RetweetOutlined, FileExcelOutlined, Clos
 import { useNavigate } from 'react-router-dom';
 import { ventasApi } from '@/api/ventas';
 import { ApiError } from '@/api/types';
-import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import type { DetalleVenta } from '@/types/venta';
@@ -19,7 +19,7 @@ interface Props {
 
 export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
   const { message } = App.useApp();
-  const { confirmar } = useConfirmar();
+  const { solicitar } = useAprobarAnulacion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [enviando, setEnviando] = useState(false);
@@ -40,12 +40,10 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
 
   const anular = async () => {
     if (!venta) return;
-    const ok = await confirmar(`¿Anular la venta ${venta.numero_comprobante || `${venta.serie}-${venta.correlativo}`}?`, 'Anular Venta');
-    if (!ok) return;
-    const motivo = window.prompt('Motivo de anulación (requerido):');
-    if (!motivo?.trim()) { message.warning('Ingrese un motivo de anulación'); return; }
+    const aprobacion = await solicitar('ventas', venta.id, venta.numero_comprobante || venta.numero_interno);
+    if (!aprobacion) return;
     try {
-      await ventasApi.anular(venta.id, motivo.trim());
+      await ventasApi.anular(venta.id, aprobacion);
       message.success('Venta anulada correctamente');
       recargar();
       onClose();

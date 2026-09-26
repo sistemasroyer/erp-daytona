@@ -1,3 +1,5 @@
+import { AprobacionesService } from '../aprobaciones/aprobaciones.service';
+import { AnulacionAprobadaDto } from '../aprobaciones/aprobaciones.dto';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -15,7 +17,7 @@ const INCLUDE_DETALLE_PRODUCTO = {
 
 @Injectable()
 export class TomaInventarioService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private aprobaciones: AprobacionesService) {}
 
   async crear(usuarioId: string) {
     const almacen = await this.prisma.tbl_almacenes.findFirst({ where: { es_principal: true, eliminado: false } });
@@ -141,12 +143,15 @@ export class TomaInventarioService {
     });
   }
 
-  async anular(idToma: string, usuarioId: string) {
+  async anular(idToma: string, usuarioId: string, dto: AnulacionAprobadaDto) {
     const toma = await this.getTomaEnProceso(idToma);
-    return this.prisma.tbl_tomas_inventario.update({
+    return this.prisma.$transaction(async (tx) => {
+      await this.aprobaciones.consumir(tx, 'toma_inventario', idToma, usuarioId, dto);
+      return tx.tbl_tomas_inventario.update({
       where: { id: toma.id },
       data: { estado: 'anulada', usuario_modificacion: usuarioId },
       include: INCLUDE_CABECERA,
+      });
     });
   }
 }

@@ -1,3 +1,4 @@
+import type { AnulacionAprobada } from './aprobaciones';
 import { api } from './client';
 import type { TomaInventario, AgregarItemTomaDto, ListarTomasInventarioParams } from '@/types/toma-inventario';
 
@@ -8,5 +9,5 @@ export const tomaInventarioApi = {
   agregarItem: (id: string, dto: AgregarItemTomaDto) => api.post<TomaInventario>(`/toma-inventario/${id}/items`, dto),
   quitarItem: (id: string, idProducto: string) => api.delete<TomaInventario>(`/toma-inventario/${id}/items/${idProducto}`),
   finalizar: (id: string) => api.patch<TomaInventario>(`/toma-inventario/${id}/finalizar`),
-  anular: (id: string) => api.patch<TomaInventario>(`/toma-inventario/${id}/anular`),
+  anular: (id: string, aprobacion: AnulacionAprobada) => api.patch<TomaInventario>(`/toma-inventario/${id}/anular`, aprobacion),
 };

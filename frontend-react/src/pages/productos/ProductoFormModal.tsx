@@ -185,9 +185,6 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
         </Row>
 
         <Divider titlePlacement="left" plain>Códigos alternos por proveedor</Divider>
-        <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-          Cada proveedor puede tener su propio código para este producto (útil al recibir compras o buscar en catálogos del proveedor).
-        </Typography.Paragraph>
         {fields.map((field, index) => (
           <Row gutter={8} key={field.id} style={{ marginBottom: 8 }} align="middle">
             <Col span={11}>
@@ -303,9 +300,6 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
             </Col>
           </Row>
         )}
-        <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-          El costo se calcula automáticamente al registrar compras. Los precios de venta se sugieren según los márgenes configurados, pero puedes ajustarlos manualmente.
-        </Typography.Paragraph>
         <Row gutter={16}>
           {margenes.map((m) => (
             <Col span={8} key={m.numero} style={{ marginBottom: 12 }}>
@@ -326,7 +320,6 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
           <Controller name="descripcion" control={control} render={({ field }) => <Input.TextArea {...field} rows={2} placeholder="Compatibilidad, observaciones, etc." />} />
         </Form.Item>
 
-        <Alert type="info" showIcon title="El stock se actualiza automáticamente al registrar compras o realizar ajustes de inventario." />
       </Form>
     </Modal>
   );

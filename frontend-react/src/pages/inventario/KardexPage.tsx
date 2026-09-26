@@ -190,7 +190,7 @@ export function KardexPage() {
               locale={{ emptyText: 'Sin movimientos en el período' }}
               pagination={{ current: pagina, pageSize: PAGE_SIZE, total, showTotal: (t) => `${t} movimientos`, onChange: setPagina }}
             />
-          : <Empty description="Busque un producto arriba para ver su kardex" />}
+          : <Empty description="Seleccione un producto" />}
       </Card>
 
       <VentaDetalleModal id={ventaDetalleId} onClose={() => setVentaDetalleId(null)} onCambiado={() => refetchKardex()} />

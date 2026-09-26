@@ -280,7 +280,7 @@ export function NotaCreditoCompraPage() {
         </div>
 
         <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-          El "Importe a acreditar" es el que figura en el documento del proveedor (incluye IGV si la línea lo afecta) — por defecto se calcula proporcional a la cantidad, pero puede corregirlo si el proveedor acreditó otro monto (por ejemplo, en bonificaciones). Si el motivo es "Anulación de la operación", debe acreditar todos los ítems por el total completo de la compra.
+          Ingrese el importe del documento del proveedor, incluido el IGV cuando corresponda. Para anular la compra, acredite todos los productos por el total original.
         </Typography.Paragraph>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16 }}>

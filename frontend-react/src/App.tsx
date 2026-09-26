@@ -1,3 +1,5 @@
+import { DispositivosPage } from '@/pages/configuracion/DispositivosPage';
+import { AprobacionesPage } from '@/pages/configuracion/AprobacionesPage';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App as AntApp, ConfigProvider } from 'antd';
@@ -69,6 +71,8 @@ export default function App() {
 
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<DashboardPage />} />
+                    <Route element={<RequirePermiso perm="seguridad:ver" />}><Route path="/dispositivos" element={<DispositivosPage />} /></Route>
+                    <Route element={<RequirePermiso perm="seguridad:aprobar" />}><Route path="/aprobaciones" element={<AprobacionesPage />} /></Route>
 
                     <Route element={<RequirePermiso perm="clientes:ver" />}>
                       <Route path="/clientes" element={<ClientesPage />} />

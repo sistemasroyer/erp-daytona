@@ -124,7 +124,7 @@ export function TomaInventarioReportePage() {
       </Card>
 
       {!filtros ? (
-        <Card><Empty description="Seleccione un período y haga clic en Generar" /></Card>
+        <Card><Empty description="Seleccione un período para generar el reporte" /></Card>
       ) : (
         <>
           {totales && (

@@ -337,10 +337,41 @@ model tbl_usuarios {
   auditoria    tbl_auditoria[]
   gastos       tbl_gastos[]
   tomas_inventario tbl_tomas_inventario[]
+  credencial_aprobacion tbl_credenciales_aprobacion?
+  autorizaciones_solicitadas tbl_autorizaciones[] @relation("solicita_autorizacion")
+  autorizaciones_aprobadas tbl_autorizaciones[] @relation("aprueba_autorizacion")
 
   @@index([email])
   @@index([id_punto_venta])
   @@map("tbl_usuarios")
+}
+
+model tbl_credenciales_aprobacion {
+  id_usuario String @id
+  pin_hash String @db.VarChar(200)
+  activo Boolean @default(true)
+  intentos_fallidos Int @default(0)
+  bloqueado_hasta DateTime?
+  fecha_modificacion DateTime @updatedAt
+  usuario tbl_usuarios @relation(fields: [id_usuario], references: [id])
+}
+
+model tbl_autorizaciones {
+  id String @id @default(uuid())
+  token_hash String @unique @db.VarChar(64)
+  recurso String @db.VarChar(40)
+  id_documento String
+  accion String @default("anular") @db.VarChar(30)
+  id_solicitante String
+  id_aprobador String
+  motivo String @db.VarChar(500)
+  fecha_creacion DateTime @default(now())
+  vence_en DateTime
+  usada_en DateTime?
+  solicitante tbl_usuarios @relation("solicita_autorizacion", fields: [id_solicitante], references: [id])
+  aprobador tbl_usuarios @relation("aprueba_autorizacion", fields: [id_aprobador], references: [id])
+  @@index([recurso, id_documento])
+  @@index([id_solicitante, fecha_creacion])
 }
 
 model tbl_usuarios_roles {
@@ -372,6 +403,9 @@ model tbl_dispositivos {
   token_dispositivo    String            @unique @db.VarChar(64)
   estado               EstadoDispositivo @default(pendiente)
   ultimo_uso           DateTime?
+  ultima_ip            String?           @db.VarChar(45)
+  aprobado_en          DateTime?
+  datos                Json?
   estado_registro      Boolean           @default(true)
   eliminado            Boolean           @default(false)
   fecha_creacion       DateTime          @default(now())

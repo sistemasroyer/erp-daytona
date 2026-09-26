@@ -1,3 +1,4 @@
+import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Table, Button, Select, Typography, Space, Modal, Descriptions, Alert } from 'antd';
@@ -28,6 +29,7 @@ export function OrdenesCompraPage() {
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const { message } = App.useApp();
   const { confirmar } = useConfirmar();
+  const { solicitar } = useAprobarAnulacion();
   const queryClient = useQueryClient();
 
   const { data, isFetching } = useQuery({
@@ -56,10 +58,10 @@ export function OrdenesCompraPage() {
   };
 
   const anular = async (id: string) => {
-    const ok = await confirmar('¿Anular esta orden de compra?', 'Anular Orden');
-    if (!ok) return;
+    const aprobacion = await solicitar('ordenes_compra', id, 'Orden de compra');
+    if (!aprobacion) return;
     try {
-      await ordenesCompraApi.anular(id);
+      await ordenesCompraApi.anular(id, aprobacion);
       message.success('Orden anulada');
       setDetalleId(null);
       recargar();

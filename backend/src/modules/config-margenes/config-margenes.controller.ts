@@ -32,6 +32,13 @@ class UpdateMargenDto {
 export class ConfigMargenesController {
   constructor(private readonly service: ConfigMargenesService) {}
 
+  @Get('precios-venta')
+  @Permisos('ventas:crear')
+  async preciosVenta() {
+    const activos = await this.service.findActivos();
+    return activos.map(({ numero, nombre }) => ({ numero, nombre }));
+  }
+
   @Get()
   @Permisos('configuracion:ver')
   @ApiOperation({ summary: 'Listar márgenes de precios configurados' })
