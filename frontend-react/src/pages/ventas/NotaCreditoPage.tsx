@@ -9,6 +9,8 @@ import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import { useAuth } from '@/auth/AuthContext';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import { CODIGOS_MOTIVO_NOTA_CREDITO, MOTIVOS_NC, MOTIVOS_NC_SUGIERE_STOCK } from '@/types/nota-credito';
 import type { Venta, DetalleVenta } from '@/types/venta';
 import type { SerieDocumento } from '@/types/serie-documento';
@@ -21,6 +23,16 @@ interface ItemNc {
   detalle: DetalleVenta;
   marcado: boolean;
   cantidad: number;
+}
+
+interface BorradorNc {
+  idVenta: string;
+  comprobante: string;
+  idSerie: string | undefined;
+  codigoMotivo: string;
+  motivoTexto: string;
+  afectaStock: boolean;
+  items: { idDetalle: string; marcado: boolean; cantidad: number }[];
 }
 
 export function NotaCreditoPage() {
@@ -43,6 +55,19 @@ export function NotaCreditoPage() {
 
   const esAnulacionTotal = codigoMotivo === '01';
 
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental).
+  // Guarda solo el id del comprobante: al recuperar se vuelve a cargar del backend
+  // para no acreditar sobre datos desactualizados.
+  const borrador = useBorradorConLista<BorradorNc | null>('nota-credito', venta ? {
+    idVenta: venta.id,
+    comprobante: venta.numero_comprobante || `${venta.serie}-${venta.correlativo}`,
+    idSerie, codigoMotivo, motivoTexto, afectaStock,
+    items: items.map((it) => ({ idDetalle: it.detalle.id, marcado: it.marcado, cantidad: it.cantidad })),
+  } : null, {
+    vacio: (d) => !d,
+    onRestaurar: (d) => { if (d) seleccionar(d.idVenta, d); },
+  });
+
   const buscar = async () => {
     setBuscando(true);
     try {
@@ -56,20 +81,30 @@ export function NotaCreditoPage() {
     }
   };
 
-  const seleccionar = async (id: string) => {
+  const seleccionar = async (id: string, recuperado?: BorradorNc) => {
     try {
       const { data } = await ventasApi.obtener(id);
       setVenta(data);
       setCodigoMotivo('01');
       setMotivoTexto(MOTIVOS_NC['01']);
       setAfectaStock(true);
-      setItems((data.detalle || []).map((d) => ({ detalle: d, marcado: true, cantidad: Number(d.cantidad) })));
+      setItems((data.detalle || []).map((d) => {
+        const guardado = recuperado?.items.find((x) => x.idDetalle === d.id);
+        return guardado
+          ? { detalle: d, marcado: guardado.marcado, cantidad: guardado.cantidad }
+          : { detalle: d, marcado: true, cantidad: Number(d.cantidad) };
+      }));
+      if (recuperado) {
+        setCodigoMotivo(recuperado.codigoMotivo);
+        setMotivoTexto(recuperado.motivoTexto);
+        setAfectaStock(recuperado.afectaStock);
+      }
 
       const idPuntoVenta = user?.idPuntoVenta || undefined;
       const { data: seriesData } = await seriesDocumentoApi.listar(idPuntoVenta);
       const prefijo = data.tipo_documento === 'FACTURA' ? 'F' : 'B';
       setSeries(seriesData.filter((s) => s.activo && s.tipo_documento === 'NOTA_CREDITO' && s.serie.startsWith(prefijo)));
-      setIdSerie(undefined);
+      setIdSerie(recuperado?.idSerie);
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al cargar el comprobante');
     }
@@ -82,7 +117,8 @@ export function NotaCreditoPage() {
   }, []);
 
   useEffect(() => {
-    if (series.length) setIdSerie(series[0].id);
+    if (series.length && !series.some((s) => s.id === idSerie)) setIdSerie(series[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series]);
 
   const cambiarMotivo = (cod: string) => {
@@ -104,6 +140,7 @@ export function NotaCreditoPage() {
   }, 0));
 
   const volverABuscar = () => {
+    borrador.limpiar();
     setVenta(null);
     setItems([]);
   };
@@ -129,6 +166,7 @@ export function NotaCreditoPage() {
         detalle,
       });
       message.success(`Nota de Crédito ${nc.numero_comprobante || ''} emitida correctamente`);
+      borrador.limpiar();
       setVenta(null);
       setItems([]);
       setQuery('');
@@ -152,6 +190,12 @@ export function NotaCreditoPage() {
   if (!venta) {
     return (
       <div>
+        <BorradorBanner
+          borradores={borrador.borradores}
+          resumen={(d) => d ? `${d.comprobante} — ${d.motivoTexto}` : ''}
+          onRestaurar={borrador.restaurar}
+          onDescartar={borrador.descartar}
+        />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Typography.Title level={4} style={{ margin: 0 }}>Nueva Nota de Crédito</Typography.Title>
           <Link to="/ventas"><Button icon={<ArrowLeftOutlined />}>Volver al listado</Button></Link>

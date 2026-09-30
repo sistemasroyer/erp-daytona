@@ -7,6 +7,8 @@ import { SearchOutlined } from '@ant-design/icons';
 import { clientesApi } from '@/api/clientes';
 import { ApiError } from '@/api/types';
 import type { Cliente, CreateClienteDto } from '@/types/cliente';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 
 const schema = z.object({
   tipo_documento: z.enum(['DNI', 'RUC', 'CE', 'PASAPORTE']),
@@ -44,7 +46,7 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const { message } = App.useApp();
-  const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: VACIO,
   });
@@ -63,6 +65,14 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
       dias_credito: cliente.dias_credito || 0,
     } : VACIO);
   }, [open, cliente, reset]);
+
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<FormValues>('cliente', watch(), {
+    vacio: (d) => !d.numero_documento.trim() && !d.razon_social.trim(),
+    onRestaurar: (d) => reset({ ...VACIO, ...d }),
+    habilitado: !cliente,
+    abierto: open,
+  });
 
   const consultarDocumento = async () => {
     const tipo = getValues('tipo_documento');
@@ -94,6 +104,7 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
     try {
       if (cliente) await clientesApi.actualizar(cliente.id, dto);
       else await clientesApi.crear(dto);
+      borrador.limpiar();
       message.success(cliente ? 'Cliente actualizado' : 'Cliente creado');
       onSaved();
     } catch (err) {
@@ -115,6 +126,12 @@ export function ClienteFormModal({ open, cliente, onClose, onSaved }: Props) {
       width={640}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${d.tipo_documento} ${d.numero_documento || 's/n'} — ${d.razon_social || 'Sin nombre'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="Tipo documento">

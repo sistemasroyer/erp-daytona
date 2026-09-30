@@ -9,6 +9,8 @@ import { productosApi } from '@/api/productos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import { formatMoneda } from '@/utils/format';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import { MOTIVO_AJUSTE_LABEL, type MotivoAjusteInventario } from '@/types/ajuste-inventario';
 import type { Producto } from '@/types/producto';
 
@@ -17,6 +19,13 @@ interface ItemAjuste {
   tipo: 'ajuste_positivo' | 'ajuste_negativo';
   cantidad: number;
   costoUnitario: number;
+}
+
+interface BorradorAjuste {
+  idAlmacen: string | undefined;
+  motivo: MotivoAjusteInventario;
+  observaciones: string;
+  items: ItemAjuste[];
 }
 
 export function AjusteNuevoPage() {
@@ -30,6 +39,17 @@ export function AjusteNuevoPage() {
   const [observaciones, setObservaciones] = useState('');
   const [items, setItems] = useState<ItemAjuste[]>([]);
   const [guardando, setGuardando] = useState(false);
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<BorradorAjuste>('ajuste-inventario', { idAlmacen, motivo, observaciones, items }, {
+    vacio: (d) => d.items.length === 0 && !d.observaciones.trim(),
+    onRestaurar: (d) => {
+      setIdAlmacen(d.idAlmacen);
+      setMotivo(d.motivo);
+      setObservaciones(d.observaciones);
+      setItems(d.items);
+    },
+  });
 
   const agregarItem = (p: Producto) => {
     if (items.find((i) => i.producto.id === p.id)) return;
@@ -61,6 +81,7 @@ export function AjusteNuevoPage() {
         })),
       });
       message.success(`¡Ajuste ${res.data.numero_interno} registrado correctamente!`);
+      borrador.limpiar();
       navigate('/inventario/ajustes');
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar el ajuste');
@@ -71,6 +92,12 @@ export function AjusteNuevoPage() {
 
   return (
     <div>
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${MOTIVO_AJUSTE_LABEL[d.motivo] || d.motivo} — ${d.items.length} producto(s)`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={4} style={{ margin: 0 }}><SlidersOutlined style={{ marginRight: 8 }} />Nuevo Ajuste de Inventario</Typography.Title>
         <Link to="/inventario/ajustes"><Button icon={<ArrowLeftOutlined />}>Volver</Button></Link>

@@ -8,6 +8,8 @@ import { comprasApi } from '@/api/compras';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 import { CODIGOS_MOTIVO_NOTA_CREDITO, MOTIVOS_NC, MOTIVOS_NC_SUGIERE_STOCK } from '@/types/nota-credito';
 import type { Compra, DetalleCompra } from '@/types/compra';
 
@@ -20,6 +22,18 @@ interface ItemNc {
   marcado: boolean;
   cantidad: number;
   importe: number;
+}
+
+interface BorradorNcCompra {
+  idCompra: string;
+  documento: string;
+  serie: string;
+  numero: string;
+  fecha: string;
+  codigoMotivo: string;
+  motivoTexto: string;
+  afectaStock: boolean;
+  items: { idDetalle: string; marcado: boolean; cantidad: number; importe: number }[];
 }
 
 export function NotaCreditoCompraPage() {
@@ -42,6 +56,18 @@ export function NotaCreditoCompraPage() {
 
   const esAnulacionTotal = codigoMotivo === '01';
 
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental).
+  // Guarda solo el id de la compra: al recuperar se vuelve a cargar del backend.
+  const borrador = useBorradorConLista<BorradorNcCompra | null>('nota-credito-compra', compra ? {
+    idCompra: compra.id,
+    documento: compra.serie ? `${compra.serie}-${compra.numero}` : compra.numero || compra.numero_interno,
+    serie, numero, fecha: fecha.format('YYYY-MM-DD'), codigoMotivo, motivoTexto, afectaStock,
+    items: items.map((it) => ({ idDetalle: it.detalle.id, marcado: it.marcado, cantidad: it.cantidad, importe: it.importe })),
+  } : null, {
+    vacio: (d) => !d,
+    onRestaurar: (d) => { if (d) seleccionar(d.idCompra, d); },
+  });
+
   const buscar = async () => {
     setBuscando(true);
     try {
@@ -62,17 +88,22 @@ export function NotaCreditoCompraPage() {
     return redondear2(importeOriginal * proporcion);
   };
 
-  const seleccionar = async (id: string) => {
+  const seleccionar = async (id: string, recuperado?: BorradorNcCompra) => {
     try {
       const { data } = await comprasApi.obtener(id);
       setCompra(data);
-      setCodigoMotivo('01');
-      setMotivoTexto(MOTIVOS_NC['01']);
-      setAfectaStock(true);
-      setSerie('');
-      setNumero('');
-      setFecha(dayjs());
-      setItems((data.detalle || []).map((d) => ({ detalle: d, marcado: true, cantidad: Number(d.cantidad), importe: Number(d.importe_linea) })));
+      setCodigoMotivo(recuperado?.codigoMotivo ?? '01');
+      setMotivoTexto(recuperado?.motivoTexto ?? MOTIVOS_NC['01']);
+      setAfectaStock(recuperado?.afectaStock ?? true);
+      setSerie(recuperado?.serie ?? '');
+      setNumero(recuperado?.numero ?? '');
+      setFecha(recuperado ? dayjs(recuperado.fecha) : dayjs());
+      setItems((data.detalle || []).map((d) => {
+        const guardado = recuperado?.items.find((x) => x.idDetalle === d.id);
+        return guardado
+          ? { detalle: d, marcado: guardado.marcado, cantidad: guardado.cantidad, importe: guardado.importe }
+          : { detalle: d, marcado: true, cantidad: Number(d.cantidad), importe: Number(d.importe_linea) };
+      }));
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al cargar la compra');
     }
@@ -112,6 +143,7 @@ export function NotaCreditoCompraPage() {
   const total = redondear2(items.filter((it) => it.marcado).reduce((s, it) => s + (it.importe || 0), 0));
 
   const volverABuscar = () => {
+    borrador.limpiar();
     setCompra(null);
     setItems([]);
   };
@@ -144,6 +176,7 @@ export function NotaCreditoCompraPage() {
         detalle,
       });
       message.success(`Nota de Crédito ${nc.serie ? `${nc.serie}-${nc.numero}` : nc.numero || ''} registrada correctamente`);
+      borrador.limpiar();
       setCompra(null);
       setItems([]);
       setQuery('');
@@ -167,6 +200,12 @@ export function NotaCreditoCompraPage() {
   if (!compra) {
     return (
       <div>
+        <BorradorBanner
+          borradores={borrador.borradores}
+          resumen={(d) => d ? `${d.documento} — NC ${d.serie ? `${d.serie}-` : ''}${d.numero || 's/n'} — ${d.motivoTexto}` : ''}
+          onRestaurar={borrador.restaurar}
+          onDescartar={borrador.descartar}
+        />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Typography.Title level={4} style={{ margin: 0 }}>Nueva Nota de Crédito de Compra</Typography.Title>
           <Link to="/compras"><Button icon={<ArrowLeftOutlined />}>Volver al listado</Button></Link>

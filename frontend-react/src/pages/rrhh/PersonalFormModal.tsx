@@ -7,6 +7,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { rrhhApi } from '@/api/rrhh';
 import { ApiError } from '@/api/types';
 import { TIPOS_CONTRATO, type Personal, type CreatePersonalDto } from '@/types/personal';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 
 const BANCOS = ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'BanBif', 'Otro'];
 
@@ -23,6 +25,7 @@ const schema = z.object({
   cuenta_bancaria: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
+type BorradorPersonal = Omit<FormValues, 'fecha_ingreso'> & { fecha_ingreso: string | null };
 
 const vacio = (): FormValues => ({
   dni: '', nombres: '', apellidos: '', cargo: '', area: '',
@@ -39,7 +42,7 @@ interface Props {
 export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const { message } = App.useApp();
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: vacio(),
   });
@@ -60,6 +63,18 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
     } : vacio());
   }, [open, personal, reset]);
 
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental)
+  const valores = watch();
+  const borrador = useBorradorConLista<BorradorPersonal>('personal', {
+    ...valores,
+    fecha_ingreso: dayjs.isDayjs(valores.fecha_ingreso) ? valores.fecha_ingreso.format('YYYY-MM-DD') : null,
+  }, {
+    vacio: (d) => !d.dni.trim() && !d.nombres.trim() && !d.apellidos.trim(),
+    onRestaurar: (d) => reset({ ...vacio(), ...d, fecha_ingreso: d.fecha_ingreso ? dayjs(d.fecha_ingreso) : dayjs() }),
+    habilitado: !personal,
+    abierto: open,
+  });
+
   const onSubmit = async (values: FormValues) => {
     const dto: CreatePersonalDto = {
       ...values,
@@ -73,6 +88,7 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
     try {
       if (personal) await rrhhApi.actualizar(personal.id, dto);
       else await rrhhApi.crear(dto);
+      borrador.limpiar();
       message.success(personal ? 'Personal actualizado' : 'Personal registrado');
       onSaved();
     } catch (err) {
@@ -94,6 +110,12 @@ export function PersonalFormModal({ open, personal, onClose, onSaved }: Props) {
       width={640}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `DNI ${d.dni || 's/n'} — ${`${d.nombres} ${d.apellidos}`.trim() || 'Sin nombre'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           <Form.Item label="DNI" validateStatus={errors.dni ? 'error' : ''} help={errors.dni?.message}>

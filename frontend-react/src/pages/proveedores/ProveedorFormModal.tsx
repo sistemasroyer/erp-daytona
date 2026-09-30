@@ -7,6 +7,8 @@ import { SearchOutlined } from '@ant-design/icons';
 import { proveedoresApi } from '@/api/proveedores';
 import { ApiError } from '@/api/types';
 import type { Proveedor, CreateProveedorDto } from '@/types/proveedor';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 
 const schema = z.object({
   ruc: z.string().length(11, 'El RUC debe tener 11 dígitos'),
@@ -37,7 +39,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
   const [saving, setSaving] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const { message } = App.useApp();
-  const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: VACIO,
   });
@@ -56,6 +58,14 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
       dias_credito: proveedor.dias_credito || 0,
     } : VACIO);
   }, [open, proveedor, reset]);
+
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<FormValues>('proveedor', watch(), {
+    vacio: (d) => !d.ruc.trim() && !d.razon_social.trim(),
+    onRestaurar: (d) => reset({ ...VACIO, ...d }),
+    habilitado: !proveedor,
+    abierto: open,
+  });
 
   const consultarRuc = async () => {
     const ruc = getValues('ruc').trim();
@@ -87,6 +97,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
     try {
       if (proveedor) await proveedoresApi.actualizar(proveedor.id, dto);
       else await proveedoresApi.crear(dto);
+      borrador.limpiar();
       message.success(proveedor ? 'Proveedor actualizado' : 'Proveedor creado');
       onSaved();
     } catch (err) {
@@ -108,6 +119,12 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
       width={640}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `RUC ${d.ruc || 's/n'} — ${d.razon_social || 'Sin razón social'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <Form.Item label="RUC" validateStatus={errors.ruc ? 'error' : ''} help={errors.ruc?.message}>

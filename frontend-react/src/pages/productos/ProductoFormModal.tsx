@@ -16,6 +16,8 @@ import { configMargenesApi } from '@/api/config-margenes';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { TIPOS_EXISTENCIA, type Producto, type CreateProductoDto } from '@/types/producto';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 
 const schema = z.object({
   codigo: z.string().min(1, 'Ingrese el código interno'),
@@ -41,6 +43,11 @@ const schema = z.object({
   }),
 });
 type FormValues = z.infer<typeof schema>;
+
+interface BorradorProducto {
+  valores: FormValues;
+  precios: Record<number, number>;
+}
 
 const VACIO: FormValues = {
   codigo: '', codigo_barras: '', codigo_sunat: '', nombre: '', id_categoria: undefined,
@@ -111,6 +118,14 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
     }
   }, [open, producto, reset]);
 
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<BorradorProducto>('producto', { valores: watch(), precios }, {
+    vacio: (d) => !d.valores.codigo.trim() && !d.valores.nombre.trim(),
+    onRestaurar: (d) => { reset({ ...VACIO, ...d.valores }); setPrecios(d.precios || {}); },
+    habilitado: !producto,
+    abierto: open,
+  });
+
   const onSubmit = async (values: FormValues) => {
     const dto: CreateProductoDto = {
       codigo: values.codigo.trim().toUpperCase(),
@@ -138,6 +153,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
     try {
       if (producto) await productosApi.actualizar(producto.id, dto);
       else await productosApi.crear(dto);
+      borrador.limpiar();
       message.success(producto ? 'Producto actualizado correctamente' : 'Producto creado correctamente');
       onSaved();
     } catch (err) {
@@ -159,6 +175,12 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
       width={880}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${d.valores.codigo || 's/código'} — ${d.valores.nombre || 'Sin nombre'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <Divider titlePlacement="left" plain>Identificación</Divider>
         <Row gutter={16}>
