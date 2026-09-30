@@ -74,7 +74,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
     { title: 'Costo Base s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(Number(d.cantidad) > 0 ? Number(d.subtotal) / Number(d.cantidad) : 0) },
     { title: 'Flete Prorrateado', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <Typography.Text type="secondary">{formatMoneda(d.costo_flete_prorrateado || 0)}</Typography.Text> },
     { title: 'Costo Final s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.costo_unitario_total)}</strong> },
-    { title: 'Costo Final c/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.afecta_igv ? Number(d.costo_unitario_total) * 1.18 : Number(d.costo_unitario_total))}</strong> },
+    { title: 'Costo Final c/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.afecta_igv ? Number(d.costo_unitario_total) * (1 + Number(compra?.porcentaje_igv ?? 18) / 100) : Number(d.costo_unitario_total))}</strong> },
   ];
 
   if (!compra) {

@@ -18,9 +18,8 @@ import {
   redondear2,
   redondear4,
 } from '../../common/utils/numero-documento.util';
+import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
-
-const TASA_IGV = 0.18;
 
 @Injectable()
 export class VentasService {
@@ -117,6 +116,9 @@ export class VentasService {
         where: { activo: true }, select: { numero: true },
       });
       const numerosActivos = new Set(listasActivas.map((lista) => lista.numero));
+      // Los precios de venta ya incluyen IGV: la tasa vigente define cuánto de ese precio es IGV.
+      const porcentajeIgv = await obtenerPorcentajeIgv(tx);
+      const tasaIgv = porcentajeIgv / 100;
       const detalleCalculado = await Promise.all(
         dto.detalle.map(async (item) => {
           if (!numerosActivos.has(item.precio_tipo)) {
@@ -147,7 +149,7 @@ export class VentasService {
           let igvUnitario: number;
 
           if (producto.afecta_igv) {
-            valorUnitario = redondear4(precioUnitario / (1 + TASA_IGV));
+            valorUnitario = redondear4(precioUnitario / (1 + tasaIgv));
             igvUnitario = redondear4(precioUnitario - valorUnitario);
           } else {
             valorUnitario = precioUnitario;
@@ -218,6 +220,7 @@ export class VentasService {
           tipo_cambio: dto.tipo_cambio || 1,
           subtotal: subtotalVenta,
           igv: igvVenta,
+          porcentaje_igv: porcentajeIgv,
           total: totalVenta,
           observaciones: dto.observaciones,
           estado_sunat: esOficial ? 'pendiente' : 'no_aplica',
@@ -581,6 +584,7 @@ export class VentasService {
           tipo_cambio: origen.tipo_cambio,
           subtotal: origen.subtotal,
           igv: origen.igv,
+          porcentaje_igv: origen.porcentaje_igv,
           total: origen.total,
           observaciones: origen.observaciones,
           estado_sunat: 'pendiente',
@@ -828,6 +832,7 @@ export class VentasService {
           tipo_cambio: original.tipo_cambio,
           subtotal: subtotalNC,
           igv: igvNC,
+          porcentaje_igv: original.porcentaje_igv,
           total: totalNC,
           observaciones: dto.motivo,
           id_nota_original: original.id,

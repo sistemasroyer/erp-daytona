@@ -10,6 +10,7 @@ import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import type { DetalleVenta } from '@/types/venta';
 import { CanjeModal } from './CanjeModal';
+import { formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 
 interface Props {
   id: string | null;
@@ -144,7 +145,7 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
                 <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(venta.subtotal, venta.moneda)}</Table.Summary.Cell>
               </Table.Summary.Row>
               <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={4} align="right">IGV (18%):</Table.Summary.Cell>
+                <Table.Summary.Cell index={0} colSpan={4} align="right">IGV ({formatPorcentajeIgv(venta.porcentaje_igv)}):</Table.Summary.Cell>
                 <Table.Summary.Cell index={1} colSpan={3} align="right">{formatMoneda(venta.igv, venta.moneda)}</Table.Summary.Cell>
               </Table.Summary.Row>
               <Table.Summary.Row>

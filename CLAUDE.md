@@ -75,6 +75,7 @@ Este proyecto no tiene tests automatizados de frontend. La forma establecida de 
 
 ## Contexto de negocio a tener en cuenta
 
-- Perú, SUNAT: los comprobantes electrónicos (Boleta/Factura/Nota de Crédito) van a NubeFact como PSE/OSE. IGV = 18%.
+- Perú, SUNAT: los comprobantes electrónicos (Boleta/Factura/Nota de Crédito) van a NubeFact como PSE/OSE.
+- **IGV configurable** (18% por defecto): vive en `tbl_empresas.porcentaje_igv` (Configuración → Empresa). Nunca escribir `1.18`/`0.18` a mano — backend: `obtenerPorcentajeIgv(tx)`/`obtenerTasaIgv(tx)` de `common/utils/igv.util.ts`; frontend: `useTasaIgv()` de `hooks/useTasaIgv.ts`. `tbl_ventas` y `tbl_compras` guardan su propio `porcentaje_igv` al emitirse: un documento ya emitido (y sus NC, canjes y el envío a NubeFact) usa SU tasa, no la vigente. Los precios de venta de productos incluyen IGV, así que cambiar la tasa no cambia el precio al cliente, solo cuánto de él es IGV.
 - Multi-tienda pero mono-almacén: hay 2 `tbl_puntos_venta` (tiendas) pero un solo `tbl_almacenes` compartido — no asumas que cada tienda tiene su propio almacén de inventario.
 - El dueño (usuario de este repo) es no-técnico y opera el sistema día a día — priorizar explicaciones claras y confirmaciones antes de cambios que afecten datos reales o el flujo de trabajo diario, sobre todo en Ventas/Caja que se usan en producción activamente.

@@ -18,6 +18,7 @@ import { formatMoneda } from '@/utils/format';
 import { TIPOS_EXISTENCIA, type Producto, type CreateProductoDto } from '@/types/producto';
 import { useBorradorConLista } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 
 const schema = z.object({
   codigo: z.string().min(1, 'Ingrese el código interno'),
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
+  const { porcentaje: porcentajeIgv } = useTasaIgv();
   const [saving, setSaving] = useState(false);
   const [precios, setPrecios] = useState<Record<number, number>>({});
   const { message } = App.useApp();
@@ -282,7 +284,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
           <Col span={6}>
             <Form.Item label="Afecta IGV">
               <Controller name="afecta_igv" control={control} render={({ field }) => (
-                <Select value={field.value} onChange={field.onChange} options={[{ value: true, label: 'Sí (18%)' }, { value: false, label: 'No (exonerado)' }]} />
+                <Select value={field.value} onChange={field.onChange} options={[{ value: true, label: `Sí (${formatPorcentajeIgv(porcentajeIgv)})` }, { value: false, label: 'No (exonerado)' }]} />
               )} />
             </Form.Item>
           </Col>

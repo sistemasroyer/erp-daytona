@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { redondear4 } from '../../common/utils/numero-documento.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
 
 const TIPOS_EXISTENCIA = [
   { value: '01', label: '01 – Mercadería' },
@@ -240,6 +241,7 @@ export class ProductoImportacionService {
     const almacenPrincipal = almacenes.find((a) => a.es_principal) || almacenes[0];
     const codigosExistentes = new Set(productosExistentes.map((p) => p.codigo.toLowerCase()));
     const codigosEnArchivo = new Set<string>();
+    const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
     const numerosPrecios = margenes.length ? margenes.map((m) => m.numero) : [1, 2, 3, 4, 5];
 
     const texto = (row: ExcelJS.Row, col: number) => {
@@ -336,7 +338,7 @@ export class ProductoImportacionService {
         const descripcion = texto(row, 16 + numerosPrecios.length);
 
         const precioCompraSinIgv = costoUnitario;
-        const precioCompraConIgv = afectaIgv ? redondear4(costoUnitario * 1.18) : costoUnitario;
+        const precioCompraConIgv = afectaIgv ? redondear4(costoUnitario * factorIgv) : costoUnitario;
 
         await this.prisma.$transaction(
           async (tx) => {

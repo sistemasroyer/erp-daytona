@@ -18,6 +18,7 @@ import type { Proveedor } from '@/types/proveedor';
 import type { DetalleImportadoXml } from '@/types/compra';
 import type { Gasto } from '@/types/gasto';
 import type { CodigoProveedor } from '@/types/producto';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -86,10 +87,10 @@ function redondear2(v: number) {
   return Math.round(v * 100) / 100;
 }
 
-function getImporteLinea(item: ItemCompra, modo: ModoIngreso) {
+function getImporteLinea(item: ItemCompra, modo: ModoIngreso, factorIgvTasa: number) {
   const v = item.valor || 0;
   const cant = item.cantidad || 1;
-  const igvFactor = item.afecta_igv ? 1.18 : 1;
+  const igvFactor = item.afecta_igv ? factorIgvTasa : 1;
   switch (modo) {
     case 'precio_sin_igv': return v * cant * igvFactor;
     case 'precio_con_igv': return v * cant;
@@ -99,15 +100,16 @@ function getImporteLinea(item: ItemCompra, modo: ModoIngreso) {
   }
 }
 
-function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso) {
-  const importeLinea = getImporteLinea(item, modo);
-  const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso, factorIgvTasa: number) {
+  const importeLinea = getImporteLinea(item, modo, factorIgvTasa);
+  const base = item.afecta_igv ? importeLinea / factorIgvTasa : importeLinea;
   return item.cantidad > 0 ? base / item.cantidad : 0;
 }
 
 export function NuevaCompraPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'boleta' | 'nota' | 'otros'>('factura');
@@ -198,9 +200,9 @@ export function NuevaCompraPage() {
     if (ultimoCosto > 0) {
       switch (modoIngreso) {
         case 'precio_sin_igv': valorInicial = ultimoCosto; break;
-        case 'precio_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * 1.18) : ultimoCosto; break;
+        case 'precio_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * factorIgv) : ultimoCosto; break;
         case 'total_sin_igv': valorInicial = ultimoCosto; break;
-        case 'total_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * 1.18) : ultimoCosto; break;
+        case 'total_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * factorIgv) : ultimoCosto; break;
       }
     }
     setItems((prev) => [...prev, {
@@ -252,15 +254,15 @@ export function NuevaCompraPage() {
     let subtotal = 0;
     let igvTotal = 0;
     items.forEach((item) => {
-      const importeLinea = getImporteLinea(item, modoIngreso);
-      const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+      const importeLinea = getImporteLinea(item, modoIngreso, factorIgv);
+      const base = item.afecta_igv ? importeLinea / factorIgv : importeLinea;
       const igv = item.afecta_igv ? importeLinea - base : 0;
       subtotal += base;
       igvTotal += igv;
     });
     const total = subtotal + igvTotal;
     return { subtotal, igvTotal, total };
-  }, [items, modoIngreso]);
+  }, [items, modoIngreso, factorIgv]);
 
   const validacion = useMemo(() => {
     if (totalFacturaVerificacion === undefined || items.length === 0) return null;
@@ -355,7 +357,7 @@ export function NuevaCompraPage() {
         detalle: items.map((i) => ({
           id_producto: i.producto.id,
           cantidad: i.cantidad,
-          importe_linea: getImporteLinea(i, modoIngreso),
+          importe_linea: getImporteLinea(i, modoIngreso, factorIgv),
           afecta_igv: i.afecta_igv,
         })),
       });
@@ -380,7 +382,7 @@ export function NuevaCompraPage() {
 
       <BorradorBanner
         borradores={borradores}
-        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso), 0), d.moneda)}`}
+        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso, factorIgv), 0), d.moneda)}`}
         onRestaurar={restaurarBorrador}
         onDescartar={descartarBorradorLista}
       />
@@ -556,9 +558,9 @@ export function NuevaCompraPage() {
           >
 
             {items.length === 0 ? <Empty description="Agregue los productos de la factura" /> : items.map((item, idx) => {
-              const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso);
-              const importeLinea = getImporteLinea(item, modoIngreso);
-              const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+              const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso, factorIgv);
+              const importeLinea = getImporteLinea(item, modoIngreso, factorIgv);
+              const base = item.afecta_igv ? importeLinea / factorIgv : importeLinea;
               const igv = item.afecta_igv ? importeLinea - base : 0;
               const codigoExistente = proveedor ? item.producto.codigos_proveedor.find((c) => c.id_proveedor === proveedor.id) : undefined;
               return (
@@ -602,7 +604,7 @@ export function NuevaCompraPage() {
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Costo unit. c/IGV</Typography.Text>
                       <div style={{ background: '#e6f4ff', borderRadius: 4, padding: '2px 6px', textAlign: 'center', fontWeight: 600, color: '#0958d9', fontSize: 12 }}>
-                        {costoUnit > 0 ? `${simb} ${(item.afecta_igv ? costoUnit * 1.18 : costoUnit).toFixed(4)}` : '—'}
+                        {costoUnit > 0 ? `${simb} ${(item.afecta_igv ? costoUnit * factorIgv : costoUnit).toFixed(4)}` : '—'}
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: '#8c8c8c' }}>
@@ -669,7 +671,7 @@ export function NuevaCompraPage() {
               <strong>{formatMoneda(totales.subtotal, moneda)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span>IGV 18%</span>
+              <span>IGV {formatPorcentajeIgv(porcentajeIgv)}</span>
               <span>{formatMoneda(totales.igvTotal, moneda)}</span>
             </div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

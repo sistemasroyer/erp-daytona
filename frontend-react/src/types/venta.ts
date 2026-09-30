@@ -51,6 +51,7 @@ export interface Venta {
   moneda: 'PEN' | 'USD';
   subtotal: string;
   igv: string;
+  porcentaje_igv: string;
   total: string;
   estado_sunat: EstadoSunat;
   estado_venta: EstadoVenta;

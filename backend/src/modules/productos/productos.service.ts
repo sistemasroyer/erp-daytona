@@ -3,8 +3,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
-import { calcularIgv, redondear4 } from '../../common/utils/numero-documento.util';
+import { redondear4 } from '../../common/utils/numero-documento.util';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
 
 @Injectable()
 export class ProductosService {
@@ -27,10 +28,11 @@ export class ProductosService {
     let precioCompraSinIgv = dto.precio_compra_sin_igv || 0;
 
     if (dto.afecta_igv !== false) {
+      const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
       if (precioCompraSinIgv > 0 && precioCompraConIgv === 0) {
-        precioCompraConIgv = redondear4(precioCompraSinIgv * 1.18);
+        precioCompraConIgv = redondear4(precioCompraSinIgv * factorIgv);
       } else if (precioCompraConIgv > 0 && precioCompraSinIgv === 0) {
-        precioCompraSinIgv = redondear4(precioCompraConIgv / 1.18);
+        precioCompraSinIgv = redondear4(precioCompraConIgv / factorIgv);
       }
     }
 
@@ -192,8 +194,9 @@ export class ProductosService {
       let conIgv = dto.precio_compra_con_igv ?? Number(producto.precio_compra_con_igv);
 
       if (afectaIgv) {
-        if (dto.precio_compra_sin_igv !== undefined) conIgv = redondear4(sinIgv * 1.18);
-        else sinIgv = redondear4(conIgv / 1.18);
+        const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
+        if (dto.precio_compra_sin_igv !== undefined) conIgv = redondear4(sinIgv * factorIgv);
+        else sinIgv = redondear4(conIgv / factorIgv);
       }
 
       data.precio_compra_sin_igv = sinIgv;

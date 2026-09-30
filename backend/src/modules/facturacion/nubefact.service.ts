@@ -23,6 +23,8 @@ export interface NubefactComprobanteInput {
   fechaEmision: Date;
   moneda: 'PEN' | 'USD';
   tipoCambio?: number;
+  /** Tasa de IGV con la que se emitió el comprobante, en % (ej. 18). */
+  porcentajeIgv: number;
   cliente: {
     tipoDocumento: 'DNI' | 'RUC' | 'CE' | 'PASAPORTE';
     numeroDocumento: string;
@@ -110,7 +112,7 @@ export class NubefactService {
       fecha_de_emision: this.formatearFecha(input.fechaEmision),
       moneda: input.moneda === 'USD' ? 2 : 1,
       tipo_de_cambio: input.moneda === 'USD' ? input.tipoCambio : '',
-      porcentaje_de_igv: 18.0,
+      porcentaje_de_igv: input.porcentajeIgv,
       total_gravada: input.totales.gravada || '',
       total_inafecta: input.totales.inafecta || '',
       total_igv: input.totales.igv || '',

@@ -90,6 +90,7 @@ export class SunatEnvioService {
           fechaEmision: venta.fecha_emision,
           moneda: venta.moneda as any,
           tipoCambio: Number(venta.tipo_cambio),
+          porcentajeIgv: Number(venta.porcentaje_igv),
           cliente: {
             tipoDocumento: venta.cliente.tipo_documento as any,
             numeroDocumento: venta.cliente.numero_documento,

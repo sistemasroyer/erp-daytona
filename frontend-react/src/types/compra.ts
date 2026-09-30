@@ -40,6 +40,7 @@ export interface Compra {
   tipo_cambio: string;
   subtotal: string;
   igv: string;
+  porcentaje_igv: string;
   total: string;
   flete_monto: string;
   flete_moneda: 'PEN' | 'USD';

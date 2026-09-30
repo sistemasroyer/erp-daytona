@@ -13,6 +13,7 @@ export interface Empresa {
   web: string | null;
   logo_base64: string | null;
   regimen_tributario: string | null;
+  porcentaje_igv: string;
 }
 
 export interface UpdateEmpresaDto {
@@ -28,4 +29,5 @@ export interface UpdateEmpresaDto {
   web?: string;
   regimen_tributario?: string;
   logo_base64?: string;
+  porcentaje_igv?: number;
 }

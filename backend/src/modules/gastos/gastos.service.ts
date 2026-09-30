@@ -7,9 +7,9 @@ import { CreateGastoDto } from './dto/create-gasto.dto';
 import { PagarGastoDto } from './dto/pagar-gasto.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2 } from '../../common/utils/numero-documento.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
 import { finDeDia } from '../../common/utils/fecha.util';
 
-const TASA_IGV = 0.18;
 
 const INCLUDE_DETALLE = {
   proveedor: { select: { razon_social: true, ruc: true } },
@@ -55,11 +55,12 @@ export class GastosService {
 
     const moneda = dto.moneda || 'PEN';
     const tipoCambio = moneda === 'USD' ? (dto.tipo_cambio || 1) : 1;
+    const tasaIgv = await obtenerTasaIgv(this.prisma);
 
     const detalleCalculado = dto.detalle.map((item) => {
       const cantidad = item.cantidad || 1;
       const afectaIgv = item.afecta_igv !== false;
-      const subtotal = afectaIgv ? redondear2(item.importe_linea / (1 + TASA_IGV)) : redondear2(item.importe_linea);
+      const subtotal = afectaIgv ? redondear2(item.importe_linea / (1 + tasaIgv)) : redondear2(item.importe_linea);
       const igv = afectaIgv ? redondear2(item.importe_linea - subtotal) : 0;
       return {
         descripcion: item.descripcion,

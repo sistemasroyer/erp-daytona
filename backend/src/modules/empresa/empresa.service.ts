@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
-  IsString, IsOptional, IsEmail,
+  IsString, IsOptional, IsEmail, IsNumber, Min, Max,
 } from 'class-validator';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -17,6 +17,8 @@ export class UpdateEmpresaDto {
   @IsOptional() @IsString() web?: string;
   @IsOptional() @IsString() regimen_tributario?: string;
   @IsOptional() @IsString() logo_base64?: string;
+  /** Tasa de IGV en % (Perú: 18). Solo afecta a documentos nuevos. */
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(50) porcentaje_igv?: number;
 }
 
 @Injectable()

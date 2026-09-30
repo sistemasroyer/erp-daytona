@@ -4,6 +4,7 @@ import { StockInsuficienteException } from '../../common/exceptions/stock-insufi
 import { ConcurrenciaException } from '../../common/exceptions/concurrencia.exception';
 import { finDeDia } from '../../common/utils/fecha.util';
 import { Prisma } from '@prisma/client';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
 
 export interface MovimientoInventarioInput {
   idProducto: string;
@@ -187,13 +188,14 @@ export class InventarioRepository {
         ? costoNuevo
         : (stockAnterior * costoAnterior + cantidadEntrada * costoNuevo) /
           (stockAnterior + cantidadEntrada);
+    const tasaIgv = await obtenerTasaIgv(tx);
 
     await tx.tbl_productos.update({
       where: { id: idProducto },
       data: {
         costo_promedio: parseFloat(nuevoPromedio.toFixed(4)),
         precio_compra_sin_igv: parseFloat(nuevoPromedio.toFixed(4)),
-        precio_compra_con_igv: parseFloat((nuevoPromedio * 1.18).toFixed(4)),
+        precio_compra_con_igv: parseFloat((nuevoPromedio * (1 + tasaIgv)).toFixed(4)),
         fecha_ultima_compra: new Date(),
         version: { increment: 1 },
       },
