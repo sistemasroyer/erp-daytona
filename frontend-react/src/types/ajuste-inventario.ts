@@ -24,6 +24,8 @@ export interface AjusteInventario {
   motivo: MotivoAjusteInventario;
   observaciones: string | null;
   almacen?: { nombre: string };
+  /** Usuario que registró el ajuste (resuelto desde `usuario_creacion`). */
+  usuario?: { nombre: string; apellido: string } | null;
   detalle: DetalleAjusteInventario[];
 }
 

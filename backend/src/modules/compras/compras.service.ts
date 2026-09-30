@@ -283,6 +283,7 @@ export class ComprasService {
         include: {
           proveedor: { select: { razon_social: true, ruc: true } },
           almacen: { select: { nombre: true } },
+          usuario: { select: { nombre: true, apellido: true } },
           _count: { select: { detalle: true } },
         },
       }),

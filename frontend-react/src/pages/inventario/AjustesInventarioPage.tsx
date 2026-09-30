@@ -10,6 +10,7 @@ import { almacenesApi } from '@/api/almacenes';
 import { usePagination } from '@/hooks/usePagination';
 import { MOTIVO_AJUSTE_LABEL, type AjusteInventario } from '@/types/ajuste-inventario';
 import { AjusteDetalleModal } from './AjusteDetalleModal';
+import { nombreUsuario } from '@/utils/format';
 
 export function AjustesInventarioPage() {
   const { page, setPage, limit } = usePagination(20);
@@ -30,6 +31,7 @@ export function AjustesInventarioPage() {
     { title: 'Almacén', render: (_, a) => a.almacen?.nombre || '-' },
     { title: 'Motivo', align: 'center', render: (_, a) => <Tag color="gold">{MOTIVO_AJUSTE_LABEL[a.motivo] || a.motivo}</Tag> },
     { title: 'Ítems', align: 'center', render: (_, a) => a.detalle?.length ?? 0 },
+    { title: 'Registrado por', render: (_, x) => nombreUsuario(x.usuario) },
     { title: '', align: 'center', width: 60, render: (_, a) => <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalleId(a.id)} /> },
   ];
 

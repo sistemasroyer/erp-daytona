@@ -8,7 +8,7 @@ import { metodosPagoApi } from '@/api/metodos-pago';
 import { cajaApi } from '@/api/caja';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, nombreUsuario } from '@/utils/format';
 import { CATEGORIAS_GASTO_LABEL } from '@/types/gasto';
 import type { Gasto, DetalleGasto } from '@/types/gasto';
 
@@ -89,6 +89,7 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="Proveedor vinculado">{gasto.proveedor?.razon_social || '-'}</Descriptions.Item>
           <Descriptions.Item label="Condición de pago">{gasto.condicion_pago === 'credito' ? `Crédito${gasto.fecha_vencimiento ? ` (vence ${new Date(gasto.fecha_vencimiento).toLocaleDateString('es-PE')})` : ''}` : 'Contado'}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={gasto.estado} /></Descriptions.Item>
+          <Descriptions.Item label="Registrado por">{nombreUsuario(gasto.usuario)}</Descriptions.Item>
           {gasto.observaciones && <Descriptions.Item label="Observaciones" span={2}>{gasto.observaciones}</Descriptions.Item>}
         </Descriptions>
 

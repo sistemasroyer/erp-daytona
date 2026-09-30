@@ -180,7 +180,18 @@ export class InventarioService {
       this.prisma.tbl_ajustes_inventario.count({ where }),
     ]);
 
-    return { data, total, page: pagination.page, limit: pagination.limit };
+    return { data: await this.conUsuario(data), total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** tbl_ajustes_inventario solo guarda el id en `usuario_creacion` (sin relación en el schema):
+   * se resuelve el nombre aparte, con la misma forma `usuario: { nombre, apellido }` que Compras/Gastos. */
+  private async conUsuario<A extends { usuario_creacion: string | null }>(ajustes: A[]) {
+    const ids = [...new Set(ajustes.map((a) => a.usuario_creacion).filter((id): id is string => !!id))];
+    const usuarios = ids.length
+      ? await this.prisma.tbl_usuarios.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true, apellido: true } })
+      : [];
+    const mapa = new Map(usuarios.map((u) => [u.id, { nombre: u.nombre, apellido: u.apellido }]));
+    return ajustes.map((a) => ({ ...a, usuario: a.usuario_creacion ? mapa.get(a.usuario_creacion) ?? null : null }));
   }
 
   async findOneAjuste(id: string) {
@@ -196,7 +207,7 @@ export class InventarioService {
       },
     });
     if (!ajuste) throw new NotFoundException('Ajuste no encontrado');
-    return ajuste;
+    return (await this.conUsuario([ajuste]))[0];
   }
 
   async transferir(dto: TransferenciaInventarioDto, usuarioId: string) {

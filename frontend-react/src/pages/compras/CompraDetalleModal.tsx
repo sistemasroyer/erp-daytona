@@ -8,7 +8,7 @@ import { comprasApi } from '@/api/compras';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format';
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
 
@@ -113,6 +113,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
             {compra.condicion_pago === 'credito' ? `Crédito${compra.fecha_vencimiento ? ` (vence ${new Date(compra.fecha_vencimiento).toLocaleDateString('es-PE')})` : ''}` : 'Contado'}
           </Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={compra.estado} /></Descriptions.Item>
+          <Descriptions.Item label="Registrado por">{nombreUsuario(compra.usuario)}</Descriptions.Item>
           {compra.observaciones && <Descriptions.Item label="Observaciones" span={2}>{compra.observaciones}</Descriptions.Item>}
         </Descriptions>
 

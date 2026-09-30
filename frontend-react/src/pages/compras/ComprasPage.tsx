@@ -8,7 +8,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { usePagination } from '@/hooks/usePagination';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format';
 import { TIPOS_DOC_COMPRA_LABEL, type Compra } from '@/types/compra';
 import { CompraDetalleModal } from './CompraDetalleModal';
 
@@ -44,6 +44,7 @@ export function ComprasPage() {
     { title: 'Total', align: 'right', render: (_, c) => <strong>{formatMoneda(penAMonedaOriginal(c.total, c.moneda, c.tipo_cambio), c.moneda)}</strong> },
     { title: 'Moneda', align: 'center', render: (_, c) => <Tag>{c.moneda}</Tag> },
     { title: 'Estado', align: 'center', render: (_, c) => <EstadoTag estado={c.estado} /> },
+    { title: 'Registrado por', render: (_, x) => nombreUsuario(x.usuario) },
     { title: '', align: 'center', width: 60, render: (_, c) => <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalleId(c.id)} /> },
   ];
 
