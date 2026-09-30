@@ -90,6 +90,10 @@ export function KardexPage() {
   const producto = productoData?.data;
   const items = kardexData?.data || [];
   const total = kardexData?.meta?.total ?? items.length;
+  // Saldo con el que arranca el período filtrado (lo que había antes del primer movimiento listado).
+  const saldoAnterior = pagina === 1 && items.length > 0 && filtrosAplicados.fecha_desde
+    ? { unidades: items[0].stock_anterior, valor: items[0].valor_saldo_anterior }
+    : null;
 
   const columns: ColumnsType<MovimientoKardex> = [
     { title: 'Fecha', dataIndex: 'fecha', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
@@ -97,15 +101,25 @@ export function KardexPage() {
       title: 'Tipo', dataIndex: 'tipo_movimiento',
       render: (v, k) => <Tag color={Number(k.cantidad_entrada) > 0 ? 'success' : 'error'}>{TIPO_MOVIMIENTO_LABEL[v] || v}</Tag>,
     },
-    { title: 'Referencia', render: (_, k) => <Typography.Text type="secondary">{etiquetaReferencia(k)}</Typography.Text> },
-    { title: 'N° Documento', render: (_, k) => k.numero_documento || '-' },
+    {
+      title: 'Documento', render: (_, k) => (
+        <>
+          <div>{k.numero_documento || '-'}</div>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{etiquetaReferencia(k)}</Typography.Text>
+        </>
+      ),
+    },
+    { title: 'Usuario', render: (_, k) => k.usuario || <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Entrada', align: 'right', render: (_, k) => Number(k.cantidad_entrada) > 0 ? <Typography.Text type="success" strong>{Number(k.cantidad_entrada).toFixed(0)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'Salida', align: 'right', render: (_, k) => Number(k.cantidad_salida) > 0 ? <Typography.Text type="danger" strong>{Number(k.cantidad_salida).toFixed(0)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text> },
     { title: 'C. Unitario', align: 'right', render: (_, k) => formatMoneda(k.costo_unitario) },
     { title: 'C. Total', align: 'right', render: (_, k) => formatMoneda(k.costo_total) },
-    { title: 'Stock', align: 'right', render: (_, k) => <strong>{Number(k.stock_resultante).toFixed(0)}</strong> },
+    { title: 'P. Venta', align: 'right', render: (_, k) => k.precio_venta ? formatMoneda(k.precio_venta) : <Typography.Text type="secondary">-</Typography.Text> },
+    { title: 'Costo Prom.', align: 'right', render: (_, k) => formatMoneda(k.costo_promedio) },
+    { title: 'Saldo (Und.)', align: 'right', fixed: 'right', render: (_, k) => <strong>{Number(k.stock_resultante).toFixed(0)}</strong> },
+    { title: 'Saldo (S/)', align: 'right', fixed: 'right', render: (_, k) => <strong>{formatMoneda(k.valor_saldo)}</strong> },
     {
-      title: '', width: 50, render: (_, k) => (
+      title: '', width: 50, fixed: 'right', render: (_, k) => (
         ['venta', 'compra', 'ajuste'].includes(k.tipo_referencia || '') && k.numero_documento
           ? <Button size="small" icon={<EyeOutlined />} onClick={() => abrirDocumento(k)} />
           : null
@@ -184,6 +198,12 @@ export function KardexPage() {
       <Card
         title={<><ClockCircleOutlined style={{ marginRight: 8 }} />Movimientos Kardex</>}
       >
+        {saldoAnterior && (
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+            Saldo anterior al {dayjs(filtrosAplicados.fecha_desde).format('DD/MM/YYYY')}:{' '}
+            <strong>{saldoAnterior.unidades.toFixed(0)} und.</strong> — <strong>{formatMoneda(saldoAnterior.valor)}</strong>
+          </Typography.Paragraph>
+        )}
         {idProducto
           ? <Table<MovimientoKardex>
               rowKey="id" columns={columns} dataSource={items} loading={isFetching} scroll={{ x: 'max-content' }}
