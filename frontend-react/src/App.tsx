@@ -53,6 +53,8 @@ import { PaquetesLetrasPage } from '@/pages/letras/PaquetesLetrasPage';
 import { PaqueteLetrasDetallePage } from '@/pages/letras/PaqueteLetrasDetallePage';
 import { ConfiguracionLetrasPage } from '@/pages/letras/ConfiguracionLetrasPage';
 import { GenerarLetrasPage } from '@/pages/letras/GenerarLetrasPage';
+import { LetrasPage } from '@/pages/letras/LetrasPage';
+import { CalendarioLetrasPage } from '@/pages/letras/CalendarioLetrasPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -141,6 +143,8 @@ export default function App() {
                       <Route path="/letras/paquetes" element={<PaquetesLetrasPage />} />
                       <Route path="/letras/paquetes/:id" element={<PaqueteLetrasDetallePage />} />
                       <Route path="/letras/configuracion" element={<ConfiguracionLetrasPage />} />
+                      <Route path="/letras" element={<LetrasPage />} />
+                      <Route path="/letras/calendario" element={<CalendarioLetrasPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="letras:crear" />}>

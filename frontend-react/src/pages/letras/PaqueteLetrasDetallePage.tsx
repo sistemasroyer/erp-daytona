@@ -17,6 +17,7 @@ import { useConfirmar } from '@/components/ConfirmModal';
 import { EstadoTag } from '@/components/EstadoTag';
 import { HistorialDocumento } from '@/components/HistorialDocumento';
 import { formatMoneda, nombreUsuario } from '@/utils/format';
+import { AccionesLetra } from './AccionesLetra';
 import {
   TIPO_DOCUMENTO_LETRA_LABEL, type CompraDisponible, type DocumentoLetra, type Letra, type PaqueteLetras, type TipoDocumentoLetra,
 } from '@/types/letras';
@@ -104,6 +105,7 @@ export function PaqueteLetrasDetallePage() {
     { title: 'Código banco', render: (_, l) => l.codigo_banco || '-' },
     { title: 'Estado', align: 'center', render: (_, l) => <EstadoTag estado={estadoLetraVisible(l)} /> },
     { title: 'Pago', render: (_, l) => l.estado === 'pagada' ? <>{l.fecha_pago_efectivo && dayjs(l.fecha_pago_efectivo).format('DD/MM/YYYY')} · {l.metodo_pago} {l.numero_operacion && `#${l.numero_operacion}`}<br /><Typography.Text type="secondary" style={{ fontSize: 12 }}>{nombreUsuario(l.usuario_pago)}</Typography.Text></> : '-' },
+    { title: '', width: 50, render: (_, l) => <AccionesLetra letra={l} /> },
   ];
 
   return (
@@ -193,7 +195,7 @@ export function PaqueteLetrasDetallePage() {
           locale={{ emptyText: <Empty description={puedeEditarDocs ? 'Agregue las facturas a crédito del proveedor desde Compras' : 'Sin documentos'} /> }} />
       </Card>
 
-      <Card size="small" title={`Letras${letras.length ? ` (${letras.length})` : ''}`}>
+      <Card size="small" title={`Letras${letras.length ? ` (${letras.length})` : ''}`} extra={letras.length > 0 && <ResumenLetrasPaquete paquete={paquete} letras={letras} />}>
         {letras.length
           ? <Table size="small" rowKey="id" columns={columnasLetras} dataSource={letras} pagination={false} />
           : <Empty description={paquete.estado === 'aprobado' ? 'Paquete aprobado: ya puede generar sus letras' : 'Las letras se generan cuando el paquete está aprobado'} />}
@@ -207,6 +209,21 @@ export function PaqueteLetrasDetallePage() {
       )}
       <CancelarModal open={cancelarAbierto} paquete={paquete} onClose={() => setCancelarAbierto(false)} onCancelado={() => { setCancelarAbierto(false); recargar(); }} />
     </div>
+  );
+}
+
+/** Pagado / pendiente de las letras, y aviso si ya no suman el monto del paquete (p. ej. tras eliminar una sin pasar su monto). */
+function ResumenLetrasPaquete({ paquete, letras }: { paquete: PaqueteLetras; letras: Letra[] }) {
+  const vigentes = letras.filter((l) => l.estado !== 'cancelada');
+  const pagado = vigentes.filter((l) => l.estado === 'pagada').reduce((s, l) => s + Number(l.monto), 0);
+  const total = vigentes.reduce((s, l) => s + Number(l.monto), 0);
+  const descuadre = paquete.estado !== 'cancelado' && Math.abs(total - Number(paquete.monto_total)) > 0.01;
+  return (
+    <Space size="middle" wrap>
+      <span>Pagado: <strong>{formatMoneda(pagado, paquete.moneda)}</strong></span>
+      <span>Pendiente: <strong>{formatMoneda(total - pagado, paquete.moneda)}</strong></span>
+      {descuadre && <Tag color="orange">Las letras suman {formatMoneda(total, paquete.moneda)}, no {formatMoneda(paquete.monto_total, paquete.moneda)}</Tag>}
+    </Space>
   );
 }
 

@@ -4,11 +4,13 @@ import { LetrasCatalogosService } from './letras-catalogos.service';
 import { LetrasPaquetesController } from './letras-paquetes.controller';
 import { LetrasPaquetesService } from './letras-paquetes.service';
 import { LetrasGeneracionService } from './letras-generacion.service';
+import { LetrasCuotasController } from './letras-cuotas.controller';
+import { LetrasCuotasService } from './letras-cuotas.service';
 
 /** Letras: cuentas por pagar a proveedores en cuotas (migrado de letras-daytona). */
 @Module({
-  controllers: [LetrasCatalogosController, LetrasPaquetesController],
-  providers: [LetrasCatalogosService, LetrasPaquetesService, LetrasGeneracionService],
+  controllers: [LetrasCatalogosController, LetrasPaquetesController, LetrasCuotasController],
+  providers: [LetrasCatalogosService, LetrasPaquetesService, LetrasGeneracionService, LetrasCuotasService],
   exports: [LetrasPaquetesService],
 })
 export class LetrasModule {}

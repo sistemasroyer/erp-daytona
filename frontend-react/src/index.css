@@ -23,3 +23,6 @@ input.ant-input::placeholder,
 textarea.ant-input::placeholder {
   text-transform: none;
 }
+
+/* Letras vencidas en los listados de Letras */
+.fila-vencida > td { background: #fff1f0 !important; }

@@ -199,3 +199,61 @@ export interface ConfigDistribucion {
   monto_maximo_preferido?: number;
   numero_cuotas?: number;
 }
+
+// ─── Letras (cuotas) ya generadas ───
+/** Letra con su paquete y proveedor (listado general y calendario). */
+export interface LetraConPaquete extends Letra {
+  paquete: {
+    id: string;
+    codigo: string;
+    estado: EstadoPaqueteLetras;
+    moneda: MonedaLetras;
+    proveedor: { id: string; ruc: string; razon_social: string };
+    banco: { id: string; nombre: string; siglas: string | null } | null;
+  };
+}
+
+/** "vencida" y "por_vencer" no se guardan: son pendientes con fecha de pago pasada / futura. */
+export type FiltroEstadoLetra = EstadoLetra | 'vencida' | 'por_vencer';
+
+export interface ListarLetrasParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  estado?: FiltroEstadoLetra;
+  id_proveedor?: string;
+  id_paquete?: string;
+  moneda?: MonedaLetras;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+}
+
+export type ResumenLetras = Record<MonedaLetras, Partial<Record<EstadoLetra | 'vencida', { cantidad: number; monto: number }>>>;
+
+export interface PagarLetraDto {
+  fecha_pago_efectivo: string;
+  metodo_pago: string;
+  numero_operacion?: string;
+  monto_pagado: number;
+  observaciones?: string;
+}
+
+export type ModoEliminarLetra = 'auto' | 'elegir' | 'ninguno';
+
+export interface DiaCalendarioLetras {
+  fecha: string;
+  /** Suma del día convertida a la moneda de la vista. */
+  total: number;
+  limite: number;
+  no_pago: string | null;
+  domingo: boolean;
+  letras: (LetraConPaquete & { monto_vista: number; vencida: boolean })[];
+}
+
+export interface CalendarioLetras {
+  moneda: MonedaLetras;
+  tipo_cambio: number;
+  dias: DiaCalendarioLetras[];
+}
+
+export const METODOS_PAGO_LETRA = ['TRANSFERENCIA', 'DEPÓSITO', 'CARGO EN CUENTA', 'CHEQUE', 'EFECTIVO'];

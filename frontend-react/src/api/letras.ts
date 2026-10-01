@@ -2,6 +2,7 @@ import { api } from './client';
 import type {
   AnalisisDistribucion, Banco, CompraDisponible, ConfigDistribucion, CreatePaqueteDto, DiaNoPago, DocumentoLetra, DocumentoLetraDto, EstadoPaqueteLetras,
   LimitePagoDia, ListarPaquetesParams, MonedaLetras, PaqueteLetras,
+  CalendarioLetras, LetraConPaquete, ListarLetrasParams, ModoEliminarLetra, PagarLetraDto, ResumenLetras,
 } from '@/types/letras';
 
 export const letrasCatalogosApi = {
@@ -44,4 +45,17 @@ export const letrasPaquetesApi = {
   analizar: (id: string, config: ConfigDistribucion) => api.get<AnalisisDistribucion>(`/letras/paquetes/${id}/analisis`, config),
   generar: (id: string, letras: { fecha_pago: string; monto: number }[], regenerar: boolean) =>
     api.post<{ id: string; letras: number; regenerado: boolean }>(`/letras/paquetes/${id}/generar`, { letras, regenerar }),
+};
+
+export const letrasCuotasApi = {
+  listar: (params: ListarLetrasParams) => api.get<LetraConPaquete[]>('/letras/cuotas', params),
+  resumen: (params: ListarLetrasParams) => api.get<ResumenLetras>('/letras/cuotas/resumen', params),
+  pagar: (id: string, dto: PagarLetraDto) => api.patch<{ id: string; paquete_completado: boolean }>(`/letras/cuotas/${id}/pagar`, dto),
+  codigoBanco: (id: string, codigo_banco: string) => api.patch<{ id: string }>(`/letras/cuotas/${id}/codigo-banco`, { codigo_banco }),
+  cambiarMonto: (id: string, monto: number) => api.patch<{ id: string; redistribuidas: number }>(`/letras/cuotas/${id}/monto`, { monto }),
+  /** Con `forzar` se mueve aunque el día pase su límite + 10%. */
+  cambiarFecha: (id: string, fecha_pago: string, forzar = false) =>
+    api.patch<{ id: string; excede: boolean; total_dia: number; limite_dia: number }>(`/letras/cuotas/${id}/fecha`, { fecha_pago, forzar }),
+  eliminar: (id: string, modo: ModoEliminarLetra, id_destino?: string) => api.patch<{ id: string }>(`/letras/cuotas/${id}/eliminar`, { modo, id_destino }),
+  calendario: (desde: string, hasta: string, moneda: MonedaLetras) => api.get<CalendarioLetras>('/letras/calendario', { desde, hasta, moneda }),
 };
