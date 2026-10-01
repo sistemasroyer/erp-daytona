@@ -70,6 +70,8 @@ export interface PaqueteLetras extends ConHistorial {
   usuario?: UsuarioResumen | null;
   documentos?: DocumentoLetra[];
   letras?: Letra[];
+  /** Solo en el detalle: NC de Compras sobre sus facturas que no están en ningún paquete. */
+  nc_fuera_del_paquete?: { id: string; numero_interno: string; serie: string | null; numero: string | null }[];
 }
 
 export interface DocumentoLetra {

@@ -4,9 +4,10 @@ import { CompraXmlService } from './compra-xml.service';
 import { ComprasController } from './compras.controller';
 import { InventarioModule } from '../inventario/inventario.module';
 import { ConfigMargenesModule } from '../config-margenes/config-margenes.module';
+import { LetrasModule } from '../letras/letras.module';
 
 @Module({
-  imports: [InventarioModule, ConfigMargenesModule],
+  imports: [InventarioModule, ConfigMargenesModule, LetrasModule],
   controllers: [ComprasController],
   providers: [ComprasService, CompraXmlService],
   exports: [ComprasService, CompraXmlService],

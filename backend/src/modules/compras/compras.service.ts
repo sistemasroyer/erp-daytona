@@ -15,6 +15,7 @@ import { Prisma } from '@prisma/client';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
 import { aMayusculas } from '../../common/utils/texto.util';
 import { serializarFechas } from '../letras/fechas';
+import { LetrasPaquetesService } from '../letras/letras-paquetes.service';
 
 /** Documento de letras que cuenta: no eliminado y en un paquete no eliminado ni cancelado. */
 const DOC_LETRAS_VIGENTE = { eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' as const } } };
@@ -27,6 +28,7 @@ export class ComprasService {
     private inventarioRepo: InventarioRepository,
     private eventEmitter: EventEmitter2,
     private configMargenes: ConfigMargenesService,
+    private letrasPaquetes: LetrasPaquetesService,
   ) {}
 
   async create(dto: CreateCompraDto, usuarioId: string) {
@@ -422,6 +424,8 @@ export class ComprasService {
 
   async crearNotaCreditoCompra(idCompraOriginal: string, dto: CreateNotaCreditoCompraDto, usuarioId: string) {
     dto = aMayusculas(dto, ['serie', 'motivo']);
+    // Motivo 01 (anulación de la operación) anula la factura original: mismas reglas que Anular.
+    if (dto.codigo_motivo === '01') await this.assertFueraDeLetras(idCompraOriginal);
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_compras.findFirst({
         where: { id: idCompraOriginal, eliminado: false },
@@ -584,7 +588,10 @@ export class ComprasService {
         });
       }
 
-      return tx.tbl_compras.findFirst({
+      // Si la factura está en un paquete de letras: en Borrador la NC se agrega sola; si no, se avisa.
+      const letras = await this.letrasPaquetes.ubicarNotaCreditoEnTx(tx, nc.id, original.id, usuarioId);
+
+      const creada = await tx.tbl_compras.findFirst({
         where: { id: nc.id },
         include: {
           proveedor: { select: { razon_social: true, ruc: true } },
@@ -592,6 +599,7 @@ export class ComprasService {
           detalle: { include: { producto: { select: { nombre: true, codigo: true } } } },
         },
       });
+      return { ...creada, letras };
     }, {
       maxWait: 15000,
       timeout: 60000,

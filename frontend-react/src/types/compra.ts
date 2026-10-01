@@ -66,6 +66,16 @@ export interface Compra extends ConHistorial {
   letras?: LetrasDeCompra | null;
 }
 
+/** Qué pasó en Letras al registrar una NC de compra (null si su factura no está en un paquete). */
+export interface LetrasDeNotaCredito {
+  id_paquete: string;
+  codigo: string;
+  estado: EstadoPaqueteLetras;
+  /** true: se agregó sola al paquete (estaba en Borrador). */
+  agregada: boolean;
+  mensaje: string;
+}
+
 export interface LetrasDeCompra {
   id: string;
   codigo: string;

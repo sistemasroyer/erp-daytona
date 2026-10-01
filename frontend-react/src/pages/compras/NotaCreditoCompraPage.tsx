@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { App, Card, Table, Button, Input, Select, Switch, InputNumber, Typography, Space, DatePicker } from 'antd';
 import { SearchOutlined, ArrowLeftOutlined, FileExcelOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -37,7 +37,8 @@ interface BorradorNcCompra {
 }
 
 export function NotaCreditoCompraPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
 
   const [buscando, setBuscando] = useState(false);
@@ -176,6 +177,15 @@ export function NotaCreditoCompraPage() {
         detalle,
       });
       message.success(`Nota de Crédito ${nc.serie ? `${nc.serie}-${nc.numero}` : nc.numero || ''} registrada correctamente`);
+      // Su factura estaba en un paquete de letras: avisar qué pasó con el descuento.
+      // (Typography.Link + navigate: el modal se dibuja fuera del Router, un <Link> ahí rompe la página.)
+      if (nc.letras) {
+        const idPaquete = nc.letras.id_paquete;
+        const aviso = { content: <>{nc.letras.mensaje} <Typography.Link onClick={() => { ventana.destroy(); navigate(`/letras/paquetes/${idPaquete}`); }}>Ver paquete {nc.letras.codigo}</Typography.Link></>, width: 520 };
+        const ventana = nc.letras.agregada
+          ? modal.success({ title: 'Nota de crédito agregada a letras', ...aviso })
+          : modal.warning({ title: 'Revise el paquete de letras', ...aviso });
+      }
       borrador.limpiar();
       setCompra(null);
       setItems([]);

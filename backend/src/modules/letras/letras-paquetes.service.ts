@@ -97,8 +97,19 @@ export class LetrasPaquetesService {
     const usuarioCreacion = paquete.usuario_creacion
       ? await this.prisma.tbl_usuarios.findFirst({ where: { id: paquete.usuario_creacion }, select: { nombre: true, apellido: true } })
       : null;
+    // Notas de crédito de sus facturas que no están en ningún paquete: un descuento que se perdería.
+    const idsFacturas = paquete.documentos.map((d) => d.id_compra).filter((x): x is string => !!x);
+    const ncFueraDelPaquete = idsFacturas.length && !['completado', 'cancelado'].includes(paquete.estado)
+      ? await this.prisma.tbl_compras.findMany({
+          where: {
+            id_compra_original: { in: idsFacturas }, tipo_documento: 'nota_credito', estado: 'registrada', eliminado: false,
+            documentos_letras: { none: { eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' } } } },
+          },
+          select: { id: true, numero_interno: true, serie: true, numero: true },
+        })
+      : [];
     // El historial lleva fecha Y hora: no pasa por serializarFechas (que deja solo el día).
-    return { ...serializarFechas({ ...paquete, usuario: usuarioCreacion }), ...historial };
+    return { ...serializarFechas({ ...paquete, usuario: usuarioCreacion }), nc_fuera_del_paquete: ncFueraDelPaquete, ...historial };
   }
 
   // ─── Alta / edición ────────────────────────────────────────────────────────
@@ -308,6 +319,36 @@ export class LetrasPaquetesService {
       await this.importarEnTx(tx, paquete, dto.ids, usuarioId);
       return { importados: dto.ids.length };
     });
+  }
+
+  /**
+   * Nota de crédito de compra recién registrada (dentro de la transacción de Compras): si su factura
+   * está en un paquete en Borrador, se agrega sola al paquete; si el paquete ya avanzó, se devuelve un
+   * aviso de qué hacer (queda disponible para descontarse en otro paquete del proveedor).
+   */
+  async ubicarNotaCreditoEnTx(tx: Tx, idNc: string, idCompraOriginal: string, usuarioId: string) {
+    const doc = await tx.tbl_letras_documentos.findFirst({
+      where: { id_compra: idCompraOriginal, eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' } } },
+      select: { paquete: { select: { id: true, codigo: true, estado: true, id_proveedor: true, moneda: true } } },
+    });
+    if (!doc) return null;
+    const p = doc.paquete;
+    const base = { id_paquete: p.id, codigo: p.codigo, estado: p.estado };
+    if (p.estado === 'borrador') {
+      await this.importarEnTx(tx, p, [idNc], usuarioId);
+      return { ...base, agregada: true, mensaje: `La nota de crédito se agregó al paquete de letras ${p.codigo} (Borrador) y su total bajó.` };
+    }
+    const queHacer: Record<string, string> = {
+      pendiente_aprobacion: 'Para descontarla de este paquete, devuélvalo a Borrador y agréguela con "Agregar desde Compras".',
+      aprobado: 'Para descontarla de este paquete, reábralo y agréguela con "Agregar desde Compras".',
+      en_proceso: 'Ese paquete ya tiene letras generadas, así que no se cambió.',
+      completado: 'Ese paquete ya está pagado, así que no se cambió.',
+    };
+    return {
+      ...base, agregada: false,
+      mensaje: `La factura de esta nota de crédito está en el paquete de letras ${p.codigo}. ${queHacer[p.estado] ?? ''} `
+        + 'Si no, la nota queda disponible para descontarse en el próximo paquete de este proveedor.',
+    };
   }
 
   private async importarEnTx(tx: Tx, paquete: { id: string; id_proveedor: string; moneda: 'PEN' | 'USD' }, ids: string[], usuarioId: string) {
