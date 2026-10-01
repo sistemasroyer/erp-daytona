@@ -293,7 +293,7 @@ export class ComprasService {
         take: Number(pagination.limit) || 20,
         orderBy: { fecha_emision: 'desc' },
         include: {
-          proveedor: { select: { razon_social: true, ruc: true } },
+          proveedor: { select: { razon_social: true, ruc: true, dias_credito: true, letras_pago_unico: true } },
           almacen: { select: { nombre: true } },
           usuario: { select: { nombre: true, apellido: true } },
           _count: { select: { detalle: true } },

@@ -55,7 +55,8 @@ export interface Compra extends ConHistorial {
   id_compra_original: string | null;
   motivo_nota: string | null;
   codigo_motivo_nota: string | null;
-  proveedor?: { razon_social: string; ruc: string };
+  /** El detalle trae el proveedor completo; el listado, solo razón social y RUC. */
+  proveedor?: { razon_social: string; ruc: string; dias_credito?: number; letras_pago_unico?: boolean };
   proveedor_flete?: { id: string; razon_social: string; ruc: string };
   almacen?: { id: string; nombre: string };
   usuario?: { nombre: string; apellido: string };

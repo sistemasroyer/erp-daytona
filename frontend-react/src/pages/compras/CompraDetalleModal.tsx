@@ -13,6 +13,8 @@ import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format'
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
 import { HistorialDocumento } from '@/components/HistorialDocumento';
+import { useAuth } from '@/auth/AuthContext';
+import { AgregarALetrasModal } from '@/pages/letras/AgregarALetrasModal';
 import { estadoLetraVisible } from '@/pages/letras/PaqueteLetrasDetallePage';
 
 interface Props {
@@ -27,6 +29,8 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [modalGastoFlete, setModalGastoFlete] = useState(false);
+  const [pasarALetras, setPasarALetras] = useState(false);
+  const { hasPermiso } = useAuth();
 
   const { data, isFetching } = useQuery({
     queryKey: ['compra', id],
@@ -194,7 +198,10 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
             )}
           </div>
         ) : compra.condicion_pago === 'credito' && compra.estado === 'registrada' && compra.tipo_documento !== 'nota_credito' && (
-          <Alert type="warning" showIcon style={{ marginTop: 12 }} title="Factura a crédito todavía sin paquete de letras." />
+          <Alert
+            type="warning" showIcon style={{ marginTop: 12 }} title="Factura a crédito todavía sin paquete de letras."
+            action={hasPermiso('letras:crear') && <Button size="small" onClick={() => setPasarALetras(true)}>Pasar a letras</Button>}
+          />
         )}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>Costeo de inventario</Typography.Title>
@@ -205,6 +212,15 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered scroll={{ x: 'max-content' }} />
       </Modal>
 
+      {pasarALetras && (
+        <AgregarALetrasModal
+          compras={[{ id: compra.id, documento: numero || compra.numero_interno, fecha_vencimiento: compra.fecha_vencimiento?.slice(0, 10) ?? null }]}
+          proveedor={{ id: compra.id_proveedor, razon_social: compra.proveedor?.razon_social ?? '', dias_credito: compra.proveedor?.dias_credito ?? 0, letras_pago_unico: !!compra.proveedor?.letras_pago_unico }}
+          moneda={compra.moneda}
+          onClose={() => setPasarALetras(false)}
+          onListo={() => { setPasarALetras(false); recargar(); }}
+        />
+      )}
       <GastoFormModal
         open={modalGastoFlete}
         inicial={{

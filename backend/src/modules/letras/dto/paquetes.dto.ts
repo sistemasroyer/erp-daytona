@@ -1,4 +1,4 @@
-import { ArrayNotEmpty, IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { PartialType, PickType } from '@nestjs/swagger';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
@@ -10,6 +10,8 @@ export class CreatePaqueteDto {
   @IsInt() @Min(0) @Max(365) dias_credito: number;
   @IsInt() @Min(1) @Max(36) numero_cuotas: number;
   @IsOptional() @IsString() @MaxLength(500) comentarios?: string;
+  /** Compras (facturas a crédito / NC) con las que nace el paquete, cuando se crea desde Compras. */
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsUUID('all', { each: true }) ids_compras?: string[];
 }
 
 /** Proveedor y moneda no se cambian una vez creado (los documentos dependen de ellos). */

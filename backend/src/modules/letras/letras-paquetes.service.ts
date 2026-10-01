@@ -115,15 +115,19 @@ export class LetrasPaquetesService {
     for (let intento = 0; intento < 3; intento++) {
       const codigo = await this.generarCodigo(proveedor.razon_social, proveedor.ruc);
       try {
-        const paquete = await this.prisma.tbl_letras_paquetes.create({
-          data: {
-            codigo, id_proveedor: dto.id_proveedor, id_banco: dto.id_banco, moneda: dto.moneda,
-            fecha_inicio_pago: aFecha(dto.fecha_inicio_pago),
-            fecha_fin_pago: aFecha(sumarDias(dto.fecha_inicio_pago, dto.dias_credito)),
-            dias_credito: dto.dias_credito, numero_cuotas: dto.numero_cuotas, comentarios: dto.comentarios,
-            usuario_creacion: usuarioId,
-          },
-          include: INCLUDE_LISTADO,
+        const paquete = await this.prisma.$transaction(async (tx) => {
+          const creado = await tx.tbl_letras_paquetes.create({
+            data: {
+              codigo, id_proveedor: dto.id_proveedor, id_banco: dto.id_banco, moneda: dto.moneda,
+              fecha_inicio_pago: aFecha(dto.fecha_inicio_pago),
+              fecha_fin_pago: aFecha(sumarDias(dto.fecha_inicio_pago, dto.dias_credito)),
+              dias_credito: dto.dias_credito, numero_cuotas: dto.numero_cuotas, comentarios: dto.comentarios,
+              usuario_creacion: usuarioId,
+            },
+          });
+          // Creado desde Compras: el paquete nace ya con esas facturas (todo o nada).
+          if (dto.ids_compras?.length) await this.importarEnTx(tx, creado, dto.ids_compras, usuarioId);
+          return tx.tbl_letras_paquetes.findUniqueOrThrow({ where: { id: creado.id }, include: INCLUDE_LISTADO });
         });
         return serializarFechas(paquete);
       } catch (err) {
@@ -301,25 +305,29 @@ export class LetrasPaquetesService {
     const paquete = await this.obtenerBase(idPaquete);
     this.assertEstado(paquete.estado, ['borrador'], 'agregar documentos');
     return this.prisma.$transaction(async (tx) => {
-      const disponibles = await this.buscarComprasDisponibles(tx, paquete.id_proveedor, paquete.moneda);
-      const porId = new Map(disponibles.map((c) => [c.id, c]));
-      const noDisponibles = dto.ids.filter((id) => !porId.has(id));
-      if (noDisponibles.length) {
-        throw new BadRequestException(`${noDisponibles.length} compra(s) ya no están disponibles (otro paquete, otra moneda o no son a crédito). Actualice la lista.`);
-      }
-      for (const id of dto.ids) {
-        const c = porId.get(id)!;
-        await tx.tbl_letras_documentos.create({
-          data: {
-            id_paquete: idPaquete, id_compra: c.id, tipo: c.tipo, serie: c.serie, numero: c.numero, moneda: paquete.moneda,
-            monto: c.monto, fecha_emision: c.fecha_emision, fecha_vencimiento: c.fecha_vencimiento,
-            dias_credito: c.dias_credito, usuario_creacion: usuarioId,
-          },
-        });
-      }
-      await this.recalcularTotal(tx, idPaquete);
+      await this.importarEnTx(tx, paquete, dto.ids, usuarioId);
       return { importados: dto.ids.length };
     });
+  }
+
+  private async importarEnTx(tx: Tx, paquete: { id: string; id_proveedor: string; moneda: 'PEN' | 'USD' }, ids: string[], usuarioId: string) {
+    const disponibles = await this.buscarComprasDisponibles(tx, paquete.id_proveedor, paquete.moneda);
+    const porId = new Map(disponibles.map((c) => [c.id, c]));
+    const noDisponibles = ids.filter((id) => !porId.has(id));
+    if (noDisponibles.length) {
+      throw new BadRequestException(`${noDisponibles.length} compra(s) no se pueden agregar: ya están en otro paquete, son de otro proveedor u otra moneda, o no son a crédito. Actualice la lista.`);
+    }
+    for (const id of new Set(ids)) {
+      const c = porId.get(id)!;
+      await tx.tbl_letras_documentos.create({
+        data: {
+          id_paquete: paquete.id, id_compra: c.id, tipo: c.tipo, serie: c.serie, numero: c.numero, moneda: paquete.moneda,
+          monto: c.monto, fecha_emision: c.fecha_emision, fecha_vencimiento: c.fecha_vencimiento,
+          dias_credito: c.dias_credito, usuario_creacion: usuarioId,
+        },
+      });
+    }
+    await this.recalcularTotal(tx, paquete.id);
   }
 
   private buscarComprasDisponibles(db: Tx | PrismaService, idProveedor: string, moneda: 'PEN' | 'USD') {

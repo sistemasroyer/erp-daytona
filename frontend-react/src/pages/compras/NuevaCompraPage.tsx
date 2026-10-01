@@ -21,6 +21,8 @@ import type { Gasto } from '@/types/gasto';
 import type { CodigoProveedor } from '@/types/producto';
 import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 import { OpcionProducto } from '@/components/OpcionProducto';
+import { useAuth } from '@/auth/AuthContext';
+import { AgregarALetrasModal, type CompraParaLetras } from '@/pages/letras/AgregarALetrasModal';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -111,6 +113,8 @@ function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso, factorIgvTa
 export function NuevaCompraPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { hasPermiso } = useAuth();
+  const [pasarALetras, setPasarALetras] = useState<CompraParaLetras | null>(null);
   const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -341,7 +345,7 @@ export function NuevaCompraPage() {
     const tc = moneda === 'USD' ? tipoCambio : 1;
     setGuardando(true);
     try {
-      await comprasApi.crear({
+      const { data: creada } = await comprasApi.crear({
         tipo_documento: tipoDocumento,
         serie: serie.trim() || undefined,
         numero: numero.trim(),
@@ -367,7 +371,12 @@ export function NuevaCompraPage() {
       });
       message.success('Compra registrada');
       limpiarBorrador();
-      navigate('/compras');
+      // Factura a crédito: ofrecer pasarla a letras de una vez (o dejarla para después).
+      if (condicionPago === 'credito' && hasPermiso('letras:crear')) {
+        setPasarALetras({ id: creada.id, documento: `${creada.serie ? `${creada.serie}-` : ''}${creada.numero ?? creada.numero_interno}`, fecha_vencimiento: creada.fecha_vencimiento?.slice(0, 10) ?? null });
+      } else {
+        navigate('/compras');
+      }
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar la compra');
     } finally {
@@ -706,6 +715,12 @@ export function NuevaCompraPage() {
           </Card>
         </div>
       </div>
+      {pasarALetras && proveedor && (
+        <AgregarALetrasModal
+          compras={[pasarALetras]} proveedor={proveedor} moneda={moneda} textoCancelar="Más tarde"
+          onClose={() => navigate('/compras')} onListo={() => navigate('/compras')}
+        />
+      )}
       <ProveedorNuevoModal
         open={nuevoProveedorPara !== null}
         onClose={() => setNuevoProveedorPara(null)}

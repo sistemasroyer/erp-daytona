@@ -127,6 +127,8 @@ export interface CreatePaqueteDto {
   dias_credito: number;
   numero_cuotas: number;
   comentarios?: string;
+  /** Compras con las que nace el paquete (al crearlo desde Compras). */
+  ids_compras?: string[];
 }
 
 export interface DocumentoLetraDto {
