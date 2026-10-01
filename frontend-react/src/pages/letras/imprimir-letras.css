@@ -1,0 +1,36 @@
+/* Hojas A4 imprimibles de Letras. El @page A4 lo inyecta <Hoja> mientras está montada (ver ImprimirLetrasPages.tsx). */
+
+.hoja-letras {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 16px auto;
+  padding: 12mm;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+}
+.hoja-letras .cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #1f4e79; padding-bottom: 8px; margin-bottom: 12px; }
+.hoja-letras .cabecera img { max-height: 18mm; max-width: 45mm; }
+.hoja-letras h1 { font-size: 16px; margin: 0 0 2px; color: #1f4e79; }
+.hoja-letras h2 { font-size: 12px; margin: 14px 0 4px; color: #1f4e79; text-transform: uppercase; }
+.hoja-letras .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+.hoja-letras .datos b { display: inline-block; min-width: 95px; }
+.hoja-letras table { width: 100%; border-collapse: collapse; }
+.hoja-letras th, .hoja-letras td { border: 1px solid #bfbfbf; padding: 3px 5px; text-align: left; }
+.hoja-letras th { background: #dde8f3; }
+.hoja-letras .der { text-align: right; white-space: nowrap; }
+.hoja-letras .centro { text-align: center; }
+.hoja-letras tfoot td { font-weight: 700; background: #f2f2f2; }
+.hoja-letras .rojo { color: #cf1322; }
+.hoja-letras .firmas { display: flex; justify-content: space-around; margin-top: 50px; }
+.hoja-letras .firmas div { border-top: 1px solid #000; width: 60mm; text-align: center; padding-top: 4px; }
+.hoja-letras .pie { margin-top: 16px; font-size: 9px; color: #666; text-align: right; }
+.barra-imprimir { padding: 12px; text-align: center; }
+
+@media print {
+  .barra-imprimir { display: none; }
+  .hoja-letras { margin: 0; padding: 0; width: auto; min-height: 0; box-shadow: none; }
+}

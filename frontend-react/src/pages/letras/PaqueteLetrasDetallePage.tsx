@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  ArrowLeftOutlined, CheckOutlined, DeleteOutlined, EditOutlined, FileAddOutlined, RollbackOutlined, SendOutlined,
+  ArrowLeftOutlined, CheckOutlined, DeleteOutlined, EditOutlined, FileAddOutlined, PrinterOutlined, RollbackOutlined, SendOutlined,
   ShoppingCartOutlined, StopOutlined, ThunderboltOutlined, UndoOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -135,6 +135,7 @@ export function PaqueteLetrasDetallePage() {
           {paquete.estado === 'aprobado' && hasPermiso('letras:aprobar') && (
             <Button icon={<UndoOutlined />} loading={procesando} onClick={() => accion(() => letrasPaquetesApi.reabrir(paquete.id), 'Paquete reabierto en borrador', '¿Reabrir el paquete para cambiar sus documentos?')}>Reabrir</Button>
           )}
+          <Button icon={<PrinterOutlined />} onClick={() => window.open(`/letras/imprimir/paquete/${paquete.id}`, '_blank')}>Imprimir</Button>
           {['aprobado', 'en_proceso'].includes(paquete.estado) && hasPermiso('letras:crear') && (
             <Link to={`/letras/paquetes/${paquete.id}/generar`}>
               <Button type="primary" icon={<ThunderboltOutlined />}>{letras.length ? 'Regenerar letras' : 'Generar letras'}</Button>

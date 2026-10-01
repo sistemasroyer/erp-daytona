@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Col, DatePicker, Input, Row, Segmented, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, DatePicker, Input, Row, Segmented, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CalendarOutlined, SearchOutlined } from '@ant-design/icons';
+import { CalendarOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { letrasCuotasApi } from '@/api/letras';
+import { letrasCuotasApi, letrasReportesApi } from '@/api/letras';
 import { proveedoresApi } from '@/api/proveedores';
 import { Autocomplete } from '@/components/Autocomplete';
 import { EstadoTag } from '@/components/EstadoTag';
@@ -26,7 +26,9 @@ const FILTROS_ESTADO: { value: FiltroEstadoLetra | 'todas'; label: string }[] = 
 
 /** Todas las letras de todos los paquetes: lo que hay que pagar, lo vencido y lo pagado. */
 export function LetrasPage() {
+  const { message } = App.useApp();
   const { page, limit, setPage } = usePagination(50);
+  const [exportando, setExportando] = useState(false);
   const [estado, setEstado] = useState<FiltroEstadoLetra | 'todas'>('por_vencer');
   const [moneda, setMoneda] = useState<MonedaLetras | undefined>();
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
@@ -51,6 +53,17 @@ export function LetrasPage() {
     queryKey: ['letras-cuotas-resumen', { ...filtros, estado: undefined }],
     queryFn: () => letrasCuotasApi.resumen({ ...filtros, estado: undefined }),
   });
+
+  const exportar = async () => {
+    setExportando(true);
+    try {
+      await letrasReportesApi.letrasExcel(filtros);
+    } catch {
+      message.error('No se pudo generar el Excel');
+    } finally {
+      setExportando(false);
+    }
+  };
 
   const tarjeta = (titulo: string, clave: 'pendiente' | 'vencida' | 'pagada', color: string, filtro: FiltroEstadoLetra) => {
     const r = resumen?.data;
@@ -94,7 +107,10 @@ export function LetrasPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>Letras</Typography.Title>
-        <Link to="/letras/calendario"><Button icon={<CalendarOutlined />}>Ver calendario</Button></Link>
+        <Space>
+          <Button icon={<FileExcelOutlined />} loading={exportando} onClick={exportar}>Exportar Excel</Button>
+          <Link to="/letras/calendario"><Button icon={<CalendarOutlined />}>Ver calendario</Button></Link>
+        </Space>
       </div>
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

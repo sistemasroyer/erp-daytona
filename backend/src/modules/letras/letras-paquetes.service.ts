@@ -322,11 +322,16 @@ export class LetrasPaquetesService {
     });
   }
 
-  private async buscarComprasDisponibles(db: Tx | PrismaService, idProveedor: string, moneda: 'PEN' | 'USD') {
-    const proveedor = await db.tbl_proveedores.findUnique({ where: { id: idProveedor }, select: { dias_credito: true } });
+  private buscarComprasDisponibles(db: Tx | PrismaService, idProveedor: string, moneda: 'PEN' | 'USD') {
+    return this.comprasSinPaquete(db, { id_proveedor: idProveedor, moneda });
+  }
+
+  /** Facturas a crédito (y sus NC) de Compras que todavía no están en un paquete vigente: deuda que aún no pasó a letras. */
+  async comprasSinPaquete(db: Tx | PrismaService, filtro: { id_proveedor?: string; moneda?: 'PEN' | 'USD' } = {}) {
     const compras = await db.tbl_compras.findMany({
       where: {
-        id_proveedor: idProveedor, moneda, estado: 'registrada', eliminado: false,
+        ...(filtro.id_proveedor && { id_proveedor: filtro.id_proveedor }), ...(filtro.moneda && { moneda: filtro.moneda }),
+        estado: 'registrada', eliminado: false,
         OR: [
           { condicion_pago: 'credito', tipo_documento: { not: 'nota_credito' } },
           { tipo_documento: 'nota_credito' },
@@ -336,7 +341,8 @@ export class LetrasPaquetesService {
       },
       select: {
         id: true, numero_interno: true, tipo_documento: true, serie: true, numero: true, fecha_emision: true,
-        fecha_vencimiento: true, condicion_pago: true, id_compra_original: true,
+        fecha_vencimiento: true, condicion_pago: true, id_compra_original: true, id_proveedor: true, moneda: true,
+        proveedor: { select: { dias_credito: true } },
         detalle: { select: { importe_linea: true } },
       },
       orderBy: { fecha_emision: 'asc' },
@@ -354,9 +360,11 @@ export class LetrasPaquetesService {
         const esNc = c.tipo_documento === 'nota_credito';
         const importe = redondear2(c.detalle.reduce((s, d) => s + Number(d.importe_linea), 0));
         const emision = aTexto(c.fecha_emision);
-        const vencimiento = c.fecha_vencimiento ? aTexto(c.fecha_vencimiento) : sumarDias(emision, esNc ? 0 : proveedor?.dias_credito ?? 0);
+        const vencimiento = c.fecha_vencimiento ? aTexto(c.fecha_vencimiento) : sumarDias(emision, esNc ? 0 : c.proveedor.dias_credito);
         return {
           id: c.id,
+          id_proveedor: c.id_proveedor,
+          moneda: c.moneda as 'PEN' | 'USD',
           numero_interno: c.numero_interno,
           tipo: (esNc ? 'nota_credito' : c.tipo_documento === 'factura' ? 'factura' : 'otro') as 'nota_credito' | 'factura' | 'otro',
           serie: c.serie || '-',

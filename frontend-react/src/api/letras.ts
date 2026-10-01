@@ -1,8 +1,9 @@
 import { api } from './client';
+import { descargarBlob, hoy } from '@/utils/download';
 import type {
   AnalisisDistribucion, Banco, CompraDisponible, ConfigDistribucion, CreatePaqueteDto, DiaNoPago, DocumentoLetra, DocumentoLetraDto, EstadoPaqueteLetras,
   LimitePagoDia, ListarPaquetesParams, MonedaLetras, PaqueteLetras,
-  CalendarioLetras, LetraConPaquete, ListarLetrasParams, ModoEliminarLetra, PagarLetraDto, ResumenLetras,
+  CalendarioLetras, DeudaProveedores, EstadoCuentaProveedor, LetraConPaquete, ListarLetrasParams, ModoEliminarLetra, PagarLetraDto, ResumenLetras,
 } from '@/types/letras';
 
 export const letrasCatalogosApi = {
@@ -58,4 +59,15 @@ export const letrasCuotasApi = {
     api.patch<{ id: string; excede: boolean; total_dia: number; limite_dia: number }>(`/letras/cuotas/${id}/fecha`, { fecha_pago, forzar }),
   eliminar: (id: string, modo: ModoEliminarLetra, id_destino?: string) => api.patch<{ id: string }>(`/letras/cuotas/${id}/eliminar`, { modo, id_destino }),
   calendario: (desde: string, hasta: string, moneda: MonedaLetras) => api.get<CalendarioLetras>('/letras/calendario', { desde, hasta, moneda }),
+};
+
+export const letrasReportesApi = {
+  deuda: (params: { moneda?: MonedaLetras; search?: string }) => api.get<DeudaProveedores>('/letras/reportes/deuda', params),
+  estadoCuenta: (idProveedor: string) => api.get<EstadoCuentaProveedor>(`/letras/reportes/estado-cuenta/${idProveedor}`),
+  deudaExcel: async (params: { moneda?: MonedaLetras; search?: string }) => {
+    descargarBlob(await api.getBlob('/letras/reportes/deuda/excel', params), `deuda_proveedores_${hoy()}.xlsx`);
+  },
+  letrasExcel: async (params: ListarLetrasParams) => {
+    descargarBlob(await api.getBlob('/letras/reportes/letras/excel', params), `letras_${hoy()}.xlsx`);
+  },
 };

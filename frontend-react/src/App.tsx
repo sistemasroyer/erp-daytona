@@ -55,6 +55,8 @@ import { ConfiguracionLetrasPage } from '@/pages/letras/ConfiguracionLetrasPage'
 import { GenerarLetrasPage } from '@/pages/letras/GenerarLetrasPage';
 import { LetrasPage } from '@/pages/letras/LetrasPage';
 import { CalendarioLetrasPage } from '@/pages/letras/CalendarioLetrasPage';
+import { DeudaProveedoresPage } from '@/pages/letras/DeudaProveedoresPage';
+import { ImprimirEstadoCuentaPage, ImprimirPaquetePage } from '@/pages/letras/ImprimirLetrasPages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +76,10 @@ export default function App() {
 
                 <Route element={<RequireAuth />}>
                   <Route path="/ventas/imprimir" element={<ImprimirPage />} />
+                  <Route element={<RequirePermiso perm="letras:ver" />}>
+                    <Route path="/letras/imprimir/paquete/:id" element={<ImprimirPaquetePage />} />
+                    <Route path="/letras/imprimir/estado-cuenta/:idProveedor" element={<ImprimirEstadoCuentaPage />} />
+                  </Route>
 
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<DashboardPage />} />
@@ -145,6 +151,7 @@ export default function App() {
                       <Route path="/letras/configuracion" element={<ConfiguracionLetrasPage />} />
                       <Route path="/letras" element={<LetrasPage />} />
                       <Route path="/letras/calendario" element={<CalendarioLetrasPage />} />
+                      <Route path="/letras/deuda" element={<DeudaProveedoresPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="letras:crear" />}>

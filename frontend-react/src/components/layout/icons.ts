@@ -5,7 +5,7 @@ import {
   BarChartOutlined, IdcardOutlined, UserSwitchOutlined, SafetyCertificateOutlined,
   PercentageOutlined, TagsOutlined, ColumnWidthOutlined, HomeOutlined, DollarOutlined,
   OrderedListOutlined, ShopOutlined, HistoryOutlined, FileSearchOutlined,
-  ContainerOutlined, CalendarOutlined, SettingOutlined, CreditCardOutlined,
+  ContainerOutlined, CalendarOutlined, SettingOutlined, CreditCardOutlined, FundOutlined,
 } from '@ant-design/icons';
 import type { ComponentType } from 'react';
 
@@ -16,5 +16,5 @@ export const ICONS: Record<string, ComponentType> = {
   BarChartOutlined, IdcardOutlined, UserSwitchOutlined, SafetyCertificateOutlined,
   PercentageOutlined, TagsOutlined, ColumnWidthOutlined, HomeOutlined, DollarOutlined,
   OrderedListOutlined, ShopOutlined, HistoryOutlined, FileSearchOutlined,
-  ContainerOutlined, CalendarOutlined, SettingOutlined, CreditCardOutlined,
+  ContainerOutlined, CalendarOutlined, SettingOutlined, CreditCardOutlined, FundOutlined,
 };

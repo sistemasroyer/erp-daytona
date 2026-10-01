@@ -257,3 +257,37 @@ export interface CalendarioLetras {
 }
 
 export const METODOS_PAGO_LETRA = ['TRANSFERENCIA', 'DEPÓSITO', 'CARGO EN CUENTA', 'CHEQUE', 'EFECTIVO'];
+
+// ─── Reportes ───
+interface MontoCantidad { cantidad: number; monto: number }
+
+export interface FilaDeudaProveedor {
+  proveedor: { id: string; ruc: string; razon_social: string };
+  moneda: MonedaLetras;
+  /** Facturas a crédito de Compras que aún no están en ningún paquete (`vencido`: las ya vencidas). */
+  sin_paquete: MontoCantidad & { vencido: number };
+  /** Paquetes en borrador, por aprobar o aprobados (sin letras todavía). */
+  en_tramite: MontoCantidad;
+  por_vencer: MontoCantidad;
+  vencidas: MontoCantidad;
+  total: number;
+  proxima_fecha: string | null;
+}
+
+export interface TotalesDeuda { sin_paquete: number; en_tramite: number; por_vencer: number; vencidas: number; total: number }
+
+export interface DeudaProveedores {
+  data: FilaDeudaProveedor[];
+  totales: Record<MonedaLetras, TotalesDeuda>;
+  fecha: string;
+}
+
+export interface EstadoCuentaProveedor {
+  proveedor: { id: string; ruc: string; razon_social: string; direccion: string | null; telefono: string | null; email: string | null; dias_credito: number; letras_pago_unico: boolean };
+  resumen: FilaDeudaProveedor[];
+  compras_sin_paquete: (CompraDisponible & { moneda: MonedaLetras })[];
+  paquetes_en_tramite: { id: string; codigo: string; estado: EstadoPaqueteLetras; moneda: MonedaLetras; monto_total: string; fecha_inicio_pago: string; fecha_fin_pago: string }[];
+  letras_pendientes: (Letra & { paquete: { id: string; codigo: string; banco: { nombre: string; siglas: string | null } | null } })[];
+  ultimos_pagos: (Letra & { paquete: { id: string; codigo: string } })[];
+  fecha: string;
+}
