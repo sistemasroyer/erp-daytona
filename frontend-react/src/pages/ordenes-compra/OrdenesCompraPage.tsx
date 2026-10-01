@@ -13,6 +13,7 @@ import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda } from '@/utils/format';
 import { OrdenNuevaModal } from './OrdenNuevaModal';
 import type { OrdenCompra } from '@/types/orden-compra';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 const ESTADOS = [
   { value: 'borrador', label: 'Borrador' },
@@ -138,6 +139,7 @@ export function OrdenesCompraPage() {
               <Descriptions.Item label="Fecha solicitud">{dayjs(orden.fecha_solicitud).format('DD/MM/YYYY')}</Descriptions.Item>
               <Descriptions.Item label="Fecha requerida">{orden.fecha_requerida ? dayjs(orden.fecha_requerida).format('DD/MM/YYYY') : '-'}</Descriptions.Item>
             </Descriptions>
+            <HistorialDocumento anulacion={orden.anulacion} historial={orden.historial} />
             <Table
               size="small"
               rowKey="id"

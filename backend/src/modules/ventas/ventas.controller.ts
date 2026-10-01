@@ -64,7 +64,7 @@ export class VentasController {
     @CurrentUser('idPuntoVenta') idPuntoVenta: string,
     @CurrentUser('esSuperadmin') esSuperadmin: boolean,
   ) {
-    return this.service.findOne(id, idPuntoVenta, esSuperadmin);
+    return this.service.findOneConHistorial(id, idPuntoVenta, esSuperadmin);
   }
 
   @Patch(':id/anular')

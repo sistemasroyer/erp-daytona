@@ -18,9 +18,10 @@ import {
   redondear2,
   redondear4,
 } from '../../common/utils/numero-documento.util';
+import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
-
-const TASA_IGV = 0.18;
+import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
 @Injectable()
 export class VentasService {
@@ -66,6 +67,7 @@ export class VentasService {
   }
 
   async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = { ...aMayusculas(dto, ['observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     return this.prisma.$transaction(async (tx) => {
       // 1. Validar y obtener serie → bloquear para correlativo único
       const series = await tx.$queryRaw<any[]>`
@@ -117,6 +119,9 @@ export class VentasService {
         where: { activo: true }, select: { numero: true },
       });
       const numerosActivos = new Set(listasActivas.map((lista) => lista.numero));
+      // Los precios de venta ya incluyen IGV: la tasa vigente define cuánto de ese precio es IGV.
+      const porcentajeIgv = await obtenerPorcentajeIgv(tx);
+      const tasaIgv = porcentajeIgv / 100;
       const detalleCalculado = await Promise.all(
         dto.detalle.map(async (item) => {
           if (!numerosActivos.has(item.precio_tipo)) {
@@ -147,7 +152,7 @@ export class VentasService {
           let igvUnitario: number;
 
           if (producto.afecta_igv) {
-            valorUnitario = redondear4(precioUnitario / (1 + TASA_IGV));
+            valorUnitario = redondear4(precioUnitario / (1 + tasaIgv));
             igvUnitario = redondear4(precioUnitario - valorUnitario);
           } else {
             valorUnitario = precioUnitario;
@@ -218,6 +223,7 @@ export class VentasService {
           tipo_cambio: dto.tipo_cambio || 1,
           subtotal: subtotalVenta,
           igv: igvVenta,
+          porcentaje_igv: porcentajeIgv,
           total: totalVenta,
           observaciones: dto.observaciones,
           estado_sunat: esOficial ? 'pendiente' : 'no_aplica',
@@ -242,7 +248,7 @@ export class VentasService {
             id_venta: venta.id,
             id_metodo_pago: p.id_metodo_pago,
             monto: p.monto,
-            referencia: p.referencia,
+            referencia: mayus(p.referencia),
             fecha: new Date(),
           })),
         });
@@ -349,6 +355,14 @@ export class VentasService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const venta = await this.findOne(id, idPuntoVenta, esSuperadmin);
+    return { ...venta, ...(await historialDocumento(this.prisma, 'ventas', {
+      ...venta, anulado: venta.estado_venta === 'anulada', motivo: venta.motivo_anulacion,
+    })) };
   }
 
   async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
@@ -581,6 +595,7 @@ export class VentasService {
           tipo_cambio: origen.tipo_cambio,
           subtotal: origen.subtotal,
           igv: origen.igv,
+          porcentaje_igv: origen.porcentaje_igv,
           total: origen.total,
           observaciones: origen.observaciones,
           estado_sunat: 'pendiente',
@@ -615,7 +630,7 @@ export class VentasService {
             id_venta: nueva.id,
             id_metodo_pago: p.id_metodo_pago,
             monto: p.monto,
-            referencia: p.referencia,
+            referencia: mayus(p.referencia),
             fecha: new Date(),
           })),
         });
@@ -689,6 +704,7 @@ export class VentasService {
     idPuntoVenta?: string,
     esSuperadmin?: boolean,
   ) {
+    dto = aMayusculas(dto, ['motivo']);
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_ventas.findFirst({
         where: { id: idVentaOriginal, eliminado: false },
@@ -828,6 +844,7 @@ export class VentasService {
           tipo_cambio: original.tipo_cambio,
           subtotal: subtotalNC,
           igv: igvNC,
+          porcentaje_igv: original.porcentaje_igv,
           total: totalNC,
           observaciones: dto.motivo,
           id_nota_original: original.id,

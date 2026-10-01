@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateMarcaDto {
   @IsString() @IsNotEmpty() nombre: string;
@@ -13,6 +14,7 @@ export class MarcasService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateMarcaDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const existente = await this.prisma.tbl_marcas.findFirst({
       where: { nombre: dto.nombre, eliminado: false },
     });
@@ -42,6 +44,7 @@ export class MarcasService {
   }
 
   async update(id: string, dto: Partial<CreateMarcaDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const marca = await this.prisma.tbl_marcas.findFirst({ where: { id, eliminado: false } });
     if (!marca) throw new NotFoundException('Marca no encontrada');
 

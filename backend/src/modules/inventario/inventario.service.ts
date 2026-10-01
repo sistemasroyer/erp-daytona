@@ -7,6 +7,7 @@ import { finDeDia } from '../../common/utils/fecha.util';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
 import { CreateAjusteInventarioDto, MOTIVO_AJUSTE_LABEL } from './dto/ajuste-inventario.dto';
 import { Prisma } from '@prisma/client';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class InicializarStockDto {
   @IsString() @IsNotEmpty() id_producto: string;
@@ -88,6 +89,7 @@ export class InventarioService {
   }
 
   async crearAjuste(dto: CreateAjusteInventarioDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['observaciones']);
     const almacen = await this.prisma.tbl_almacenes.findFirst({
       where: { id: dto.id_almacen, eliminado: false },
     });
@@ -180,7 +182,18 @@ export class InventarioService {
       this.prisma.tbl_ajustes_inventario.count({ where }),
     ]);
 
-    return { data, total, page: pagination.page, limit: pagination.limit };
+    return { data: await this.conUsuario(data), total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** tbl_ajustes_inventario solo guarda el id en `usuario_creacion` (sin relación en el schema):
+   * se resuelve el nombre aparte, con la misma forma `usuario: { nombre, apellido }` que Compras/Gastos. */
+  private async conUsuario<A extends { usuario_creacion: string | null }>(ajustes: A[]) {
+    const ids = [...new Set(ajustes.map((a) => a.usuario_creacion).filter((id): id is string => !!id))];
+    const usuarios = ids.length
+      ? await this.prisma.tbl_usuarios.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true, apellido: true } })
+      : [];
+    const mapa = new Map(usuarios.map((u) => [u.id, { nombre: u.nombre, apellido: u.apellido }]));
+    return ajustes.map((a) => ({ ...a, usuario: a.usuario_creacion ? mapa.get(a.usuario_creacion) ?? null : null }));
   }
 
   async findOneAjuste(id: string) {
@@ -196,10 +209,11 @@ export class InventarioService {
       },
     });
     if (!ajuste) throw new NotFoundException('Ajuste no encontrado');
-    return ajuste;
+    return (await this.conUsuario([ajuste]))[0];
   }
 
   async transferir(dto: TransferenciaInventarioDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['motivo']);
     if (dto.id_almacen_origen === dto.id_almacen_destino) {
       throw new BadRequestException('El almacén de origen y destino no pueden ser el mismo');
     }

@@ -102,6 +102,8 @@ export interface RegistroAuditoria {
   fecha: string;
   tabla: string;
   operacion: string;
+  /** Acción de la ruta (ej. "anular"); null en altas/ediciones simples y en registros viejos. */
+  accion: string | null;
   id_registro: string | null;
   usuario?: { nombre: string; apellido: string; email: string } | null;
 }

@@ -6,6 +6,17 @@ import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
 import type { Almacen } from '@/types/almacen';
 import type { Producto } from '@/types/producto';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
+import { OpcionProducto } from '@/components/OpcionProducto';
+
+interface BorradorTransferencia {
+  producto: Producto | null;
+  origen: string | undefined;
+  destino: string | undefined;
+  cantidad: number | null;
+  motivo: string;
+}
 
 interface Props {
   open: boolean;
@@ -22,6 +33,13 @@ export function TransferenciaModal({ open, almacenes, onClose, onSaved }: Props)
   const [cantidad, setCantidad] = useState<number | null>(null);
   const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Borrador local (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<BorradorTransferencia>('transferencia', { producto, origen, destino, cantidad, motivo }, {
+    vacio: (d) => !d.producto && !d.cantidad && !d.motivo.trim(),
+    onRestaurar: (d) => { setProducto(d.producto); setOrigen(d.origen); setDestino(d.destino); setCantidad(d.cantidad); setMotivo(d.motivo); },
+    abierto: open,
+  });
 
   const reset = () => { setProducto(null); setOrigen(undefined); setDestino(undefined); setCantidad(null); setMotivo(''); };
 
@@ -40,6 +58,7 @@ export function TransferenciaModal({ open, almacenes, onClose, onSaved }: Props)
         cantidad, motivo: motivo.trim() || undefined,
       });
       message.success('Transferencia realizada correctamente');
+      borrador.limpiar();
       reset();
       onSaved();
     } catch (err) {
@@ -60,13 +79,20 @@ export function TransferenciaModal({ open, almacenes, onClose, onSaved }: Props)
       cancelText="Cancelar"
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${d.producto ? d.producto.nombre : 'Sin producto'} — ${d.cantidad ?? 0} und.`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <Form.Item label="Producto" required>
           <Autocomplete<Producto>
             placeholder="Buscar por código o nombre..."
             buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
             getLabel={(p) => p.nombre}
-            renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+            renderOpcion={(p) => <OpcionProducto producto={p} />}
+            anchoMinimo={420}
             onSelect={setProducto}
           />
           {producto && <Typography.Text type="success" style={{ fontSize: 12 }}>✓ {producto.codigo} — {producto.nombre}</Typography.Text>}

@@ -1,3 +1,4 @@
+import type { ConHistorial } from '@/types/historial';
 export type TipoDocumentoVenta = 'FACTURA' | 'BOLETA' | 'NOTA_VENTA' | 'COTIZACION' | 'NOTA_CREDITO' | 'NOTA_DEBITO';
 export type EstadoVenta = 'vigente' | 'anulada' | 'canjeada';
 export type EstadoSunat = 'pendiente' | 'enviado' | 'aceptado' | 'rechazado' | 'no_aplica';
@@ -40,7 +41,7 @@ export interface SunatEnvio {
   enlace: string | null;
 }
 
-export interface Venta {
+export interface Venta extends ConHistorial {
   id: string;
   numero_interno: string;
   numero_comprobante: string | null;
@@ -51,6 +52,7 @@ export interface Venta {
   moneda: 'PEN' | 'USD';
   subtotal: string;
   igv: string;
+  porcentaje_igv: string;
   total: string;
   estado_sunat: EstadoSunat;
   estado_venta: EstadoVenta;

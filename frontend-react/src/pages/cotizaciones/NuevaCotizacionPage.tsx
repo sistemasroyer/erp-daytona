@@ -19,6 +19,7 @@ import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Cliente } from '@/types/cliente';
 import type { Producto } from '@/types/producto';
 import type { SerieDocumento } from '@/types/serie-documento';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 
 interface ItemCotizacion {
   producto: Producto;
@@ -38,6 +39,7 @@ interface BorradorCotizacion {
 
 export function NuevaCotizacionPage() {
   const { message } = App.useApp();
+  const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const { user } = useAuth();
   const idPuntoVenta = user?.idPuntoVenta || undefined;
 
@@ -304,7 +306,7 @@ export function NuevaCotizacionPage() {
 
   // ==================== TOTALES ====================
   const totalCotizacion = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
-  const subtotalCotizacion = totalCotizacion / 1.18;
+  const subtotalCotizacion = totalCotizacion / factorIgv;
   const igvCotizacion = totalCotizacion - subtotalCotizacion;
 
   // ==================== RESET / GUARDAR ====================
@@ -555,7 +557,7 @@ export function NuevaCotizacionPage() {
         <div style={{ flex: '1 1 300px' }}>
           <Card size="small" title="Resumen" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal</span><strong>{formatMoneda(subtotalCotizacion)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV (18%)</span><span>{formatMoneda(igvCotizacion)}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV ({formatPorcentajeIgv(porcentajeIgv)})</span><span>{formatMoneda(igvCotizacion)}</span></div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <Typography.Text strong style={{ fontSize: 16 }}>TOTAL</Typography.Text>
               <Typography.Text strong style={{ fontSize: 16, color: '#1677ff' }}>{formatMoneda(totalCotizacion)}</Typography.Text>

@@ -9,6 +9,8 @@ export interface Proveedor {
   contacto: string | null;
   cuenta_detraccion: string | null;
   dias_credito: number;
+  /** Letras: exige pago en una sola cuota. */
+  letras_pago_unico: boolean;
   estado: boolean;
 }
 
@@ -22,4 +24,5 @@ export interface CreateProveedorDto {
   contacto?: string;
   cuenta_detraccion?: string;
   dias_credito?: number;
+  letras_pago_unico?: boolean;
 }

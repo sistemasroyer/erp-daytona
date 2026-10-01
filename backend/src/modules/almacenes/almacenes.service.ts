@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsUUID } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateAlmacenDto {
   @IsUUID() id_empresa: string;
@@ -16,6 +17,7 @@ export class AlmacenesService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateAlmacenDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion', 'direccion']);
     if (dto.es_principal) {
       await this.prisma.tbl_almacenes.updateMany({
         where: { id_empresa: dto.id_empresa, es_principal: true },
@@ -58,6 +60,7 @@ export class AlmacenesService {
   }
 
   async update(id: string, dto: Partial<CreateAlmacenDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion', 'direccion']);
     const almacen = await this.findOne(id);
 
     if (dto.es_principal) {

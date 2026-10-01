@@ -7,7 +7,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { gastosApi } from '@/api/gastos';
 import { usePagination } from '@/hooks/usePagination';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, nombreUsuario } from '@/utils/format';
 import { CATEGORIAS_GASTO_LABEL, type Gasto } from '@/types/gasto';
 import { GastoFormModal } from './GastoFormModal';
 import { GastoDetalleModal } from './GastoDetalleModal';
@@ -46,6 +46,7 @@ export function GastosPage() {
     { title: 'Total', align: 'right', render: (_, g) => <strong>{formatMoneda(g.total, g.moneda)}</strong> },
     { title: 'Pago', align: 'center', render: (_, g) => g.pagado ? <Tag color="success">Pagado</Tag> : <Tag color="warning">Pendiente</Tag> },
     { title: 'Estado', align: 'center', render: (_, g) => <EstadoTag estado={g.estado} /> },
+    { title: 'Registrado por', render: (_, x) => nombreUsuario(x.usuario) },
     { title: '', align: 'center', width: 60, render: (_, g) => <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalleId(g.id)} /> },
   ];
 

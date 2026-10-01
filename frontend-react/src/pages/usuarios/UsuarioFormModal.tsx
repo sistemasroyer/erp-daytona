@@ -9,6 +9,8 @@ import { seriesDocumentoApi } from '@/api/series-documento';
 import { rolesApi } from '@/api/roles';
 import { ApiError } from '@/api/types';
 import type { Usuario } from '@/types/usuario';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
 
 const schemaDatos = z.object({
   nombre: z.string().min(1, 'Ingrese el nombre'),
@@ -19,6 +21,7 @@ const schemaDatos = z.object({
   password: z.string().optional(),
 });
 type FormValues = z.infer<typeof schemaDatos>;
+type BorradorUsuario = Omit<FormValues, 'password'>;
 
 const passwordSchema = z.object({
   password_nuevo: z.string().min(8, 'Mínimo 8 caracteres'),
@@ -51,7 +54,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
     enabled: !!usuario,
   });
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, getValues, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schemaDatos),
     defaultValues: { nombre: '', apellido: '', email: '', telefono: '', id_punto_venta: undefined, password: '' },
   });
@@ -76,6 +79,17 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
     passwordForm.reset({ password_nuevo: '', password_confirmar: '' });
   }, [open, usuario, reset, passwordForm]);
 
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental).
+  // La contraseña nunca se guarda en el navegador.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password: _password, ...datosSinPassword } = watch();
+  const borrador = useBorradorConLista<BorradorUsuario>('usuario', datosSinPassword, {
+    vacio: (d) => !d.nombre.trim() && !d.apellido.trim() && !d.email.trim(),
+    onRestaurar: (d) => reset({ ...d, password: getValues('password') }),
+    habilitado: !usuario,
+    abierto: open,
+  });
+
   const guardarDatos = async (values: FormValues) => {
     setSaving(true);
     try {
@@ -86,6 +100,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
       } else {
         if (!values.password) { message.warning('Ingrese una contraseña'); setSaving(false); return; }
         await usuariosApi.crear({ ...dto, password: values.password });
+        borrador.limpiar();
         message.success('Usuario creado');
       }
       onSaved();
@@ -151,7 +166,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email?.message}>
-                <Controller name="email" control={control} render={({ field }) => <Input {...field} />} />
+                <Controller name="email" control={control} render={({ field }) => <Input {...field} className="no-mayus" />} />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -233,6 +248,12 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
       width={680}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${`${d.nombre} ${d.apellido}`.trim() || 'Sin nombre'} — ${d.email || 'sin email'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Tabs activeKey={tab} onChange={setTab} items={items} />
     </Modal>
   );

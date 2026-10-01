@@ -14,6 +14,7 @@ import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 import { CATEGORIAS_GASTO_LABEL, type CategoriaGasto } from '@/types/gasto';
 import type { Proveedor } from '@/types/proveedor';
 import type { Compra } from '@/types/compra';
+import { useTasaIgv } from '@/hooks/useTasaIgv';
 
 function redondear2(v: number) {
   return Math.round(v * 100) / 100;
@@ -66,6 +67,7 @@ interface BorradorGasto {
 
 export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
   const { message } = App.useApp();
+  const { factor: factorIgv } = useTasaIgv();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [categoria, setCategoria] = useState<CategoriaGasto>('otros');
@@ -160,7 +162,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
   const quitarLinea = (idx: number) => setLineas((prev) => prev.filter((_, i) => i !== idx));
 
   const calcularLinea = (l: LineaGasto) => {
-    const subtotal = l.afectaIgv ? redondear2(l.importeLinea / 1.18) : redondear2(l.importeLinea);
+    const subtotal = l.afectaIgv ? redondear2(l.importeLinea / factorIgv) : redondear2(l.importeLinea);
     const igv = l.afectaIgv ? redondear2(l.importeLinea - subtotal) : 0;
     return { subtotal, igv, total: redondear2(subtotal + igv) };
   };
@@ -182,7 +184,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
       if (data.moneda === 'PEN' || data.moneda === 'USD') setMoneda(data.moneda);
 
       if (data.proveedor.encontrado) {
-        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true });
+        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true });
         setProveedorTexto(data.proveedor.razon_social);
       } else {
         setProveedor(null);

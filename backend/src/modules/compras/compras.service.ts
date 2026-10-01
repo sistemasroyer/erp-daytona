@@ -10,9 +10,10 @@ import { CreateNotaCreditoCompraDto } from './dto/create-nota-credito-compra.dto
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils/numero-documento.util';
 import { finDeDia } from '../../common/utils/fecha.util';
+import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
-
-const TASA_IGV = 0.18;
+import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 @Injectable()
 export class ComprasService {
@@ -25,6 +26,7 @@ export class ComprasService {
   ) {}
 
   async create(dto: CreateCompraDto, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['serie', 'observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
       where: { id: dto.id_proveedor, eliminado: false },
     });
@@ -65,6 +67,8 @@ export class ComprasService {
       const fleteMoneda = gastoFlete ? gastoFlete.moneda : (dto.flete_moneda || 'PEN');
       const fleteTipoCambio = gastoFlete ? Number(gastoFlete.tipo_cambio) : (dto.flete_tipo_cambio || 1);
       const fleteMontoPen = redondear2(fleteMonto * (fleteMoneda === 'USD' ? fleteTipoCambio : 1));
+      const porcentajeIgv = await obtenerPorcentajeIgv(tx);
+      const tasaIgv = porcentajeIgv / 100;
 
       // Motor de cálculo: importe_linea como fuente primaria
       const detalleCalculado = await Promise.all(
@@ -84,7 +88,7 @@ export class ComprasService {
 
           // Extraer base sin IGV desde el importe total de la línea
           const subtotal = afectaIgv
-            ? redondear2(importeLineaPen / (1 + TASA_IGV))
+            ? redondear2(importeLineaPen / (1 + tasaIgv))
             : redondear2(importeLineaPen);
           const igvTotal = afectaIgv ? redondear2(importeLineaPen - subtotal) : 0;
 
@@ -155,6 +159,7 @@ export class ComprasService {
           tipo_cambio: tipoCambio,
           subtotal: subtotalCompra,
           igv: igvCompra,
+          porcentaje_igv: porcentajeIgv,
           total: totalCompra,
           flete_monto: fleteMonto,
           flete_moneda: fleteMoneda as any,
@@ -214,7 +219,7 @@ export class ComprasService {
         // El margen se aplica sobre el costo sin IGV, y el IGV se suma aparte encima
         // (si no, el IGV se "come" parte del margen en vez de ser un cobro aparte para SUNAT).
         if (margenes.length > 0 && costoFinal > 0) {
-          const factorIgv = item.afecta_igv ? 1 + TASA_IGV : 1;
+          const factorIgv = item.afecta_igv ? 1 + tasaIgv : 1;
           const preciosData: Record<string, number> = {};
           for (const m of margenes) {
             const precio = redondear4(costoFinal * (1 + Number(m.margen) / 100) * factorIgv);
@@ -224,7 +229,7 @@ export class ComprasService {
             where: { id: item.id_producto },
             data: {
               precio_compra_sin_igv: costoFinal,
-              precio_compra_con_igv: redondear4(costoFinal * (1 + TASA_IGV)),
+              precio_compra_con_igv: redondear4(costoFinal * (1 + tasaIgv)),
               usuario_modificacion: usuarioId,
               ...preciosData,
             },
@@ -281,6 +286,7 @@ export class ComprasService {
         include: {
           proveedor: { select: { razon_social: true, ruc: true } },
           almacen: { select: { nombre: true } },
+          usuario: { select: { nombre: true, apellido: true } },
           _count: { select: { detalle: true } },
         },
       }),
@@ -288,6 +294,14 @@ export class ComprasService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const compra = await this.findOne(id);
+    return { ...compra, ...(await historialDocumento(this.prisma, 'compras', {
+      ...compra, anulado: compra.estado === 'anulada', motivo: compra.observaciones,
+    })) };
   }
 
   async findOne(id: string) {
@@ -350,6 +364,7 @@ export class ComprasService {
   }
 
   async crearNotaCreditoCompra(idCompraOriginal: string, dto: CreateNotaCreditoCompraDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['serie', 'motivo']);
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_compras.findFirst({
         where: { id: idCompraOriginal, eliminado: false },
@@ -407,8 +422,9 @@ export class ComprasService {
         const tipoCambio = Number(original.tipo_cambio);
         const importeLineaPen = redondear4(item.importe_linea * tipoCambio);
         const afectaIgv = detOriginal.afecta_igv;
+        // La NC del proveedor se emite con la misma tasa de IGV que la factura original.
         const subtotal = afectaIgv
-          ? redondear2(importeLineaPen / (1 + TASA_IGV))
+          ? redondear2(importeLineaPen / (1 + Number(original.porcentaje_igv) / 100))
           : redondear2(importeLineaPen);
         const igvTotal = afectaIgv ? redondear2(importeLineaPen - subtotal) : 0;
         const precioUnitario = redondear4(item.importe_linea / item.cantidad);
@@ -462,6 +478,7 @@ export class ComprasService {
           tipo_cambio: original.tipo_cambio,
           subtotal: subtotalNC,
           igv: igvNC,
+          porcentaje_igv: original.porcentaje_igv,
           total: totalNC,
           estado: 'registrada',
           observaciones: dto.motivo,

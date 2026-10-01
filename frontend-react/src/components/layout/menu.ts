@@ -56,6 +56,16 @@ export const MENU: MenuGroupDef[] = [
     ],
   },
   {
+    header: 'Letras',
+    items: [
+      { key: 'letras-paquetes', label: 'Paquetes de Letras', icon: 'ContainerOutlined', href: '/letras/paquetes', perm: 'letras:ver' },
+      { key: 'letras-listado', label: 'Letras por Pagar', icon: 'CreditCardOutlined', href: '/letras', perm: 'letras:ver' },
+      { key: 'letras-calendario', label: 'Calendario de Letras', icon: 'CalendarOutlined', href: '/letras/calendario', perm: 'letras:ver' },
+      { key: 'letras-deuda', label: 'Deuda con Proveedores', icon: 'FundOutlined', href: '/letras/deuda', perm: 'letras:ver' },
+      { key: 'letras-configuracion', label: 'Configuración de Letras', icon: 'SettingOutlined', href: '/letras/configuracion', perm: 'letras:ver' },
+    ],
+  },
+  {
     header: 'Gastos',
     items: [
       { key: 'gastos', label: 'Gastos', icon: 'DollarOutlined', href: '/gastos', perm: 'gastos:ver' },

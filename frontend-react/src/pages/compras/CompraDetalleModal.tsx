@@ -8,9 +8,10 @@ import { comprasApi } from '@/api/compras';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda, penAMonedaOriginal } from '@/utils/format';
+import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format';
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 interface Props {
   id: string | null;
@@ -74,7 +75,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
     { title: 'Costo Base s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => formatMoneda(Number(d.cantidad) > 0 ? Number(d.subtotal) / Number(d.cantidad) : 0) },
     { title: 'Flete Prorrateado', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <Typography.Text type="secondary">{formatMoneda(d.costo_flete_prorrateado || 0)}</Typography.Text> },
     { title: 'Costo Final s/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.costo_unitario_total)}</strong> },
-    { title: 'Costo Final c/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.afecta_igv ? Number(d.costo_unitario_total) * 1.18 : Number(d.costo_unitario_total))}</strong> },
+    { title: 'Costo Final c/IGV', align: 'right' as const, render: (_: unknown, d: DetalleCompra) => <strong>{formatMoneda(d.afecta_igv ? Number(d.costo_unitario_total) * (1 + Number(compra?.porcentaje_igv ?? 18) / 100) : Number(d.costo_unitario_total))}</strong> },
   ];
 
   if (!compra) {
@@ -113,8 +114,10 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
             {compra.condicion_pago === 'credito' ? `Crédito${compra.fecha_vencimiento ? ` (vence ${new Date(compra.fecha_vencimiento).toLocaleDateString('es-PE')})` : ''}` : 'Contado'}
           </Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={compra.estado} /></Descriptions.Item>
+          <Descriptions.Item label="Registrado por">{nombreUsuario(compra.usuario)}</Descriptions.Item>
           {compra.observaciones && <Descriptions.Item label="Observaciones" span={2}>{compra.observaciones}</Descriptions.Item>}
         </Descriptions>
+        <HistorialDocumento anulacion={compra.anulacion} historial={compra.historial} />
 
         <Typography.Title level={5}>Detalle de la factura (tal como la emitió el proveedor)</Typography.Title>
         <Table
@@ -172,7 +175,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           categoria: 'flete',
           compra: { id: compra.id, label: numero || compra.numero_interno },
           proveedor: compra.proveedor_flete
-            ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true }
+            ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true }
             : undefined,
           descripcionLinea: 'Flete',
           montoLinea: Number(compra.flete_monto),

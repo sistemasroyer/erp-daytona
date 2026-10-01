@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, IsEnum, IsDateString, Min } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreatePersonalDto {
   @IsString() @IsNotEmpty() dni: string;
@@ -26,6 +27,7 @@ export class RrhhService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreatePersonalDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombres', 'apellidos', 'cargo', 'area', 'banco']);
     const existente = await this.prisma.tbl_personal.findFirst({
       where: { dni: dto.dni, eliminado: false },
     });
@@ -84,6 +86,7 @@ export class RrhhService {
   }
 
   async update(id: string, dto: Partial<CreatePersonalDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['nombres', 'apellidos', 'cargo', 'area', 'banco']);
     await this.findOne(id);
     const data: any = { usuario_modificacion: modificadorId };
     const campos = ['nombres', 'apellidos', 'cargo', 'area', 'sueldo', 'cuenta_bancaria', 'banco', 'cci', 'tipo_contrato', 'email', 'telefono'];

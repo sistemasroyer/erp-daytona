@@ -22,6 +22,7 @@ import type { Cliente } from '@/types/cliente';
 import type { Producto } from '@/types/producto';
 import type { SerieDocumento } from '@/types/serie-documento';
 import type { MetodoPago } from '@/types/metodo-pago';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 
 interface ItemVenta {
   producto: Producto;
@@ -53,6 +54,7 @@ const TEXTO_BOTON: Record<string, string> = {
 
 export function NuevaVentaPage() {
   const { message } = App.useApp();
+  const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const { user } = useAuth();
   const idPuntoVenta = user?.idPuntoVenta || undefined;
   const { data: listasData, isPending: cargandoPrecios, isError: errorPrecios } = useQuery({
@@ -336,7 +338,7 @@ export function NuevaVentaPage() {
 
   // ==================== TOTALES / PAGOS ====================
   const totalVenta = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
-  const subtotalVenta = totalVenta / 1.18;
+  const subtotalVenta = totalVenta / factorIgv;
   const igvVenta = totalVenta - subtotalVenta;
   const totalPagado = pagos.reduce((s, p) => s + (p.monto || 0), 0);
 
@@ -626,7 +628,7 @@ export function NuevaVentaPage() {
         <div style={{ flex: '1 1 300px' }}>
           <Card size="small" title="Resumen" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>Subtotal</span><strong>{formatMoneda(subtotalVenta)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV (18%)</span><span>{formatMoneda(igvVenta)}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>IGV ({formatPorcentajeIgv(porcentajeIgv)})</span><span>{formatMoneda(igvVenta)}</span></div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <Typography.Text strong style={{ fontSize: 16 }}>TOTAL</Typography.Text>
               <Typography.Text strong style={{ fontSize: 16, color: '#1677ff' }}>{formatMoneda(totalVenta)}</Typography.Text>

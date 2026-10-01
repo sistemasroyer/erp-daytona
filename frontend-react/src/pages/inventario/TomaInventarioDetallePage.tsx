@@ -13,6 +13,8 @@ import { useConfirmar } from '@/components/ConfirmModal';
 import { ApiError } from '@/api/types';
 import type { DetalleTomaInventario, TomaInventario } from '@/types/toma-inventario';
 import type { Producto } from '@/types/producto';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 function fmtCantidad(v: string | number) {
   return Number(v).toFixed(0);
@@ -132,6 +134,7 @@ export function TomaInventarioDetallePage() {
             <Typography.Text strong>{toma.almacen?.nombre || '-'}</Typography.Text>
           </div>
         </div>
+        <HistorialDocumento anulacion={toma.anulacion} historial={toma.historial} />
       </Card>
 
       {enProceso && (
@@ -144,7 +147,8 @@ export function TomaInventarioDetallePage() {
                 value={productoEntrada ? `${productoEntrada.codigo} — ${productoEntrada.nombre}` : ''}
                 buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
                 getLabel={(p) => `${p.codigo} — ${p.nombre}`}
-                renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre} {p.ubicacion && <Tag style={{ marginLeft: 4 }}>{p.ubicacion}</Tag>}</>}
+                renderOpcion={(p) => <OpcionProducto producto={p} mostrarStock={false} />}
+                anchoMinimo={480}
                 onSelect={seleccionarProducto}
               />
             </div>

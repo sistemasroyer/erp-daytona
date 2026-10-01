@@ -109,7 +109,7 @@ async function main() {
   const modulos = [
     'auth', 'usuarios', 'roles', 'clientes', 'proveedores', 'productos',
     'inventario', 'ventas', 'compras', 'gastos', 'ordenes_compra', 'caja',
-    'facturacion', 'reportes', 'rrhh', 'seguridad', 'configuracion',
+    'facturacion', 'reportes', 'rrhh', 'seguridad', 'configuracion', 'letras',
   ];
   const acciones = ['ver', 'crear', 'editar', 'eliminar', 'aprobar', 'anular'] as const;
 
@@ -216,6 +216,8 @@ async function main() {
     'productos:ver', 'productos:editar',
     'inventario:ver', 'inventario:crear', 'inventario:editar', 'inventario:anular',
     'reportes:ver',
+    // Letras: arma paquetes y registra pagos; aprobar y cancelar quedan para el Administrador.
+    'letras:ver', 'letras:crear', 'letras:editar',
   ];
 
   for (const clave of permisosCompras) {

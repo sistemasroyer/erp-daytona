@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { App, Modal, Form, Select, DatePicker, Input, Typography, Button, InputNumber, Row, Col, Empty, Space } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { ordenesCompraApi } from '@/api/ordenes-compra';
 import { proveedoresApi } from '@/api/proveedores';
 import { productosApi } from '@/api/productos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
+import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 import { formatMoneda } from '@/utils/format';
 import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Proveedor } from '@/types/proveedor';
 import type { Producto } from '@/types/producto';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 interface ItemOrden {
   producto: Producto;
@@ -36,6 +38,7 @@ interface Props {
 export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
   const { message } = App.useApp();
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
+  const [modalProveedorNuevo, setModalProveedorNuevo] = useState(false);
   const [moneda, setMoneda] = useState<'PEN' | 'USD'>('PEN');
   const [fechaRequerida, setFechaRequerida] = useState<Dayjs | null>(null);
   const [observaciones, setObservaciones] = useState('');
@@ -128,13 +131,19 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
         <Row gutter={[16, 8]}>
           <Col xs={24} md={12}>
             <Form.Item label="Proveedor" required>
-              <Autocomplete<Proveedor>
-                placeholder="Buscar proveedor..."
-                buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 5 })).data}
-                getLabel={(p) => p.razon_social}
-                renderOpcion={(p) => <>{p.razon_social} <Typography.Text type="secondary">({p.ruc})</Typography.Text></>}
-                onSelect={setProveedor}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <Autocomplete<Proveedor>
+                    placeholder="Buscar proveedor..."
+                    value={proveedor?.razon_social}
+                    buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 5 })).data}
+                    getLabel={(p) => p.razon_social}
+                    renderOpcion={(p) => <>{p.razon_social} <Typography.Text type="secondary">({p.ruc})</Typography.Text></>}
+                    onSelect={setProveedor}
+                  />
+                </div>
+                <Button icon={<UserAddOutlined />} onClick={() => setModalProveedorNuevo(true)}>Nuevo</Button>
+              </div>
               {proveedor && <Typography.Text type="success" style={{ fontSize: 12 }}>✓ {proveedor.razon_social}</Typography.Text>}
             </Form.Item>
           </Col>
@@ -163,7 +172,8 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
             placeholder="Buscar por código o nombre..."
             buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
             getLabel={() => ''}
-            renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+            renderOpcion={(p) => <OpcionProducto producto={p} agregar mostrarCosto />}
+            anchoMinimo={480}
             onSelect={agregarItem}
           />
         </div>
@@ -195,6 +205,11 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
           </Row>
         ))}
       </Form>
+      <ProveedorNuevoModal
+        open={modalProveedorNuevo}
+        onClose={() => setModalProveedorNuevo(false)}
+        onCreado={(p) => { setProveedor(p); setModalProveedorNuevo(false); }}
+      />
     </Modal>
   );
 }

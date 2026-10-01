@@ -4,6 +4,8 @@ import { StockInsuficienteException } from '../../common/exceptions/stock-insufi
 import { ConcurrenciaException } from '../../common/exceptions/concurrencia.exception';
 import { finDeDia } from '../../common/utils/fecha.util';
 import { Prisma } from '@prisma/client';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
+import { redondear2, redondear4 } from '../../common/utils/numero-documento.util';
 
 export interface MovimientoInventarioInput {
   idProducto: string;
@@ -187,13 +189,14 @@ export class InventarioRepository {
         ? costoNuevo
         : (stockAnterior * costoAnterior + cantidadEntrada * costoNuevo) /
           (stockAnterior + cantidadEntrada);
+    const tasaIgv = await obtenerTasaIgv(tx);
 
     await tx.tbl_productos.update({
       where: { id: idProducto },
       data: {
         costo_promedio: parseFloat(nuevoPromedio.toFixed(4)),
         precio_compra_sin_igv: parseFloat(nuevoPromedio.toFixed(4)),
-        precio_compra_con_igv: parseFloat((nuevoPromedio * 1.18).toFixed(4)),
+        precio_compra_con_igv: parseFloat((nuevoPromedio * (1 + tasaIgv)).toFixed(4)),
         fecha_ultima_compra: new Date(),
         version: { increment: 1 },
       },
@@ -209,60 +212,108 @@ export class InventarioRepository {
     limit = 500,
     skip = 0,
   ) {
-    const where: any = { id_producto: idProducto };
-    if (idAlmacen) where.id_almacen = idAlmacen;
-    if (fechaDesde || fechaHasta) {
-      where.fecha = {};
-      if (fechaDesde) where.fecha.gte = fechaDesde;
-      if (fechaHasta) where.fecha.lte = finDeDia(fechaHasta);
-    }
+    // El costo promedio y el saldo valorizado de cada momento no se guardan en tbl_kardex:
+    // se reconstruyen recorriendo TODO el historial del producto en orden, con la misma regla
+    // que `actualizarCostoPromedio` (el promedio es por producto, no por almacén, y solo lo
+    // mueven las entradas con costo > 0). Recién después se aplican filtros y paginación,
+    // para que el saldo de la primera fila de un rango ya venga con todo lo anterior.
+    const todos = await this.prisma.tbl_kardex.findMany({
+      where: { id_producto: idProducto },
+      include: {
+        producto: { select: { nombre: true, codigo: true } },
+        movimiento: { select: { id_usuario: true } },
+      },
+      orderBy: [{ fecha: 'asc' }, { fecha_creacion: 'asc' }],
+    });
 
-    const [data, total] = await Promise.all([
-      this.prisma.tbl_kardex.findMany({
-        where,
-        include: {
-          producto: { select: { nombre: true, codigo: true } },
-        },
-        orderBy: { fecha: 'asc' },
-        skip,
-        take: Math.min(limit, 1000),
-      }),
-      this.prisma.tbl_kardex.count({ where }),
-    ]);
+    let stockGlobal = 0;
+    let costoPromedio = 0;
+    const conSaldos = todos.map((k) => {
+      const entrada = Number(k.cantidad_entrada);
+      const salida = Number(k.cantidad_salida);
+      const costoUnitario = Number(k.costo_unitario);
+      const costoPromedioAnterior = costoPromedio;
+      if (entrada > 0 && costoUnitario > 0) {
+        costoPromedio = stockGlobal <= 0
+          ? costoUnitario
+          : (stockGlobal * costoPromedio + entrada * costoUnitario) / (stockGlobal + entrada);
+      }
+      stockGlobal += entrada - salida;
+      const stock = Number(k.stock_resultante);
+      const stockAnterior = stock - entrada + salida;
+      return {
+        ...k,
+        costo_promedio: redondear4(costoPromedio),
+        valor_saldo: redondear2(stock * costoPromedio),
+        stock_anterior: stockAnterior,
+        valor_saldo_anterior: redondear2(stockAnterior * costoPromedioAnterior),
+      };
+    });
 
-    return { data: await this.resolverDocumentosOrigen(data), total };
+    const hastaFin = fechaHasta ? finDeDia(fechaHasta) : undefined;
+    const filtrados = conSaldos.filter((k) =>
+      (!idAlmacen || k.id_almacen === idAlmacen)
+      && (!fechaDesde || k.fecha >= fechaDesde)
+      && (!hastaFin || k.fecha <= hastaFin));
+
+    const pagina = filtrados.slice(skip, skip + Math.min(limit, 1000));
+    const conDocumentos = await this.resolverDocumentosOrigen(pagina);
+    return { data: await this.resolverUsuarios(conDocumentos), total: filtrados.length };
   }
 
-  /** Resuelve numero_documento/tipo_documento_origen del documento que originó cada fila de kardex, en lote (sin N+1). */
+  private async resolverUsuarios<K extends { movimiento?: { id_usuario: string | null } | null }>(data: K[]) {
+    const ids = [...new Set(data.map((k) => k.movimiento?.id_usuario).filter((id): id is string => !!id))];
+    const usuarios = ids.length
+      ? await this.prisma.tbl_usuarios.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true, apellido: true } })
+      : [];
+    const mapa = new Map(usuarios.map((u) => [u.id, `${u.nombre} ${u.apellido}`.trim()]));
+    return data.map(({ movimiento, ...k }) => ({
+      ...k,
+      usuario: movimiento?.id_usuario ? mapa.get(movimiento.id_usuario) ?? null : null,
+    }));
+  }
+
   private async resolverDocumentosOrigen(data: any[]) {
     const idsVenta = data.filter((k) => k.tipo_referencia === 'venta' && k.id_referencia).map((k) => k.id_referencia as string);
     const idsCompra = data.filter((k) => k.tipo_referencia === 'compra' && k.id_referencia).map((k) => k.id_referencia as string);
     const idsAjuste = data.filter((k) => k.tipo_referencia === 'ajuste' && k.id_referencia).map((k) => k.id_referencia as string);
 
-    const [ventas, compras, ajustes] = await Promise.all([
+    const [ventas, detallesVenta, compras, ajustes] = await Promise.all([
       this.prisma.tbl_ventas.findMany({ where: { id: { in: idsVenta } }, select: { id: true, numero_comprobante: true, tipo_documento: true } }),
+      this.prisma.tbl_detalle_ventas.findMany({ where: { id_venta: { in: idsVenta } }, select: { id_venta: true, id_producto: true, precio_unitario: true } }),
       this.prisma.tbl_compras.findMany({ where: { id: { in: idsCompra } }, select: { id: true, numero_interno: true, serie: true, numero: true, tipo_documento: true } }),
       this.prisma.tbl_ajustes_inventario.findMany({ where: { id: { in: idsAjuste } }, select: { id: true, numero_interno: true } }),
     ]);
     const mapaVentas = new Map(ventas.map((v) => [v.id, v]));
+    // Precio al que se vendió (con IGV) el producto de esa fila del kardex.
+    const precioVenta = new Map<string, string>();
+    for (const d of detallesVenta) {
+      const clave = `${d.id_venta}|${d.id_producto}`;
+      if (!precioVenta.has(clave)) precioVenta.set(clave, d.precio_unitario.toString());
+    }
     const mapaCompras = new Map(compras.map((c) => [c.id, c]));
     const mapaAjustes = new Map(ajustes.map((a) => [a.id, a]));
 
     return data.map((k) => {
       if (k.tipo_referencia === 'venta' && k.id_referencia) {
         const v = mapaVentas.get(k.id_referencia);
-        return { ...k, numero_documento: v?.numero_comprobante ?? null, tipo_documento_origen: v?.tipo_documento ?? null };
+        return {
+          ...k,
+          numero_documento: v?.numero_comprobante ?? null,
+          tipo_documento_origen: v?.tipo_documento ?? null,
+          precio_venta: precioVenta.get(`${k.id_referencia}|${k.id_producto}`) ?? null,
+        };
       }
       if (k.tipo_referencia === 'compra' && k.id_referencia) {
         const c = mapaCompras.get(k.id_referencia);
         const numeroFactura = c ? (c.serie ? `${c.serie}-${c.numero}` : c.numero) : null;
-        return { ...k, numero_documento: numeroFactura || c?.numero_interno || null, tipo_documento_origen: c?.tipo_documento ?? null };
+        return { ...k, numero_documento: numeroFactura || c?.numero_interno || null, tipo_documento_origen: c?.tipo_documento ?? null, precio_venta: null };
       }
       if (k.tipo_referencia === 'ajuste' && k.id_referencia) {
         const a = mapaAjustes.get(k.id_referencia);
-        return { ...k, numero_documento: a?.numero_interno ?? null, tipo_documento_origen: null };
+        return { ...k, numero_documento: a?.numero_interno ?? null, tipo_documento_origen: null, precio_venta: null };
       }
-      return { ...k, numero_documento: null, tipo_documento_origen: null };
+      return { ...k, numero_documento: null, tipo_documento_origen: null, precio_venta: null };
     });
   }
 }

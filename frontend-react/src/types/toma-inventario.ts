@@ -1,3 +1,4 @@
+import type { ConHistorial } from '@/types/historial';
 export type EstadoTomaInventario = 'en_proceso' | 'finalizada' | 'anulada';
 
 export interface DetalleTomaInventario {
@@ -12,7 +13,7 @@ export interface DetalleTomaInventario {
   producto?: { codigo: string; nombre: string; ubicacion: string | null; unidad_medida?: { simbolo: string } };
 }
 
-export interface TomaInventario {
+export interface TomaInventario extends ConHistorial {
   id: string;
   numero_interno: string;
   id_almacen: string;

@@ -29,7 +29,7 @@ export class OrdenesCompraController {
   @Get(':id')
   @Permisos('ordenes_compra:ver')
   findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+    return this.service.findOneConHistorial(id);
   }
 
   @Patch(':id')

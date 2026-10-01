@@ -5,6 +5,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
 import { AgregarItemTomaDto } from './dto/agregar-item-toma.dto';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { mayus } from '../../common/utils/texto.util';
 
 const INCLUDE_CABECERA = {
   almacen: { select: { nombre: true } },
@@ -55,6 +57,14 @@ export class TomaInventarioService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const toma = await this.findOne(id);
+    return { ...toma, ...(await historialDocumento(this.prisma, 'toma_inventario', {
+      ...toma, anulado: toma.estado === 'anulada', motivo: null,
+    })) };
+  }
+
   async findOne(id: string) {
     const toma = await this.prisma.tbl_tomas_inventario.findFirst({
       where: { id, eliminado: false },
@@ -82,7 +92,7 @@ export class TomaInventarioService {
 
     const stockSistema = Number(producto.stock_actual);
     const diferencia = dto.cantidad_contada - stockSistema;
-    const observaciones = dto.observaciones?.trim() || null;
+    const observaciones = mayus(dto.observaciones?.trim()) || null;
 
     await this.prisma.tbl_detalle_tomas_inventario.upsert({
       where: { id_toma_id_producto: { id_toma: toma.id, id_producto: dto.id_producto } },

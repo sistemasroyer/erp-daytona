@@ -10,3 +10,8 @@ export function penAMonedaOriginal(valorPen: number | string | null | undefined,
   const tc = moneda === 'USD' ? Number(tipoCambio) : 1;
   return Number(valorPen ?? 0) / tc;
 }
+
+/** "Nombre Apellido" del usuario que registró un documento, o "-" si no se conoce. */
+export function nombreUsuario(u: { nombre: string; apellido: string } | null | undefined) {
+  return u ? `${u.nombre} ${u.apellido}`.trim() : '-';
+}

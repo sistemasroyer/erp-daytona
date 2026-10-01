@@ -3,16 +3,19 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
-import { calcularIgv, redondear4 } from '../../common/utils/numero-documento.util';
+import { redondear4 } from '../../common/utils/numero-documento.util';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
 @Injectable()
 export class ProductosService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateProductoDto, creadorId: string) {
+    dto = aMayusculas(dto, ['codigo', 'codigo_barras', 'nombre', 'descripcion', 'ubicacion']);
     const existente = await this.prisma.tbl_productos.findFirst({
-      where: { codigo: dto.codigo, eliminado: false },
+      where: { codigo: { equals: dto.codigo, mode: 'insensitive' }, eliminado: false },
     });
     if (existente) throw new ConflictException('Ya existe un producto con ese código');
 
@@ -27,10 +30,11 @@ export class ProductosService {
     let precioCompraSinIgv = dto.precio_compra_sin_igv || 0;
 
     if (dto.afecta_igv !== false) {
+      const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
       if (precioCompraSinIgv > 0 && precioCompraConIgv === 0) {
-        precioCompraConIgv = redondear4(precioCompraSinIgv * 1.18);
+        precioCompraConIgv = redondear4(precioCompraSinIgv * factorIgv);
       } else if (precioCompraConIgv > 0 && precioCompraSinIgv === 0) {
-        precioCompraSinIgv = redondear4(precioCompraConIgv / 1.18);
+        precioCompraSinIgv = redondear4(precioCompraConIgv / factorIgv);
       }
     }
 
@@ -64,7 +68,7 @@ export class ProductosService {
             ? {
                 create: dto.codigos_proveedor.map((c) => ({
                   id_proveedor: c.id_proveedor,
-                  codigo_alterno: c.codigo_alterno,
+                  codigo_alterno: mayus(c.codigo_alterno),
                 })),
               }
             : undefined,
@@ -153,6 +157,7 @@ export class ProductosService {
   }
 
   async update(id: string, dto: Partial<CreateProductoDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['codigo', 'codigo_barras', 'nombre', 'descripcion', 'ubicacion']);
     const producto = await this.findOne(id);
 
     if (dto.codigos_proveedor?.length) {
@@ -181,7 +186,7 @@ export class ProductosService {
         deleteMany: {},
         create: dto.codigos_proveedor.map((c) => ({
           id_proveedor: c.id_proveedor,
-          codigo_alterno: c.codigo_alterno,
+          codigo_alterno: mayus(c.codigo_alterno),
         })),
       };
     }
@@ -192,8 +197,9 @@ export class ProductosService {
       let conIgv = dto.precio_compra_con_igv ?? Number(producto.precio_compra_con_igv);
 
       if (afectaIgv) {
-        if (dto.precio_compra_sin_igv !== undefined) conIgv = redondear4(sinIgv * 1.18);
-        else sinIgv = redondear4(conIgv / 1.18);
+        const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
+        if (dto.precio_compra_sin_igv !== undefined) conIgv = redondear4(sinIgv * factorIgv);
+        else sinIgv = redondear4(conIgv / factorIgv);
       }
 
       data.precio_compra_sin_igv = sinIgv;
@@ -228,8 +234,8 @@ export class ProductosService {
 
     return this.prisma.tbl_producto_codigos_proveedor.upsert({
       where: { id_producto_id_proveedor: { id_producto: idProducto, id_proveedor: dto.id_proveedor } },
-      update: { codigo_alterno: dto.codigo_alterno },
-      create: { id_producto: idProducto, id_proveedor: dto.id_proveedor, codigo_alterno: dto.codigo_alterno },
+      update: { codigo_alterno: mayus(dto.codigo_alterno) },
+      create: { id_producto: idProducto, id_proveedor: dto.id_proveedor, codigo_alterno: mayus(dto.codigo_alterno) },
       include: { proveedor: { select: { id: true, razon_social: true } } },
     });
   }

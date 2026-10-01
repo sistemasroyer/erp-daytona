@@ -10,7 +10,7 @@ import { usuariosApi } from '@/api/usuarios';
 import { usePagination } from '@/hooks/usePagination';
 import { useAuth } from '@/auth/AuthContext';
 import { EstadoTag } from '@/components/EstadoTag';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, nombreUsuario } from '@/utils/format';
 import type { Venta } from '@/types/venta';
 import { VentaDetalleModal } from '../ventas/VentaDetalleModal';
 
@@ -72,6 +72,7 @@ export function CotizacionesPage() {
     { title: 'Total', align: 'right', render: (_, v) => <strong>{formatMoneda(v.total, v.moneda)}</strong> },
     { title: 'Moneda', align: 'center', render: (_, v) => <Tag>{v.moneda}</Tag> },
     { title: 'Estado', align: 'center', render: (_, v) => <EstadoTag estado={v.estado_venta} /> },
+    { title: 'Registrado por', render: (_, x) => nombreUsuario(x.vendedor) },
     { title: '', align: 'center', width: 60, render: (_, v) => <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalleId(v.id)} /> },
   ];
 

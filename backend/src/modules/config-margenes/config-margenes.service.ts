@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 @Injectable()
 export class ConfigMargenesService {
@@ -19,6 +20,7 @@ export class ConfigMargenesService {
   }
 
   async update(numero: number, dto: { nombre?: string; margen?: number; activo?: boolean; descripcion?: string }) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const existente = await this.prisma.tbl_config_margenes.findUnique({
       where: { numero },
     });

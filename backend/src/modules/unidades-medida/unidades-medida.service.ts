@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { IsString, IsNotEmpty } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateUnidadMedidaDto {
   @IsString() @IsNotEmpty() codigo_sunat: string;
@@ -13,6 +14,7 @@ export class UnidadesMedidaService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateUnidadMedidaDto, creadorId: string) {
+    dto = aMayusculas(dto, ['descripcion', 'simbolo', 'codigo_sunat']);
     const existente = await this.prisma.tbl_unidades_medida.findFirst({
       where: { codigo_sunat: dto.codigo_sunat, eliminado: false },
     });
@@ -31,6 +33,7 @@ export class UnidadesMedidaService {
   }
 
   async update(id: string, dto: Partial<CreateUnidadMedidaDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['descripcion', 'simbolo', 'codigo_sunat']);
     const um = await this.prisma.tbl_unidades_medida.findFirst({ where: { id, eliminado: false } });
     if (!um) throw new NotFoundException('Unidad de medida no encontrada');
 

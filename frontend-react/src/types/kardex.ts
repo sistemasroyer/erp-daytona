@@ -26,6 +26,15 @@ export interface MovimientoKardex {
   costo_unitario: string;
   costo_total: string;
   stock_resultante: string;
+  /** Precio de venta (con IGV) del producto en esa venta; null si no es venta. */
+  precio_venta: string | null;
+  /** Nombre del usuario que registró el documento que movió el stock. */
+  usuario: string | null;
+  // Calculados por el backend recorriendo el historial (no son columnas Decimal: vienen como number).
+  costo_promedio: number;
+  valor_saldo: number;
+  stock_anterior: number;
+  valor_saldo_anterior: number;
 }
 
 /** Distingue Nota de Crédito de una Venta/Compra normal (ambas comparten tipo_referencia). */

@@ -10,6 +10,8 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class DetalleOrdenDto {
   @ApiProperty() @IsUUID() id_producto: string;
@@ -33,6 +35,7 @@ export class OrdenesCompraService {
   constructor(private prisma: PrismaService, private aprobaciones: AprobacionesService) {}
 
   async create(dto: CreateOrdenCompraDto, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
       where: { id: dto.id_proveedor, eliminado: false },
     });
@@ -102,6 +105,14 @@ export class OrdenesCompraService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const orden = await this.findOne(id);
+    return { ...orden, ...(await historialDocumento(this.prisma, 'ordenes_compra', {
+      ...orden, anulado: orden.estado === 'anulado', motivo: null,
+    })) };
+  }
+
   async findOne(id: string) {
     const orden = await this.prisma.tbl_ordenes_compra.findFirst({
       where: { id, eliminado: false },
@@ -154,6 +165,7 @@ export class OrdenesCompraService {
   }
 
   async update(id: string, dto: Partial<CreateOrdenCompraDto>, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const orden = await this.findOne(id);
     if (orden.estado !== 'borrador') {
       throw new BadRequestException('Solo se puede editar una orden en estado borrador');

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import {
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { productosApi } from '@/api/productos';
-import { categoriasApi } from '@/api/categorias';
+import { categoriasApi, subcategoriasApi } from '@/api/categorias';
 import { marcasApi } from '@/api/marcas';
 import { unidadesMedidaApi } from '@/api/unidades-medida';
 import { proveedoresApi } from '@/api/proveedores';
@@ -16,6 +16,13 @@ import { configMargenesApi } from '@/api/config-margenes';
 import { ApiError } from '@/api/types';
 import { formatMoneda } from '@/utils/format';
 import { TIPOS_EXISTENCIA, type Producto, type CreateProductoDto } from '@/types/producto';
+import { useBorradorConLista } from '@/hooks/useBorrador';
+import { BorradorBanner } from '@/components/BorradorBanner';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
+import { useAuth } from '@/auth/AuthContext';
+import { SelectConCrear } from '@/components/SelectConCrear';
+import { UnidadMedidaNuevaModal } from '@/components/UnidadMedidaNuevaModal';
+import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 
 const schema = z.object({
   codigo: z.string().min(1, 'Ingrese el código interno'),
@@ -42,6 +49,11 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+interface BorradorProducto {
+  valores: FormValues;
+  precios: Record<number, number>;
+}
+
 const VACIO: FormValues = {
   codigo: '', codigo_barras: '', codigo_sunat: '', nombre: '', id_categoria: undefined,
   id_subcategoria: undefined, id_marca: undefined, id_unidad_medida: '', tipo_existencia: '01',
@@ -57,14 +69,30 @@ interface Props {
 }
 
 export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
+  const { porcentaje: porcentajeIgv } = useTasaIgv();
+  const queryClient = useQueryClient();
+  const { hasPermiso } = useAuth();
+  // Marcas, categorías, subcategorías y unidades se crean con el mismo permiso que el producto.
+  const puedeCrearCatalogo = hasPermiso('productos:crear');
+  const puedeCrearProveedor = hasPermiso('proveedores:crear');
+  const [unidadNueva, setUnidadNueva] = useState<{ open: boolean; texto: string }>({ open: false, texto: '' });
+  const [proveedorNuevo, setProveedorNuevo] = useState<{ open: boolean; texto: string; index: number }>({ open: false, texto: '', index: 0 });
+  // Crea, espera a que la lista se recargue (para que el Select muestre el nombre y no el id) y devuelve el id.
+  const crearYRecargar = async (crear: () => Promise<{ data: { id: string } }>, queryKey: string) => {
+    const { data } = await crear();
+    await queryClient.invalidateQueries({ queryKey: [queryKey] });
+    return data.id;
+  };
   const [saving, setSaving] = useState(false);
   const [precios, setPrecios] = useState<Record<number, number>>({});
   const { message } = App.useApp();
 
-  const { data: categoriasData } = useQuery({ queryKey: ['categorias'], queryFn: () => categoriasApi.listar() });
-  const { data: marcasData } = useQuery({ queryKey: ['marcas'], queryFn: () => marcasApi.listar() });
-  const { data: unidadesData } = useQuery({ queryKey: ['unidades-medida'], queryFn: () => unidadesMedidaApi.listar() });
-  const { data: proveedoresData } = useQuery({ queryKey: ['proveedores-all'], queryFn: () => proveedoresApi.listar({ limit: 500 }) });
+  // Catálogos: se vuelven a pedir al volver a esta pestaña, por si se crearon en otra pestaña
+  // (ej. Configuración → Marcas abierta aparte) sin tener que refrescar la página.
+  const { data: categoriasData } = useQuery({ queryKey: ['categorias'], queryFn: () => categoriasApi.listar(), refetchOnWindowFocus: true });
+  const { data: marcasData } = useQuery({ queryKey: ['marcas'], queryFn: () => marcasApi.listar(), refetchOnWindowFocus: true });
+  const { data: unidadesData } = useQuery({ queryKey: ['unidades-medida'], queryFn: () => unidadesMedidaApi.listar(), refetchOnWindowFocus: true });
+  const { data: proveedoresData } = useQuery({ queryKey: ['proveedores-all'], queryFn: () => proveedoresApi.listar({ limit: 500 }), refetchOnWindowFocus: true });
   const { data: margenesData } = useQuery({ queryKey: ['config-margenes'], queryFn: () => configMargenesApi.listar() });
 
   const categorias = categoriasData?.data || [];
@@ -73,7 +101,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
   const proveedores = proveedoresData?.data || [];
   const margenes = [...(margenesData?.data || [])].filter((m) => m.activo).sort((a, b) => a.numero - b.numero);
 
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: VACIO,
   });
@@ -111,6 +139,14 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
     }
   }, [open, producto, reset]);
 
+  // Borrador local solo al crear (recuperación ante corte de luz/internet o cierre accidental)
+  const borrador = useBorradorConLista<BorradorProducto>('producto', { valores: watch(), precios }, {
+    vacio: (d) => !d.valores.codigo.trim() && !d.valores.nombre.trim(),
+    onRestaurar: (d) => { reset({ ...VACIO, ...d.valores }); setPrecios(d.precios || {}); },
+    habilitado: !producto,
+    abierto: open,
+  });
+
   const onSubmit = async (values: FormValues) => {
     const dto: CreateProductoDto = {
       codigo: values.codigo.trim().toUpperCase(),
@@ -138,6 +174,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
     try {
       if (producto) await productosApi.actualizar(producto.id, dto);
       else await productosApi.crear(dto);
+      borrador.limpiar();
       message.success(producto ? 'Producto actualizado correctamente' : 'Producto creado correctamente');
       onSaved();
     } catch (err) {
@@ -159,6 +196,12 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
       width={880}
       destroyOnHidden
     >
+      <BorradorBanner
+        borradores={borrador.borradores}
+        resumen={(d) => `${d.valores.codigo || 's/código'} — ${d.valores.nombre || 'Sin nombre'}`}
+        onRestaurar={borrador.restaurar}
+        onDescartar={borrador.descartar}
+      />
       <Form layout="vertical">
         <Divider titlePlacement="left" plain>Identificación</Divider>
         <Row gutter={16}>
@@ -192,7 +235,11 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
                 name={`codigos_proveedor.${index}.id_proveedor`}
                 control={control}
                 render={({ field: f }) => (
-                  <Select {...f} placeholder="Seleccione proveedor" style={{ width: '100%' }} options={proveedores.map((p) => ({ value: p.id, label: p.razon_social }))} />
+                  <SelectConCrear
+                    {...f} placeholder="Seleccione proveedor" style={{ width: '100%' }} textoNuevo="Nuevo proveedor" puedeCrear={puedeCrearProveedor}
+                    options={proveedores.map((p) => ({ value: p.id, label: p.razon_social }))}
+                    onNuevo={(texto) => setProveedorNuevo({ open: true, texto, index })}
+                  />
                 )}
               />
             </Col>
@@ -218,28 +265,46 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
           <Col span={8}>
             <Form.Item label="Categoría">
               <Controller name="id_categoria" control={control} render={({ field }) => (
-                <Select {...field} allowClear placeholder="Sin categoría" options={categorias.map((c) => ({ value: c.id, label: c.nombre }))} />
+                <SelectConCrear
+                  {...field} allowClear placeholder="Sin categoría" textoNuevo="Nueva categoría (escriba el nombre)" puedeCrear={puedeCrearCatalogo}
+                  options={categorias.map((c) => ({ value: c.id, label: c.nombre }))}
+                  onChange={(v) => { field.onChange(v); setValue('id_subcategoria', undefined); }}
+                  crear={(nombre) => crearYRecargar(() => categoriasApi.crear({ nombre }), 'categorias')}
+                />
               )} />
             </Form.Item>
           </Col>
           <Col span={8}>
             <Form.Item label="Subcategoría">
               <Controller name="id_subcategoria" control={control} render={({ field }) => (
-                <Select {...field} allowClear disabled={!idCategoria} placeholder={idCategoria ? 'Sin subcategoría' : 'Seleccione categoría primero'} options={subcategoriasDisponibles.map((s) => ({ value: s.id, label: s.nombre }))} />
+                <SelectConCrear
+                  {...field} allowClear disabled={!idCategoria} placeholder={idCategoria ? 'Sin subcategoría' : 'Seleccione categoría primero'}
+                  textoNuevo="Nueva subcategoría (escriba el nombre)" puedeCrear={puedeCrearCatalogo && !!idCategoria}
+                  options={subcategoriasDisponibles.map((s) => ({ value: s.id, label: s.nombre }))}
+                  crear={(nombre) => crearYRecargar(() => subcategoriasApi.crear({ id_categoria: idCategoria!, nombre }), 'categorias')}
+                />
               )} />
             </Form.Item>
           </Col>
           <Col span={8}>
             <Form.Item label="Marca">
               <Controller name="id_marca" control={control} render={({ field }) => (
-                <Select {...field} allowClear placeholder="Sin marca" options={marcas.map((m) => ({ value: m.id, label: m.nombre }))} />
+                <SelectConCrear
+                  {...field} allowClear placeholder="Sin marca" textoNuevo="Nueva marca (escriba el nombre)" puedeCrear={puedeCrearCatalogo}
+                  options={marcas.map((m) => ({ value: m.id, label: m.nombre }))}
+                  crear={(nombre) => crearYRecargar(() => marcasApi.crear({ nombre }), 'marcas')}
+                />
               )} />
             </Form.Item>
           </Col>
           <Col span={8}>
             <Form.Item label="Unidad de medida" validateStatus={errors.id_unidad_medida ? 'error' : ''} help={errors.id_unidad_medida?.message}>
               <Controller name="id_unidad_medida" control={control} render={({ field }) => (
-                <Select {...field} placeholder="Seleccione" options={unidades.map((u) => ({ value: u.id, label: `${u.simbolo} — ${u.descripcion}` }))} />
+                <SelectConCrear
+                  {...field} placeholder="Seleccione" textoNuevo="Nueva unidad de medida" puedeCrear={puedeCrearCatalogo}
+                  options={unidades.map((u) => ({ value: u.id, label: `${u.simbolo} — ${u.descripcion}` }))}
+                  onNuevo={(texto) => setUnidadNueva({ open: true, texto })}
+                />
               )} />
             </Form.Item>
           </Col>
@@ -260,7 +325,7 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
           <Col span={6}>
             <Form.Item label="Afecta IGV">
               <Controller name="afecta_igv" control={control} render={({ field }) => (
-                <Select value={field.value} onChange={field.onChange} options={[{ value: true, label: 'Sí (18%)' }, { value: false, label: 'No (exonerado)' }]} />
+                <Select value={field.value} onChange={field.onChange} options={[{ value: true, label: `Sí (${formatPorcentajeIgv(porcentajeIgv)})` }, { value: false, label: 'No (exonerado)' }]} />
               )} />
             </Form.Item>
           </Col>
@@ -321,6 +386,29 @@ export function ProductoFormModal({ open, producto, onClose, onSaved }: Props) {
         </Form.Item>
 
       </Form>
+      <UnidadMedidaNuevaModal
+        open={unidadNueva.open}
+        codigosUsados={unidades.map((u) => u.codigo_sunat)}
+        descripcionInicial={unidadNueva.texto}
+        onClose={() => setUnidadNueva({ open: false, texto: '' })}
+        onCreada={async (u) => {
+          await queryClient.invalidateQueries({ queryKey: ['unidades-medida'] });
+          setValue('id_unidad_medida', u.id, { shouldValidate: true });
+          setUnidadNueva({ open: false, texto: '' });
+        }}
+      />
+      <ProveedorNuevoModal
+        open={proveedorNuevo.open}
+        // Lo escrito en el buscador: si son 11 dígitos es un RUC, si no, la razón social.
+        rucInicial={/^\d{11}$/.test(proveedorNuevo.texto) ? proveedorNuevo.texto : undefined}
+        razonSocialInicial={/^\d{11}$/.test(proveedorNuevo.texto) ? undefined : proveedorNuevo.texto}
+        onClose={() => setProveedorNuevo((p) => ({ ...p, open: false }))}
+        onCreado={async (p) => {
+          await queryClient.invalidateQueries({ queryKey: ['proveedores-all'] });
+          setValue(`codigos_proveedor.${proveedorNuevo.index}.id_proveedor`, p.id, { shouldValidate: true });
+          setProveedorNuevo((x) => ({ ...x, open: false }));
+        }}
+      />
     </Modal>
   );
 }

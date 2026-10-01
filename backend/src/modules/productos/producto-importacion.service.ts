@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { redondear4 } from '../../common/utils/numero-documento.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
+import { mayus } from '../../common/utils/texto.util';
 
 const TIPOS_EXISTENCIA = [
   { value: '01', label: '01 – Mercadería' },
@@ -240,6 +242,7 @@ export class ProductoImportacionService {
     const almacenPrincipal = almacenes.find((a) => a.es_principal) || almacenes[0];
     const codigosExistentes = new Set(productosExistentes.map((p) => p.codigo.toLowerCase()));
     const codigosEnArchivo = new Set<string>();
+    const factorIgv = 1 + await obtenerTasaIgv(this.prisma);
     const numerosPrecios = margenes.length ? margenes.map((m) => m.numero) : [1, 2, 3, 4, 5];
 
     const texto = (row: ExcelJS.Row, col: number) => {
@@ -288,7 +291,7 @@ export class ProductoImportacionService {
         if (categoriaTxt) {
           idCategoria = mapCategorias.get(categoriaTxt.toLowerCase());
           if (!idCategoria) {
-            const nueva = await this.prisma.tbl_categorias.create({ data: { nombre: categoriaTxt, usuario_creacion: usuarioId } });
+            const nueva = await this.prisma.tbl_categorias.create({ data: { nombre: mayus(categoriaTxt), usuario_creacion: usuarioId } });
             idCategoria = nueva.id;
             mapCategorias.set(categoriaTxt.toLowerCase(), idCategoria);
           }
@@ -299,7 +302,7 @@ export class ProductoImportacionService {
         if (marcaTxt) {
           idMarca = mapMarcas.get(marcaTxt.toLowerCase());
           if (!idMarca) {
-            const nueva = await this.prisma.tbl_marcas.create({ data: { nombre: marcaTxt, usuario_creacion: usuarioId } });
+            const nueva = await this.prisma.tbl_marcas.create({ data: { nombre: mayus(marcaTxt), usuario_creacion: usuarioId } });
             idMarca = nueva.id;
             mapMarcas.set(marcaTxt.toLowerCase(), idMarca);
           }
@@ -336,21 +339,21 @@ export class ProductoImportacionService {
         const descripcion = texto(row, 16 + numerosPrecios.length);
 
         const precioCompraSinIgv = costoUnitario;
-        const precioCompraConIgv = afectaIgv ? redondear4(costoUnitario * 1.18) : costoUnitario;
+        const precioCompraConIgv = afectaIgv ? redondear4(costoUnitario * factorIgv) : costoUnitario;
 
         await this.prisma.$transaction(
           async (tx) => {
             const producto = await tx.tbl_productos.create({
               data: {
-                codigo,
-                nombre,
-                codigo_barras: codigoBarras || undefined,
+                codigo: mayus(codigo),
+                nombre: mayus(nombre),
+                codigo_barras: mayus(codigoBarras) || undefined,
                 codigo_sunat: codigoSunat || undefined,
-                descripcion: descripcion || undefined,
+                descripcion: mayus(descripcion) || undefined,
                 id_categoria: idCategoria,
                 id_marca: idMarca,
                 id_unidad_medida: idUnidad,
-                ubicacion: ubicacion || undefined,
+                ubicacion: mayus(ubicacion) || undefined,
                 tipo_existencia: tipoExistencia,
                 afecta_igv: afectaIgv,
                 stock_minimo: stockMinimo,

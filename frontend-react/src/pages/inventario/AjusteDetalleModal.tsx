@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Modal, Descriptions, Table, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { inventarioApi } from '@/api/inventario';
-import { formatMoneda } from '@/utils/format';
+import { formatMoneda, nombreUsuario } from '@/utils/format';
 import { MOTIVO_AJUSTE_LABEL } from '@/types/ajuste-inventario';
 
 export function AjusteDetalleModal({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -22,6 +22,7 @@ export function AjusteDetalleModal({ id, onClose }: { id: string | null; onClose
             <Descriptions.Item label="Fecha">{dayjs(detalle.fecha_ajuste).format('DD/MM/YYYY')}</Descriptions.Item>
             <Descriptions.Item label="Almacén">{detalle.almacen?.nombre || '-'}</Descriptions.Item>
             <Descriptions.Item label="Motivo">{MOTIVO_AJUSTE_LABEL[detalle.motivo] || detalle.motivo}</Descriptions.Item>
+            <Descriptions.Item label="Registrado por">{nombreUsuario(detalle.usuario)}</Descriptions.Item>
             {detalle.observaciones && <Descriptions.Item label="Observaciones" span={2}>{detalle.observaciones}</Descriptions.Item>}
           </Descriptions>
           <Table

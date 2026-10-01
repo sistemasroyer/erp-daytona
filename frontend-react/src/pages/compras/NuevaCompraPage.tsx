@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Switch, DatePicker, Space, Alert, Empty } from 'antd';
-import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined, TagOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined, TagOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { proveedoresApi } from '@/api/proveedores';
@@ -11,6 +11,7 @@ import { almacenesApi } from '@/api/almacenes';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
+import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 import { formatMoneda } from '@/utils/format';
 import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
@@ -18,6 +19,8 @@ import type { Proveedor } from '@/types/proveedor';
 import type { DetalleImportadoXml } from '@/types/compra';
 import type { Gasto } from '@/types/gasto';
 import type { CodigoProveedor } from '@/types/producto';
+import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -86,10 +89,10 @@ function redondear2(v: number) {
   return Math.round(v * 100) / 100;
 }
 
-function getImporteLinea(item: ItemCompra, modo: ModoIngreso) {
+function getImporteLinea(item: ItemCompra, modo: ModoIngreso, factorIgvTasa: number) {
   const v = item.valor || 0;
   const cant = item.cantidad || 1;
-  const igvFactor = item.afecta_igv ? 1.18 : 1;
+  const igvFactor = item.afecta_igv ? factorIgvTasa : 1;
   switch (modo) {
     case 'precio_sin_igv': return v * cant * igvFactor;
     case 'precio_con_igv': return v * cant;
@@ -99,15 +102,16 @@ function getImporteLinea(item: ItemCompra, modo: ModoIngreso) {
   }
 }
 
-function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso) {
-  const importeLinea = getImporteLinea(item, modo);
-  const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso, factorIgvTasa: number) {
+  const importeLinea = getImporteLinea(item, modo, factorIgvTasa);
+  const base = item.afecta_igv ? importeLinea / factorIgvTasa : importeLinea;
   return item.cantidad > 0 ? base / item.cantidad : 0;
 }
 
 export function NuevaCompraPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'boleta' | 'nota' | 'otros'>('factura');
@@ -116,6 +120,8 @@ export function NuevaCompraPage() {
   const [fechaEmision, setFechaEmision] = useState<Dayjs>(dayjs());
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [proveedorTexto, setProveedorTexto] = useState('');
+  // Alta rápida de proveedor sin salir de la compra: para el proveedor de la factura o el transportista.
+  const [nuevoProveedorPara, setNuevoProveedorPara] = useState<'factura' | 'flete' | null>(null);
   const [condicionPago, setCondicionPago] = useState<'contado' | 'credito'>('contado');
   const [fechaVencimiento, setFechaVencimiento] = useState<Dayjs | null>(null);
   const [idAlmacen, setIdAlmacen] = useState<string | undefined>(undefined);
@@ -198,9 +204,9 @@ export function NuevaCompraPage() {
     if (ultimoCosto > 0) {
       switch (modoIngreso) {
         case 'precio_sin_igv': valorInicial = ultimoCosto; break;
-        case 'precio_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * 1.18) : ultimoCosto; break;
+        case 'precio_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * factorIgv) : ultimoCosto; break;
         case 'total_sin_igv': valorInicial = ultimoCosto; break;
-        case 'total_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * 1.18) : ultimoCosto; break;
+        case 'total_con_igv': valorInicial = afectaIgv ? redondear2(ultimoCosto * factorIgv) : ultimoCosto; break;
       }
     }
     setItems((prev) => [...prev, {
@@ -234,7 +240,7 @@ export function NuevaCompraPage() {
     if (g.id_proveedor) {
       setProveedorFlete({
         id: g.id_proveedor, ruc: g.proveedor?.ruc || '', razon_social: g.proveedor?.razon_social || g.razon_social_emisor,
-        nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true,
+        nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true,
       });
     } else {
       setProveedorFlete(null);
@@ -252,15 +258,15 @@ export function NuevaCompraPage() {
     let subtotal = 0;
     let igvTotal = 0;
     items.forEach((item) => {
-      const importeLinea = getImporteLinea(item, modoIngreso);
-      const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+      const importeLinea = getImporteLinea(item, modoIngreso, factorIgv);
+      const base = item.afecta_igv ? importeLinea / factorIgv : importeLinea;
       const igv = item.afecta_igv ? importeLinea - base : 0;
       subtotal += base;
       igvTotal += igv;
     });
     const total = subtotal + igvTotal;
     return { subtotal, igvTotal, total };
-  }, [items, modoIngreso]);
+  }, [items, modoIngreso, factorIgv]);
 
   const validacion = useMemo(() => {
     if (totalFacturaVerificacion === undefined || items.length === 0) return null;
@@ -282,7 +288,7 @@ export function NuevaCompraPage() {
       if (data.moneda === 'PEN' || data.moneda === 'USD') setMoneda(data.moneda);
 
       if (data.proveedor.encontrado) {
-        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true });
+        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true });
         setProveedorTexto(data.proveedor.razon_social);
       } else {
         setProveedor(null);
@@ -355,7 +361,7 @@ export function NuevaCompraPage() {
         detalle: items.map((i) => ({
           id_producto: i.producto.id,
           cantidad: i.cantidad,
-          importe_linea: getImporteLinea(i, modoIngreso),
+          importe_linea: getImporteLinea(i, modoIngreso, factorIgv),
           afecta_igv: i.afecta_igv,
         })),
       });
@@ -380,7 +386,7 @@ export function NuevaCompraPage() {
 
       <BorradorBanner
         borradores={borradores}
-        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso), 0), d.moneda)}`}
+        resumen={(d) => `${d.proveedor ? d.proveedor.razon_social : 'Sin proveedor'} — ${d.items.length} ítem(s) — ${formatMoneda(d.items.reduce((s, i) => s + getImporteLinea(i, d.modoIngreso, factorIgv), 0), d.moneda)}`}
         onRestaurar={restaurarBorrador}
         onDescartar={descartarBorradorLista}
       />
@@ -420,14 +426,19 @@ export function NuevaCompraPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Proveedor *</Typography.Text>
-                <Autocomplete<Proveedor>
-                  placeholder="Buscar por RUC o razón social..."
-                  value={proveedorTexto}
-                  buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
-                  getLabel={(p) => p.razon_social}
-                  renderOpcion={(p) => <><strong>{p.ruc}</strong> — {p.razon_social}</>}
-                  onSelect={(p) => { setProveedor(p); setProveedorTexto(p.razon_social); }}
-                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <Autocomplete<Proveedor>
+                      placeholder="Buscar por RUC o razón social..."
+                      value={proveedorTexto}
+                      buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
+                      getLabel={(p) => p.razon_social}
+                      renderOpcion={(p) => <><strong>{p.ruc}</strong> — {p.razon_social}</>}
+                      onSelect={(p) => { setProveedor(p); setProveedorTexto(p.razon_social); }}
+                    />
+                  </div>
+                  <Button icon={<UserAddOutlined />} onClick={() => setNuevoProveedorPara('factura')}>Nuevo</Button>
+                </div>
                 {proveedor && <Typography.Text type="success" style={{ fontSize: 12 }}><CheckCircleOutlined /> {proveedor.razon_social}</Typography.Text>}
               </div>
               <div>
@@ -513,13 +524,19 @@ export function NuevaCompraPage() {
                     {gastoFlete ? (
                       <Input size="small" disabled value={proveedorFlete?.razon_social || gastoFlete.razon_social_emisor} />
                     ) : (
-                      <Autocomplete<Proveedor>
-                        placeholder="Sin especificar"
-                        buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
-                        getLabel={(p) => p.razon_social}
-                        renderOpcion={(p) => <>{p.razon_social}</>}
-                        onSelect={setProveedorFlete}
-                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <Autocomplete<Proveedor>
+                            placeholder="Sin especificar"
+                            value={proveedorFlete?.razon_social}
+                            buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
+                            getLabel={(p) => p.razon_social}
+                            renderOpcion={(p) => <>{p.razon_social}</>}
+                            onSelect={setProveedorFlete}
+                          />
+                        </div>
+                        <Button size="small" icon={<UserAddOutlined />} onClick={() => setNuevoProveedorPara('flete')} title="Nuevo transportista" />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -542,23 +559,24 @@ export function NuevaCompraPage() {
                   size="small" value={modoIngreso} onChange={setModoIngreso} style={{ width: 160 }}
                   options={(Object.keys(MODO_INFO) as ModoIngreso[]).map((m) => ({ value: m, label: MODO_INFO[m].label(simb) }))}
                 />
-                <div style={{ minWidth: 260 }}>
-                  <Autocomplete<import('@/types/producto').Producto>
-                    placeholder="Agregar producto..."
-                    buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
-                    getLabel={() => ''}
-                    renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
-                    onSelect={agregarProducto}
-                  />
-                </div>
               </Space>
             }
           >
+            <div style={{ marginBottom: 12 }}>
+              <Autocomplete<import('@/types/producto').Producto>
+                placeholder="Buscar producto por código o nombre para agregarlo..."
+                buscar={async (q) => (await productosApi.listar({ search: q, limit: 10 })).data}
+                getLabel={() => ''}
+                renderOpcion={(p) => <OpcionProducto producto={p} agregar mostrarCosto />}
+                onSelect={agregarProducto}
+                anchoMinimo={520}
+              />
+            </div>
 
             {items.length === 0 ? <Empty description="Agregue los productos de la factura" /> : items.map((item, idx) => {
-              const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso);
-              const importeLinea = getImporteLinea(item, modoIngreso);
-              const base = item.afecta_igv ? importeLinea / 1.18 : importeLinea;
+              const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso, factorIgv);
+              const importeLinea = getImporteLinea(item, modoIngreso, factorIgv);
+              const base = item.afecta_igv ? importeLinea / factorIgv : importeLinea;
               const igv = item.afecta_igv ? importeLinea - base : 0;
               const codigoExistente = proveedor ? item.producto.codigos_proveedor.find((c) => c.id_proveedor === proveedor.id) : undefined;
               return (
@@ -602,7 +620,7 @@ export function NuevaCompraPage() {
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Costo unit. c/IGV</Typography.Text>
                       <div style={{ background: '#e6f4ff', borderRadius: 4, padding: '2px 6px', textAlign: 'center', fontWeight: 600, color: '#0958d9', fontSize: 12 }}>
-                        {costoUnit > 0 ? `${simb} ${(item.afecta_igv ? costoUnit * 1.18 : costoUnit).toFixed(4)}` : '—'}
+                        {costoUnit > 0 ? `${simb} ${(item.afecta_igv ? costoUnit * factorIgv : costoUnit).toFixed(4)}` : '—'}
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: '#8c8c8c' }}>
@@ -669,7 +687,7 @@ export function NuevaCompraPage() {
               <strong>{formatMoneda(totales.subtotal, moneda)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span>IGV 18%</span>
+              <span>IGV {formatPorcentajeIgv(porcentajeIgv)}</span>
               <span>{formatMoneda(totales.igvTotal, moneda)}</span>
             </div>
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -688,6 +706,15 @@ export function NuevaCompraPage() {
           </Card>
         </div>
       </div>
+      <ProveedorNuevoModal
+        open={nuevoProveedorPara !== null}
+        onClose={() => setNuevoProveedorPara(null)}
+        onCreado={(p) => {
+          if (nuevoProveedorPara === 'flete') setProveedorFlete(p);
+          else { setProveedor(p); setProveedorTexto(p.razon_social); }
+          setNuevoProveedorPara(null);
+        }}
+      />
     </div>
   );
 }

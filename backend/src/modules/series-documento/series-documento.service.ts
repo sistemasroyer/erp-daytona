@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { IsString, IsNotEmpty, IsEnum, IsOptional, IsBoolean, Length } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateSerieDto {
   @IsString() @IsNotEmpty() id_punto_venta: string;
@@ -56,6 +57,7 @@ export class SeriesDocumentoService {
   }
 
   async create(dto: CreateSerieDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['serie']);
     const pv = await this.prisma.tbl_puntos_venta.findFirst({
       where: { id: dto.id_punto_venta, eliminado: false },
     });

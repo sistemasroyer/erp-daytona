@@ -1,3 +1,4 @@
+import type { ConHistorial } from '@/types/historial';
 export type CategoriaGasto = 'flete' | 'alquiler' | 'servicios' | 'comida_viaticos' | 'honorarios' | 'utiles_oficina' | 'mantenimiento' | 'otros';
 export type EstadoGasto = 'registrado' | 'anulado';
 
@@ -24,7 +25,7 @@ export interface DetalleGasto {
   afecta_igv: boolean;
 }
 
-export interface Gasto {
+export interface Gasto extends ConHistorial {
   id: string;
   numero_interno: string;
   categoria: CategoriaGasto;

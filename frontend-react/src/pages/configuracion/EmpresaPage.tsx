@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { App, Card, Row, Col, Form, Input, Button, Typography, Upload, Empty } from 'antd';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { App, Card, Row, Col, Form, Input, InputNumber, Button, Typography, Upload, Empty, Alert } from 'antd';
 import { UploadOutlined, DeleteOutlined, SaveOutlined, PictureOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { empresaApi } from '@/api/empresa';
 import { ApiError } from '@/api/types';
 import type { UpdateEmpresaDto } from '@/types/empresa';
+import { useConfirmar } from '@/components/ConfirmModal';
 
 export function EmpresaPage() {
   const { message } = App.useApp();
-  const { data, refetch } = useQuery({ queryKey: ['empresa'], queryFn: () => empresaApi.obtener() });
+  const { confirmar } = useConfirmar();
+  const queryClient = useQueryClient();
+  const { data } = useQuery({ queryKey: ['empresa'], queryFn: () => empresaApi.obtener() });
   const [form] = Form.useForm<UpdateEmpresaDto>();
   const [logo, setLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -29,6 +32,7 @@ export function EmpresaPage() {
       email: e.email || '',
       web: e.web || '',
       regimen_tributario: e.regimen_tributario || '',
+      porcentaje_igv: Number(e.porcentaje_igv),
     });
     setLogo(e.logo_base64 || null);
   }, [data, form]);
@@ -45,6 +49,15 @@ export function EmpresaPage() {
   };
 
   const guardar = async (values: UpdateEmpresaDto) => {
+    const igvActual = data ? Number(data.data.porcentaje_igv) : undefined;
+    if (values.porcentaje_igv !== undefined && igvActual !== undefined && values.porcentaje_igv !== igvActual) {
+      const ok = await confirmar(
+        `¿Cambiar el IGV de ${igvActual}% a ${values.porcentaje_igv}%? Se aplicará a todas las ventas, cotizaciones, compras y gastos que se registren desde ahora. `
+        + 'Los documentos ya emitidos no cambian. Los precios de venta de los productos se mantienen (ya incluyen IGV): solo cambia cuánto de ese precio es IGV.',
+        'Cambiar tasa de IGV',
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       await empresaApi.actualizar({
@@ -62,7 +75,7 @@ export function EmpresaPage() {
         logo_base64: logo !== null ? logo : undefined,
       });
       message.success('Datos de la empresa actualizados correctamente');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['empresa'] });
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al guardar');
     } finally {
@@ -114,6 +127,19 @@ export function EmpresaPage() {
                   </Form.Item>
                 </Col>
                 <Col span={24}>
+                  <Form.Item
+                    label="IGV (%)"
+                    name="porcentaje_igv"
+                    rules={[{ required: true, message: 'Ingrese el porcentaje de IGV' }]}
+                    extra="En Perú es 18%. Solo afecta a los documentos que se registren desde ahora."
+                  >
+                    <InputNumber min={0} max={50} step={0.5} precision={2} style={{ width: 160 }} suffix="%" />
+                  </Form.Item>
+                  {data && Number(data.data.porcentaje_igv) !== 18 && (
+                    <Alert type="warning" showIcon style={{ marginBottom: 16 }} title={`El IGV configurado es ${Number(data.data.porcentaje_igv)}%, distinto del 18% general de Perú.`} />
+                  )}
+                </Col>
+                <Col span={24}>
                   <Form.Item label="Razón social" name="razon_social" rules={[{ required: true, message: 'Ingrese la razón social' }]}>
                     <Input />
                   </Form.Item>
@@ -155,12 +181,12 @@ export function EmpresaPage() {
                 </Col>
                 <Col span={12}>
                   <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Email inválido' }]}>
-                    <Input />
+                    <Input className="no-mayus" />
                   </Form.Item>
                 </Col>
                 <Col span={24}>
                   <Form.Item label="Sitio web" name="web">
-                    <Input />
+                    <Input className="no-mayus" />
                   </Form.Item>
                 </Col>
               </Row>

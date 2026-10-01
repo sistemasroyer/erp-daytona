@@ -184,6 +184,8 @@ model tbl_empresas {
   clave_sol_password   String?  @db.VarChar(200)
   modo_sunat           String   @default("mock") @db.VarChar(10)
   regimen_tributario   String?  @db.VarChar(100)
+  /// Tasa de IGV vigente en % (Perú: 18). Se aplica a documentos nuevos; cada venta/compra guarda la suya.
+  porcentaje_igv       Decimal  @default(18) @db.Decimal(5, 2)
   estado               Boolean  @default(true)
   eliminado            Boolean  @default(false)
   fecha_creacion       DateTime @default(now())
@@ -323,23 +325,25 @@ model tbl_usuarios {
   usuario_creacion     String?   @db.VarChar(36)
   usuario_modificacion String?   @db.VarChar(36)
 
-  punto_venta  tbl_puntos_venta?      @relation(fields: [id_punto_venta], references: [id])
-  roles        tbl_usuarios_roles[]
-  dispositivos tbl_dispositivos[]
-  logs_acceso  tbl_logs_acceso[]
-  ventas       tbl_ventas[]
-  compras      tbl_compras[]
-  ordenes      tbl_ordenes_compra[]   @relation("solicitante")
-  aprobaciones tbl_ordenes_compra[]   @relation("aprobador")
-  cajas        tbl_cajas_aperturas[]
-  mov_caja     tbl_movimientos_caja[]
-  arqueos_caja tbl_cajas_arqueos[]
-  auditoria    tbl_auditoria[]
-  gastos       tbl_gastos[]
-  tomas_inventario tbl_tomas_inventario[]
-  credencial_aprobacion tbl_credenciales_aprobacion?
-  autorizaciones_solicitadas tbl_autorizaciones[] @relation("solicita_autorizacion")
-  autorizaciones_aprobadas tbl_autorizaciones[] @relation("aprueba_autorizacion")
+  punto_venta                tbl_puntos_venta?            @relation(fields: [id_punto_venta], references: [id])
+  roles                      tbl_usuarios_roles[]
+  dispositivos               tbl_dispositivos[]
+  logs_acceso                tbl_logs_acceso[]
+  ventas                     tbl_ventas[]
+  compras                    tbl_compras[]
+  ordenes                    tbl_ordenes_compra[]         @relation("solicitante")
+  aprobaciones               tbl_ordenes_compra[]         @relation("aprobador")
+  cajas                      tbl_cajas_aperturas[]
+  mov_caja                   tbl_movimientos_caja[]
+  arqueos_caja               tbl_cajas_arqueos[]
+  auditoria                  tbl_auditoria[]
+  gastos                     tbl_gastos[]
+  tomas_inventario           tbl_tomas_inventario[]
+  paquetes_letras_aprobados  tbl_letras_paquetes[]        @relation("aprueba_paquete_letras")
+  letras_pagadas             tbl_letras[]                 @relation("paga_letra")
+  credencial_aprobacion      tbl_credenciales_aprobacion?
+  autorizaciones_solicitadas tbl_autorizaciones[]         @relation("solicita_autorizacion")
+  autorizaciones_aprobadas   tbl_autorizaciones[]         @relation("aprueba_autorizacion")
 
   @@index([email])
   @@index([id_punto_venta])
@@ -347,29 +351,30 @@ model tbl_usuarios {
 }
 
 model tbl_credenciales_aprobacion {
-  id_usuario String @id
-  pin_hash String @db.VarChar(200)
-  activo Boolean @default(true)
-  intentos_fallidos Int @default(0)
-  bloqueado_hasta DateTime?
-  fecha_modificacion DateTime @updatedAt
-  usuario tbl_usuarios @relation(fields: [id_usuario], references: [id])
+  id_usuario         String       @id
+  pin_hash           String       @db.VarChar(200)
+  activo             Boolean      @default(true)
+  intentos_fallidos  Int          @default(0)
+  bloqueado_hasta    DateTime?
+  fecha_modificacion DateTime     @updatedAt
+  usuario            tbl_usuarios @relation(fields: [id_usuario], references: [id])
 }
 
 model tbl_autorizaciones {
-  id String @id @default(uuid())
-  token_hash String @unique @db.VarChar(64)
-  recurso String @db.VarChar(40)
-  id_documento String
-  accion String @default("anular") @db.VarChar(30)
+  id             String       @id @default(uuid())
+  token_hash     String       @unique @db.VarChar(64)
+  recurso        String       @db.VarChar(40)
+  id_documento   String
+  accion         String       @default("anular") @db.VarChar(30)
   id_solicitante String
-  id_aprobador String
-  motivo String @db.VarChar(500)
-  fecha_creacion DateTime @default(now())
-  vence_en DateTime
-  usada_en DateTime?
-  solicitante tbl_usuarios @relation("solicita_autorizacion", fields: [id_solicitante], references: [id])
-  aprobador tbl_usuarios @relation("aprueba_autorizacion", fields: [id_aprobador], references: [id])
+  id_aprobador   String
+  motivo         String       @db.VarChar(500)
+  fecha_creacion DateTime     @default(now())
+  vence_en       DateTime
+  usada_en       DateTime?
+  solicitante    tbl_usuarios @relation("solicita_autorizacion", fields: [id_solicitante], references: [id])
+  aprobador      tbl_usuarios @relation("aprueba_autorizacion", fields: [id_aprobador], references: [id])
+
   @@index([recurso, id_documento])
   @@index([id_solicitante, fecha_creacion])
 }
@@ -445,6 +450,8 @@ model tbl_auditoria {
   tabla            String                 @db.VarChar(100)
   id_registro      String                 @db.VarChar(36)
   operacion        TipoOperacionAuditoria
+  /// Acción concreta sobre el registro, tomada de la ruta (ej. "anular", "canjear", "pagar"). Null = alta/edición simple.
+  accion           String?                @db.VarChar(60)
   datos_anteriores Json?
   datos_nuevos     Json?
   ip               String?                @db.VarChar(45)
@@ -604,6 +611,8 @@ model tbl_proveedores {
   banco_detraccion      String?  @db.VarChar(100)
   porcentaje_detraccion Decimal? @db.Decimal(5, 2)
   dias_credito          Int      @default(0)
+  /// Letras: el proveedor exige pago en una sola cuota (en letras-daytona: tipo_pago = 'unico').
+  letras_pago_unico     Boolean  @default(false)
   estado                Boolean  @default(true)
   eliminado             Boolean  @default(false)
   fecha_creacion        DateTime @default(now())
@@ -612,6 +621,7 @@ model tbl_proveedores {
   usuario_modificacion  String?  @db.VarChar(36)
 
   compras          tbl_compras[]
+  paquetes_letras  tbl_letras_paquetes[]
   compras_flete    tbl_compras[]                    @relation("FleteProveedor")
   ordenes          tbl_ordenes_compra[]
   codigos_producto tbl_producto_codigos_proveedor[]
@@ -914,6 +924,7 @@ model tbl_ventas {
   tipo_cambio          Decimal            @default(1) @db.Decimal(10, 4)
   subtotal             Decimal            @db.Decimal(12, 2)
   igv                  Decimal            @db.Decimal(12, 2)
+  porcentaje_igv       Decimal            @default(18) @db.Decimal(5, 2)
   otros_cargos         Decimal            @default(0) @db.Decimal(12, 2)
   total                Decimal            @db.Decimal(12, 2)
   observaciones        String?            @db.VarChar(500)
@@ -1011,6 +1022,7 @@ model tbl_compras {
   tipo_cambio          Decimal            @default(1) @db.Decimal(10, 4)
   subtotal             Decimal            @db.Decimal(12, 2)
   igv                  Decimal            @db.Decimal(12, 2)
+  porcentaje_igv       Decimal            @default(18) @db.Decimal(5, 2)
   total                Decimal            @db.Decimal(12, 2)
   flete_monto          Decimal            @default(0) @db.Decimal(12, 2)
   flete_moneda         Moneda             @default(PEN)
@@ -1030,11 +1042,12 @@ model tbl_compras {
   usuario_creacion     String?            @db.VarChar(36)
   usuario_modificacion String?            @db.VarChar(36)
 
-  proveedor       tbl_proveedores       @relation(fields: [id_proveedor], references: [id])
-  proveedor_flete tbl_proveedores?      @relation("FleteProveedor", fields: [id_proveedor_flete], references: [id])
-  almacen         tbl_almacenes         @relation(fields: [id_almacen], references: [id])
-  usuario         tbl_usuarios          @relation(fields: [id_usuario], references: [id])
-  detalle         tbl_detalle_compras[]
+  proveedor         tbl_proveedores         @relation(fields: [id_proveedor], references: [id])
+  documentos_letras tbl_letras_documentos[]
+  proveedor_flete   tbl_proveedores?        @relation("FleteProveedor", fields: [id_proveedor_flete], references: [id])
+  almacen           tbl_almacenes           @relation(fields: [id_almacen], references: [id])
+  usuario           tbl_usuarios            @relation(fields: [id_usuario], references: [id])
+  detalle           tbl_detalle_compras[]
 
   @@index([id_proveedor])
   @@index([id_proveedor_flete])
@@ -1403,4 +1416,191 @@ model tbl_sunat_respuestas {
 
   @@index([id_envio])
   @@map("tbl_sunat_respuestas")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LETRAS (cuentas por pagar a proveedores en cuotas) — migrado de letras-daytona
+// Flujo: proveedor → paquete (agrupa facturas/NC a crédito) → documentos → letras (cuotas) → pago.
+// `id_legacy` guarda el id del registro en la BD MySQL de letras-daytona (migración idempotente).
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum EstadoPaqueteLetras {
+  borrador
+  pendiente_aprobacion
+  aprobado
+  en_proceso
+  completado
+  cancelado
+}
+
+/// "Vencida" no se guarda: es una letra pendiente cuya fecha de pago ya pasó.
+enum EstadoLetra {
+  pendiente
+  pagada
+  cancelada
+}
+
+enum TipoDocumentoLetra {
+  factura
+  nota_credito
+  nota_debito
+  otro
+}
+
+enum TipoDiaNoPago {
+  feriado
+  especial
+}
+
+model tbl_bancos {
+  id                   String   @id @default(uuid())
+  nombre               String   @db.VarChar(150)
+  siglas               String?  @db.VarChar(20)
+  descripcion          String?  @db.VarChar(300)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+  id_legacy            Int?     @unique
+
+  paquetes tbl_letras_paquetes[]
+
+  @@map("tbl_bancos")
+}
+
+/// Fechas en que no se programan pagos de letras (feriados, días especiales). El domingo nunca es hábil.
+model tbl_dias_no_pago {
+  id                   String        @id @default(uuid())
+  fecha                DateTime      @db.Date
+  descripcion          String        @db.VarChar(200)
+  tipo                 TipoDiaNoPago @default(feriado)
+  estado               Boolean       @default(true)
+  eliminado            Boolean       @default(false)
+  fecha_creacion       DateTime      @default(now())
+  fecha_modificacion   DateTime      @updatedAt
+  usuario_creacion     String?       @db.VarChar(36)
+  usuario_modificacion String?       @db.VarChar(36)
+  id_legacy            Int?          @unique
+
+  @@index([fecha])
+  @@map("tbl_dias_no_pago")
+}
+
+/// Monto máximo de letras a pagar por día de la semana (1 = lunes ... 7 = domingo, ISO).
+/// Si un día tiene límites en varias monedas, se usa el mayor tras convertir (igual que letras-daytona).
+model tbl_limites_pago_dia {
+  id                   String   @id @default(uuid())
+  dia_semana           Int
+  moneda               Moneda   @default(PEN)
+  monto_maximo         Decimal  @db.Decimal(12, 2)
+  estado               Boolean  @default(true)
+  eliminado            Boolean  @default(false)
+  fecha_creacion       DateTime @default(now())
+  fecha_modificacion   DateTime @updatedAt
+  usuario_creacion     String?  @db.VarChar(36)
+  usuario_modificacion String?  @db.VarChar(36)
+  id_legacy            Int?     @unique
+
+  @@index([dia_semana])
+  @@map("tbl_limites_pago_dia")
+}
+
+model tbl_letras_paquetes {
+  id                   String              @id @default(uuid())
+  codigo               String              @unique @db.VarChar(30)
+  id_proveedor         String
+  id_banco             String?
+  moneda               Moneda              @default(PEN)
+  estado               EstadoPaqueteLetras @default(borrador)
+  fecha_inicio_pago    DateTime            @db.Date
+  fecha_fin_pago       DateTime            @db.Date
+  dias_credito         Int                 @default(0)
+  /// Suma de los documentos (las notas de crédito restan).
+  monto_total          Decimal             @default(0) @db.Decimal(12, 2)
+  /// Antes de generar: cuotas sugeridas por el usuario. Después: cuotas reales.
+  numero_cuotas        Int                 @default(1)
+  comentarios          String?             @db.VarChar(500)
+  id_usuario_aprobador String?
+  fecha_aprobacion     DateTime?
+  eliminado            Boolean             @default(false)
+  fecha_creacion       DateTime            @default(now())
+  fecha_modificacion   DateTime            @updatedAt
+  usuario_creacion     String?             @db.VarChar(36)
+  usuario_modificacion String?             @db.VarChar(36)
+  id_legacy            Int?                @unique
+
+  proveedor  tbl_proveedores         @relation(fields: [id_proveedor], references: [id])
+  banco      tbl_bancos?             @relation(fields: [id_banco], references: [id])
+  aprobador  tbl_usuarios?           @relation("aprueba_paquete_letras", fields: [id_usuario_aprobador], references: [id])
+  documentos tbl_letras_documentos[]
+  letras     tbl_letras[]
+
+  @@index([id_proveedor])
+  @@index([estado])
+  @@map("tbl_letras_paquetes")
+}
+
+model tbl_letras_documentos {
+  id                   String             @id @default(uuid())
+  id_paquete           String
+  /// Compra (factura o NC de compra) de la que salió el documento; null si se ingresó a mano o vino de la migración.
+  id_compra            String?
+  tipo                 TipoDocumentoLetra @default(factura)
+  serie                String             @db.VarChar(10)
+  numero               String             @db.VarChar(20)
+  moneda               Moneda             @default(PEN)
+  /// Con signo: las notas de crédito se guardan en negativo.
+  monto                Decimal            @db.Decimal(12, 2)
+  fecha_emision        DateTime           @db.Date
+  fecha_vencimiento    DateTime?          @db.Date
+  dias_credito         Int                @default(0)
+  eliminado            Boolean            @default(false)
+  fecha_creacion       DateTime           @default(now())
+  fecha_modificacion   DateTime           @updatedAt
+  usuario_creacion     String?            @db.VarChar(36)
+  usuario_modificacion String?            @db.VarChar(36)
+  id_legacy            Int?               @unique
+
+  paquete tbl_letras_paquetes @relation(fields: [id_paquete], references: [id])
+  compra  tbl_compras?        @relation(fields: [id_compra], references: [id])
+
+  @@index([id_paquete])
+  @@index([id_compra])
+  @@map("tbl_letras_documentos")
+}
+
+model tbl_letras {
+  id                   String      @id @default(uuid())
+  id_paquete           String
+  numero_cuota         Int
+  moneda               Moneda      @default(PEN)
+  monto                Decimal     @db.Decimal(12, 2)
+  /// Siempre 7 días antes de fecha_pago (regla de letras-daytona).
+  fecha_banco          DateTime    @db.Date
+  fecha_pago           DateTime    @db.Date
+  estado               EstadoLetra @default(pendiente)
+  /// Código que asigna el banco a la letra.
+  codigo_banco         String?     @db.VarChar(50)
+  fecha_pago_efectivo  DateTime?   @db.Date
+  metodo_pago          String?     @db.VarChar(50)
+  numero_operacion     String?     @db.VarChar(50)
+  monto_pagado         Decimal?    @db.Decimal(12, 2)
+  id_usuario_pago      String?
+  observaciones        String?     @db.Text
+  eliminado            Boolean     @default(false)
+  fecha_creacion       DateTime    @default(now())
+  fecha_modificacion   DateTime    @updatedAt
+  usuario_creacion     String?     @db.VarChar(36)
+  usuario_modificacion String?     @db.VarChar(36)
+  id_legacy            Int?        @unique
+
+  paquete      tbl_letras_paquetes @relation(fields: [id_paquete], references: [id])
+  usuario_pago tbl_usuarios?       @relation("paga_letra", fields: [id_usuario_pago], references: [id])
+
+  @@index([id_paquete])
+  @@index([fecha_pago])
+  @@index([estado])
+  @@map("tbl_letras")
 }

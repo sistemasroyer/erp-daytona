@@ -7,9 +7,11 @@ import { CreateGastoDto } from './dto/create-gasto.dto';
 import { PagarGastoDto } from './dto/pagar-gasto.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2 } from '../../common/utils/numero-documento.util';
+import { obtenerTasaIgv } from '../../common/utils/igv.util';
 import { finDeDia } from '../../common/utils/fecha.util';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
-const TASA_IGV = 0.18;
 
 const INCLUDE_DETALLE = {
   proveedor: { select: { razon_social: true, ruc: true } },
@@ -39,6 +41,7 @@ export class GastosService {
   }
 
   async create(dto: CreateGastoDto, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['serie', 'observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
       where: { id: dto.id_proveedor, eliminado: false },
     });
@@ -55,11 +58,12 @@ export class GastosService {
 
     const moneda = dto.moneda || 'PEN';
     const tipoCambio = moneda === 'USD' ? (dto.tipo_cambio || 1) : 1;
+    const tasaIgv = await obtenerTasaIgv(this.prisma);
 
     const detalleCalculado = dto.detalle.map((item) => {
       const cantidad = item.cantidad || 1;
       const afectaIgv = item.afecta_igv !== false;
-      const subtotal = afectaIgv ? redondear2(item.importe_linea / (1 + TASA_IGV)) : redondear2(item.importe_linea);
+      const subtotal = afectaIgv ? redondear2(item.importe_linea / (1 + tasaIgv)) : redondear2(item.importe_linea);
       const igv = afectaIgv ? redondear2(item.importe_linea - subtotal) : 0;
       return {
         descripcion: item.descripcion,
@@ -170,6 +174,14 @@ export class GastosService {
     return { data, total, page: pagination.page, limit: pagination.limit };
   }
 
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const gasto = await this.findOne(id, idPuntoVenta, esSuperadmin);
+    return { ...gasto, ...(await historialDocumento(this.prisma, 'gastos', {
+      ...gasto, anulado: gasto.estado === 'anulado', motivo: gasto.observaciones,
+    })) };
+  }
+
   async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
     const gasto = await this.prisma.tbl_gastos.findFirst({
       where: { id, eliminado: false },
@@ -211,7 +223,7 @@ export class GastosService {
           pagado: true,
           fecha_pago: new Date(),
           id_metodo_pago: dto.id_metodo_pago,
-          referencia_pago: dto.referencia,
+          referencia_pago: mayus(dto.referencia),
           usuario_modificacion: usuarioId,
         },
       });

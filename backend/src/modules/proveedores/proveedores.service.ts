@@ -3,7 +3,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PeruApiService } from '../peru-api/peru-api.service';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, Min, Length } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, Min, Length, IsBoolean } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateProveedorDto {
   @IsString() @IsNotEmpty() @Length(11, 11) ruc: string;
@@ -21,6 +22,8 @@ export class CreateProveedorDto {
   @IsOptional() @IsString() banco_detraccion?: string;
   @IsOptional() @IsNumber() @Min(0) porcentaje_detraccion?: number;
   @IsOptional() @IsNumber() @Min(0) dias_credito?: number;
+  /** Letras: el proveedor exige pago en una sola cuota. */
+  @IsOptional() @IsBoolean() letras_pago_unico?: boolean;
 }
 
 @Injectable()
@@ -31,6 +34,7 @@ export class ProveedoresService {
   ) {}
 
   async create(dto: CreateProveedorDto, creadorId: string) {
+    dto = aMayusculas(dto, ['razon_social', 'nombre_comercial', 'direccion', 'departamento', 'provincia', 'distrito', 'contacto', 'banco_detraccion']);
     const existente = await this.prisma.tbl_proveedores.findFirst({
       where: { ruc: dto.ruc, eliminado: false },
     });
@@ -80,6 +84,7 @@ export class ProveedoresService {
   }
 
   async update(id: string, dto: Partial<CreateProveedorDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['razon_social', 'nombre_comercial', 'direccion', 'departamento', 'provincia', 'distrito', 'contacto', 'banco_detraccion']);
     await this.findOne(id);
     return this.prisma.tbl_proveedores.update({
       where: { id },
