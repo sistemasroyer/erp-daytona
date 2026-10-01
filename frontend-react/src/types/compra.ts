@@ -1,4 +1,5 @@
 import type { ConHistorial } from '@/types/historial';
+import type { EstadoLetra, EstadoPaqueteLetras } from '@/types/letras';
 export type TipoDocumentoCompra = 'factura' | 'boleta' | 'nota' | 'otros' | 'nota_credito';
 export type EstadoCompra = 'borrador' | 'registrada' | 'anulada';
 export type CondicionPago = 'contado' | 'credito';
@@ -60,6 +61,19 @@ export interface Compra extends ConHistorial {
   usuario?: { nombre: string; apellido: string };
   detalle?: DetalleCompra[];
   _count?: { detalle: number };
+  /** Paquete de letras vigente que incluye este documento (null si no está en ninguno). En el detalle trae también sus letras. */
+  letras?: LetrasDeCompra | null;
+}
+
+export interface LetrasDeCompra {
+  id: string;
+  codigo: string;
+  estado: EstadoPaqueteLetras;
+  moneda: 'PEN' | 'USD';
+  monto_total: string;
+  letras_total: number;
+  letras_pagadas: number;
+  letras?: { id: string; numero_cuota: number; moneda: 'PEN' | 'USD'; monto: string; fecha_pago: string; estado: EstadoLetra; fecha_pago_efectivo: string | null }[];
 }
 
 export interface ListarComprasParams {
@@ -70,6 +84,8 @@ export interface ListarComprasParams {
   fecha_hasta?: string;
   id_proveedor?: string;
   tipo_documento?: string;
+  /** Facturas a crédito sin / con paquete de letras. */
+  letras?: 'sin_paquete' | 'en_paquete';
 }
 
 export interface DetalleCompraDto {

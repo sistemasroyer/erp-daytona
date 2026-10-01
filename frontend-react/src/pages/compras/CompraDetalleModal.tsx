@@ -1,9 +1,10 @@
 import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography } from 'antd';
+import { App, Modal, Descriptions, Table, Button, Alert, Space, Tag, Tooltip, Typography } from 'antd';
 import { FileExcelOutlined, CloseCircleOutlined, CarOutlined, FileAddOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
@@ -12,6 +13,7 @@ import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format'
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
 import { HistorialDocumento } from '@/components/HistorialDocumento';
+import { estadoLetraVisible } from '@/pages/letras/PaqueteLetrasDetallePage';
 
 interface Props {
   id: string | null;
@@ -98,7 +100,13 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           <Space wrap>
             {tieneFlete && !gastoFleteVinculado && <Button icon={<FileAddOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalGastoFlete(true)}>Registrar factura de flete</Button>}
             {puedeNotaCredito && <Button style={{ background: '#faad14', borderColor: '#faad14', color: '#fff' }} icon={<FileExcelOutlined />} onClick={() => navigate(`/compras/nueva-nota-credito?compra=${compra.id}`)}>Nota de Crédito</Button>}
-            {puedeAnular && <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>}
+            {puedeAnular && (compra.letras
+              ? (
+                <Tooltip title={`Está en el paquete de letras ${compra.letras.codigo}: para anularla primero hay que sacarla del paquete o cancelar el paquete (Letras → Paquetes).`}>
+                  <Button danger disabled icon={<CloseCircleOutlined />}>Anular</Button>
+                </Tooltip>
+              )
+              : <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>)}
           </Space>
         }
       >
@@ -159,6 +167,34 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
               </Typography.Text>
             )}
           </div>
+        )}
+
+        {compra.letras ? (
+          <div style={{ background: '#fafafa', borderRadius: 8, padding: 12, marginTop: 12 }}>
+            <Space wrap style={{ marginBottom: compra.letras.letras?.length ? 8 : 0 }}>
+              <Typography.Text strong>Letras:</Typography.Text>
+              <span>paquete <Link to={`/letras/paquetes/${compra.letras.id}`} onClick={onClose}>{compra.letras.codigo}</Link></span>
+              <EstadoTag estado={compra.letras.estado} />
+              <Typography.Text type="secondary">
+                Total del paquete {formatMoneda(compra.letras.monto_total, compra.letras.moneda)}
+                {compra.letras.letras_total > 0 && ` · ${compra.letras.letras_pagadas}/${compra.letras.letras_total} letras pagadas`}
+              </Typography.Text>
+            </Space>
+            {!!compra.letras.letras?.length && (
+              <Space wrap size={[6, 6]}>
+                {compra.letras.letras.map((l) => {
+                  const e = estadoLetraVisible(l);
+                  return (
+                    <Tag key={l.id} color={e === 'pagada' ? 'green' : e === 'vencida' ? 'red' : e === 'cancelada' ? 'default' : 'blue'}>
+                      {l.numero_cuota}. {dayjs(l.fecha_pago).format('DD/MM/YYYY')} · {formatMoneda(l.monto, l.moneda)} · {e}
+                    </Tag>
+                  );
+                })}
+              </Space>
+            )}
+          </div>
+        ) : compra.condicion_pago === 'credito' && compra.estado === 'registrada' && compra.tipo_documento !== 'nota_credito' && (
+          <Alert type="warning" showIcon style={{ marginTop: 12 }} title="Factura a crédito todavía sin paquete de letras." />
         )}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>Costeo de inventario</Typography.Title>

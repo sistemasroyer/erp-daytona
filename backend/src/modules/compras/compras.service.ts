@@ -14,6 +14,10 @@ import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
 import { aMayusculas } from '../../common/utils/texto.util';
+import { serializarFechas } from '../letras/fechas';
+
+/** Documento de letras que cuenta: no eliminado y en un paquete no eliminado ni cancelado. */
+const DOC_LETRAS_VIGENTE = { eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' as const } } };
 
 @Injectable()
 export class ComprasService {
@@ -256,10 +260,15 @@ export class ComprasService {
     });
   }
 
-  async findAll(pagination: PaginationDto & { fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string; tipo_documento?: string }) {
+  async findAll(pagination: PaginationDto & { fecha_desde?: string; fecha_hasta?: string; id_proveedor?: string; tipo_documento?: string; letras?: string }) {
     const where: any = { eliminado: false };
+    // Facturas a crédito vigentes que todavía no se pasaron (o sí) a un paquete de letras.
+    if (pagination.letras === 'sin_paquete' || pagination.letras === 'en_paquete') {
+      Object.assign(where, { condicion_pago: 'credito', estado: 'registrada', tipo_documento: { not: 'nota_credito' } });
+      where.documentos_letras = { [pagination.letras === 'sin_paquete' ? 'none' : 'some']: DOC_LETRAS_VIGENTE };
+    }
 
-    if (pagination.tipo_documento) where.tipo_documento = pagination.tipo_documento;
+    if (pagination.tipo_documento) where.tipo_documento = pagination.letras ? { equals: pagination.tipo_documento, not: 'nota_credito' } : pagination.tipo_documento;
 
     if (pagination.search) {
       where.OR = [
@@ -293,13 +302,40 @@ export class ComprasService {
       this.prisma.tbl_compras.count({ where }),
     ]);
 
-    return { data, total, page: pagination.page, limit: pagination.limit };
+    const letras = await this.letrasDeCompras(data.map((c) => c.id));
+    return { data: data.map((c) => ({ ...c, letras: letras.get(c.id) ?? null })), total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Paquete de letras vigente de cada compra, con cuántas letras tiene y cuántas están pagadas. */
+  private async letrasDeCompras(ids: string[]) {
+    const docs = await this.prisma.tbl_letras_documentos.findMany({
+      where: { id_compra: { in: ids }, ...DOC_LETRAS_VIGENTE },
+      select: { id_compra: true, paquete: { select: { id: true, codigo: true, estado: true, moneda: true, monto_total: true } } },
+    });
+    const conteo = docs.length
+      ? await this.prisma.tbl_letras.groupBy({
+          by: ['id_paquete', 'estado'], _count: true,
+          where: { id_paquete: { in: docs.map((d) => d.paquete.id) }, eliminado: false, estado: { not: 'cancelada' } },
+        })
+      : [];
+    const contar = (idPaquete: string, estado?: string) =>
+      conteo.filter((c) => c.id_paquete === idPaquete && (!estado || c.estado === estado)).reduce((s, c) => s + c._count, 0);
+    return new Map(docs.map((d) => [d.id_compra!, {
+      ...d.paquete, letras_total: contar(d.paquete.id), letras_pagadas: contar(d.paquete.id, 'pagada'),
+    }]));
   }
 
   /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
   async findOneConHistorial(id: string) {
     const compra = await this.findOne(id);
-    return { ...compra, ...(await historialDocumento(this.prisma, 'compras', {
+    const paquete = (await this.letrasDeCompras([id])).get(id);
+    const letras = paquete
+      ? serializarFechas(await this.prisma.tbl_letras.findMany({
+          where: { id_paquete: paquete.id, eliminado: false }, orderBy: { numero_cuota: 'asc' },
+          select: { id: true, numero_cuota: true, moneda: true, monto: true, fecha_pago: true, estado: true, fecha_pago_efectivo: true },
+        }))
+      : [];
+    return { ...compra, letras: paquete ? { ...paquete, letras } : null, ...(await historialDocumento(this.prisma, 'compras', {
       ...compra, anulado: compra.estado === 'anulada', motivo: compra.observaciones,
     })) };
   }
@@ -333,6 +369,7 @@ export class ComprasService {
         + 'reversión de stock) — emita o complete la Nota de Crédito por el resto en su lugar.',
       );
     }
+    await this.assertFueraDeLetras(id);
 
     return this.prisma.$transaction(async (tx) => {
       await this.aprobaciones.consumir(tx, 'compras', id, usuarioId, dto);
@@ -361,6 +398,26 @@ export class ComprasService {
 
       return tx.tbl_compras.findFirst({ where: { id } });
     });
+  }
+
+  /** Una compra (o NC) dentro de un paquete de letras vigente no se anula: quedarían letras de un documento anulado. */
+  private async assertFueraDeLetras(idCompra: string) {
+    const doc = await this.prisma.tbl_letras_documentos.findFirst({
+      where: { id_compra: idCompra, ...DOC_LETRAS_VIGENTE },
+      select: { paquete: { select: { codigo: true, estado: true } } },
+    });
+    if (!doc) return;
+    const { codigo, estado } = doc.paquete;
+    const comoLiberarlo: Record<string, string> = {
+      borrador: 'quítelo del paquete',
+      pendiente_aprobacion: 'devuelva el paquete a borrador y quítelo',
+      aprobado: 'reabra el paquete y quítelo, o cancele el paquete',
+      en_proceso: 'cancele el paquete (sus letras pendientes quedarán canceladas)',
+      completado: 'no es posible: sus letras ya están pagadas',
+    };
+    throw new BadRequestException(
+      `Este documento está en el paquete de letras ${codigo}. Para anularlo, ${comoLiberarlo[estado] ?? 'cancele el paquete'} (Letras → Paquetes).`,
+    );
   }
 
   async crearNotaCreditoCompra(idCompraOriginal: string, dto: CreateNotaCreditoCompraDto, usuarioId: string) {
