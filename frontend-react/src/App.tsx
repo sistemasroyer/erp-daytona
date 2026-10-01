@@ -52,6 +52,7 @@ import { NuevaCotizacionPage } from '@/pages/cotizaciones/NuevaCotizacionPage';
 import { PaquetesLetrasPage } from '@/pages/letras/PaquetesLetrasPage';
 import { PaqueteLetrasDetallePage } from '@/pages/letras/PaqueteLetrasDetallePage';
 import { ConfiguracionLetrasPage } from '@/pages/letras/ConfiguracionLetrasPage';
+import { GenerarLetrasPage } from '@/pages/letras/GenerarLetrasPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,6 +141,10 @@ export default function App() {
                       <Route path="/letras/paquetes" element={<PaquetesLetrasPage />} />
                       <Route path="/letras/paquetes/:id" element={<PaqueteLetrasDetallePage />} />
                       <Route path="/letras/configuracion" element={<ConfiguracionLetrasPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermiso perm="letras:crear" />}>
+                      <Route path="/letras/paquetes/:id/generar" element={<GenerarLetrasPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="ordenes_compra:ver" />}>

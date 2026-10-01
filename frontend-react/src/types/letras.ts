@@ -147,3 +147,55 @@ export interface ListarPaquetesParams {
   id_proveedor?: string;
   moneda?: MonedaLetras;
 }
+
+// ─── Generación de letras ───
+export interface CapacidadDia {
+  fecha: string;
+  num_dia_semana: number;
+  es_habil: boolean;
+  monto_programado: number;
+  limite_maximo: number;
+  capacidad_disponible: number;
+  estado: 'no_habil' | 'sin_capacidad' | 'limitado' | 'disponible';
+  tiene_letra_proveedor: boolean;
+}
+
+export interface LetraPropuesta {
+  numero_cuota: number;
+  monto: number;
+  fecha_banco: string;
+  fecha_pago: string;
+  monto_existente: number;
+  monto_total_dia: number;
+  limite_dia: number;
+  estado: 'valida' | 'advertencia' | 'invalida';
+  observaciones: string;
+}
+
+export interface AnalisisDistribucion {
+  capacidad_dias: CapacidadDia[];
+  analisis_cuotas?: {
+    numero_cuotas_optimo: number;
+    cuotas_referencial: number;
+    dias_disponibles: number;
+    capacidad_total_disponible: number;
+    capacidad_promedio: number;
+    monto_cuota_promedio: number;
+    limites: { minimo_cuotas: number; maximo_cuotas: number };
+    explicacion: string;
+  };
+  letras: LetraPropuesta[];
+  tolerancia_utilizada: number;
+  mensaje_tolerancia: string;
+  tipo_cambio: number;
+  dias_banco: number;
+  monto_total: number;
+  moneda: MonedaLetras;
+}
+
+export interface ConfigDistribucion {
+  tolerancia?: number;
+  monto_minimo?: number;
+  monto_maximo_preferido?: number;
+  numero_cuotas?: number;
+}

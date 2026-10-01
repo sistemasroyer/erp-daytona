@@ -1,6 +1,6 @@
 import { api } from './client';
 import type {
-  Banco, CompraDisponible, CreatePaqueteDto, DiaNoPago, DocumentoLetra, DocumentoLetraDto, EstadoPaqueteLetras,
+  AnalisisDistribucion, Banco, CompraDisponible, ConfigDistribucion, CreatePaqueteDto, DiaNoPago, DocumentoLetra, DocumentoLetraDto, EstadoPaqueteLetras,
   LimitePagoDia, ListarPaquetesParams, MonedaLetras, PaqueteLetras,
 } from '@/types/letras';
 
@@ -39,4 +39,9 @@ export const letrasPaquetesApi = {
   agregarDocumento: (id: string, dto: DocumentoLetraDto) => api.post<DocumentoLetra>(`/letras/paquetes/${id}/documentos`, dto),
   actualizarDocumento: (id: string, idDoc: string, dto: Partial<DocumentoLetraDto>) => api.patch<DocumentoLetra>(`/letras/paquetes/${id}/documentos/${idDoc}`, dto),
   eliminarDocumento: (id: string, idDoc: string) => api.delete<{ id: string }>(`/letras/paquetes/${id}/documentos/${idDoc}`),
+
+  /** Sin numero_cuotas: el sistema propone el número óptimo. Con numero_cuotas: recalcula con ese número. */
+  analizar: (id: string, config: ConfigDistribucion) => api.get<AnalisisDistribucion>(`/letras/paquetes/${id}/analisis`, config),
+  generar: (id: string, letras: { fecha_pago: string; monto: number }[], regenerar: boolean) =>
+    api.post<{ id: string; letras: number; regenerado: boolean }>(`/letras/paquetes/${id}/generar`, { letras, regenerar }),
 };

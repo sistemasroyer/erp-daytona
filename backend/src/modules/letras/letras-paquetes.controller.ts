@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permisos } from '../../common/decorators/permisos.decorator';
 import { LetrasPaquetesService } from './letras-paquetes.service';
+import { LetrasGeneracionService } from './letras-generacion.service';
+import { ConfigDistribucionDto, GuardarLetrasDto } from './dto/generacion.dto';
 import {
   CreatePaqueteDto, DocumentoLetraDto, FiltroPaquetesDto, ImportarComprasDto, MotivoDto,
   UpdateDocumentoLetraDto, UpdatePaqueteDto,
@@ -12,7 +14,10 @@ import {
 @ApiBearerAuth()
 @Controller('letras/paquetes')
 export class LetrasPaquetesController {
-  constructor(private readonly service: LetrasPaquetesService) {}
+  constructor(
+    private readonly service: LetrasPaquetesService,
+    private readonly generacion: LetrasGeneracionService,
+  ) {}
 
   @Get() @Permisos('letras:ver')
   listar(@Query() filtros: FiltroPaquetesDto) { return this.service.listar(filtros); }
@@ -69,4 +74,17 @@ export class LetrasPaquetesController {
   eliminarDocumento(@Param('id') id: string, @Param('idDocumento') idDoc: string, @CurrentUser('sub') u: string) {
     return this.service.eliminarDocumento(id, idDoc, u);
   }
+
+  // ─── Generación de letras ───
+  // Análisis y recálculo son GET: no guardan nada y así no llenan el historial del paquete.
+  @Get(':id/analisis') @Permisos('letras:crear')
+  @ApiOperation({ summary: 'Propone número de cuotas y su distribución (no guarda)' })
+  analizar(@Param('id') id: string, @Query() config: ConfigDistribucionDto) {
+    const { numero_cuotas, ...cfg } = config;
+    return numero_cuotas ? this.generacion.recalcular(id, numero_cuotas, cfg) : this.generacion.analizar(id, cfg);
+  }
+
+  @Post(':id/generar') @Permisos('letras:crear')
+  @ApiOperation({ summary: 'Guarda las letras propuestas (o ajustadas) y pasa el paquete a En proceso' })
+  generar(@Param('id') id: string, @Body() dto: GuardarLetrasDto, @CurrentUser('sub') u: string) { return this.generacion.guardar(id, dto, u); }
 }
