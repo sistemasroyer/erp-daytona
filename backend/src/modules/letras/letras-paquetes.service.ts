@@ -97,8 +97,19 @@ export class LetrasPaquetesService {
     const usuarioCreacion = paquete.usuario_creacion
       ? await this.prisma.tbl_usuarios.findFirst({ where: { id: paquete.usuario_creacion }, select: { nombre: true, apellido: true } })
       : null;
+    // Notas de crédito de sus facturas que no están en ningún paquete: un descuento que se perdería.
+    const idsFacturas = paquete.documentos.map((d) => d.id_compra).filter((x): x is string => !!x);
+    const ncFueraDelPaquete = idsFacturas.length && !['completado', 'cancelado'].includes(paquete.estado)
+      ? await this.prisma.tbl_compras.findMany({
+          where: {
+            id_compra_original: { in: idsFacturas }, tipo_documento: 'nota_credito', estado: 'registrada', eliminado: false,
+            documentos_letras: { none: { eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' } } } },
+          },
+          select: { id: true, numero_interno: true, serie: true, numero: true },
+        })
+      : [];
     // El historial lleva fecha Y hora: no pasa por serializarFechas (que deja solo el día).
-    return { ...serializarFechas({ ...paquete, usuario: usuarioCreacion }), ...historial };
+    return { ...serializarFechas({ ...paquete, usuario: usuarioCreacion }), nc_fuera_del_paquete: ncFueraDelPaquete, ...historial };
   }
 
   // ─── Alta / edición ────────────────────────────────────────────────────────
@@ -115,15 +126,19 @@ export class LetrasPaquetesService {
     for (let intento = 0; intento < 3; intento++) {
       const codigo = await this.generarCodigo(proveedor.razon_social, proveedor.ruc);
       try {
-        const paquete = await this.prisma.tbl_letras_paquetes.create({
-          data: {
-            codigo, id_proveedor: dto.id_proveedor, id_banco: dto.id_banco, moneda: dto.moneda,
-            fecha_inicio_pago: aFecha(dto.fecha_inicio_pago),
-            fecha_fin_pago: aFecha(sumarDias(dto.fecha_inicio_pago, dto.dias_credito)),
-            dias_credito: dto.dias_credito, numero_cuotas: dto.numero_cuotas, comentarios: dto.comentarios,
-            usuario_creacion: usuarioId,
-          },
-          include: INCLUDE_LISTADO,
+        const paquete = await this.prisma.$transaction(async (tx) => {
+          const creado = await tx.tbl_letras_paquetes.create({
+            data: {
+              codigo, id_proveedor: dto.id_proveedor, id_banco: dto.id_banco, moneda: dto.moneda,
+              fecha_inicio_pago: aFecha(dto.fecha_inicio_pago),
+              fecha_fin_pago: aFecha(sumarDias(dto.fecha_inicio_pago, dto.dias_credito)),
+              dias_credito: dto.dias_credito, numero_cuotas: dto.numero_cuotas, comentarios: dto.comentarios,
+              usuario_creacion: usuarioId,
+            },
+          });
+          // Creado desde Compras: el paquete nace ya con esas facturas (todo o nada).
+          if (dto.ids_compras?.length) await this.importarEnTx(tx, creado, dto.ids_compras, usuarioId);
+          return tx.tbl_letras_paquetes.findUniqueOrThrow({ where: { id: creado.id }, include: INCLUDE_LISTADO });
         });
         return serializarFechas(paquete);
       } catch (err) {
@@ -301,25 +316,59 @@ export class LetrasPaquetesService {
     const paquete = await this.obtenerBase(idPaquete);
     this.assertEstado(paquete.estado, ['borrador'], 'agregar documentos');
     return this.prisma.$transaction(async (tx) => {
-      const disponibles = await this.buscarComprasDisponibles(tx, paquete.id_proveedor, paquete.moneda);
-      const porId = new Map(disponibles.map((c) => [c.id, c]));
-      const noDisponibles = dto.ids.filter((id) => !porId.has(id));
-      if (noDisponibles.length) {
-        throw new BadRequestException(`${noDisponibles.length} compra(s) ya no están disponibles (otro paquete, otra moneda o no son a crédito). Actualice la lista.`);
-      }
-      for (const id of dto.ids) {
-        const c = porId.get(id)!;
-        await tx.tbl_letras_documentos.create({
-          data: {
-            id_paquete: idPaquete, id_compra: c.id, tipo: c.tipo, serie: c.serie, numero: c.numero, moneda: paquete.moneda,
-            monto: c.monto, fecha_emision: c.fecha_emision, fecha_vencimiento: c.fecha_vencimiento,
-            dias_credito: c.dias_credito, usuario_creacion: usuarioId,
-          },
-        });
-      }
-      await this.recalcularTotal(tx, idPaquete);
+      await this.importarEnTx(tx, paquete, dto.ids, usuarioId);
       return { importados: dto.ids.length };
     });
+  }
+
+  /**
+   * Nota de crédito de compra recién registrada (dentro de la transacción de Compras): si su factura
+   * está en un paquete en Borrador, se agrega sola al paquete; si el paquete ya avanzó, se devuelve un
+   * aviso de qué hacer (queda disponible para descontarse en otro paquete del proveedor).
+   */
+  async ubicarNotaCreditoEnTx(tx: Tx, idNc: string, idCompraOriginal: string, usuarioId: string) {
+    const doc = await tx.tbl_letras_documentos.findFirst({
+      where: { id_compra: idCompraOriginal, eliminado: false, paquete: { eliminado: false, estado: { not: 'cancelado' } } },
+      select: { paquete: { select: { id: true, codigo: true, estado: true, id_proveedor: true, moneda: true } } },
+    });
+    if (!doc) return null;
+    const p = doc.paquete;
+    const base = { id_paquete: p.id, codigo: p.codigo, estado: p.estado };
+    if (p.estado === 'borrador') {
+      await this.importarEnTx(tx, p, [idNc], usuarioId);
+      return { ...base, agregada: true, mensaje: `La nota de crédito se agregó al paquete de letras ${p.codigo} (Borrador) y su total bajó.` };
+    }
+    const queHacer: Record<string, string> = {
+      pendiente_aprobacion: 'Para descontarla de este paquete, devuélvalo a Borrador y agréguela con "Agregar desde Compras".',
+      aprobado: 'Para descontarla de este paquete, reábralo y agréguela con "Agregar desde Compras".',
+      en_proceso: 'Ese paquete ya tiene letras generadas, así que no se cambió.',
+      completado: 'Ese paquete ya está pagado, así que no se cambió.',
+    };
+    return {
+      ...base, agregada: false,
+      mensaje: `La factura de esta nota de crédito está en el paquete de letras ${p.codigo}. ${queHacer[p.estado] ?? ''} `
+        + 'Si no, la nota queda disponible para descontarse en el próximo paquete de este proveedor.',
+    };
+  }
+
+  private async importarEnTx(tx: Tx, paquete: { id: string; id_proveedor: string; moneda: 'PEN' | 'USD' }, ids: string[], usuarioId: string) {
+    const disponibles = await this.buscarComprasDisponibles(tx, paquete.id_proveedor, paquete.moneda);
+    const porId = new Map(disponibles.map((c) => [c.id, c]));
+    const noDisponibles = ids.filter((id) => !porId.has(id));
+    if (noDisponibles.length) {
+      throw new BadRequestException(`${noDisponibles.length} compra(s) no se pueden agregar: ya están en otro paquete, son de otro proveedor u otra moneda, o no son a crédito. Actualice la lista.`);
+    }
+    for (const id of new Set(ids)) {
+      const c = porId.get(id)!;
+      await tx.tbl_letras_documentos.create({
+        data: {
+          id_paquete: paquete.id, id_compra: c.id, tipo: c.tipo, serie: c.serie, numero: c.numero, moneda: paquete.moneda,
+          monto: c.monto, fecha_emision: c.fecha_emision, fecha_vencimiento: c.fecha_vencimiento,
+          dias_credito: c.dias_credito, usuario_creacion: usuarioId,
+        },
+      });
+    }
+    await this.recalcularTotal(tx, paquete.id);
   }
 
   private buscarComprasDisponibles(db: Tx | PrismaService, idProveedor: string, moneda: 'PEN' | 'USD') {

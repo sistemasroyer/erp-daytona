@@ -1,6 +1,6 @@
 import type { AnulacionAprobada } from './aprobaciones';
 import { api } from './client';
-import type { Compra, ListarComprasParams, CreateCompraDto, ImportarXmlCompraResult } from '@/types/compra';
+import type { Compra, ListarComprasParams, CreateCompraDto, ImportarXmlCompraResult, LetrasDeNotaCredito } from '@/types/compra';
 import type { CreateNotaCreditoCompraDto } from '@/types/nota-credito';
 
 export const comprasApi = {
@@ -9,5 +9,5 @@ export const comprasApi = {
   crear: (dto: CreateCompraDto) => api.post<Compra>('/compras', dto),
   anular: (id: string, aprobacion: AnulacionAprobada) => api.patch<Compra>(`/compras/${id}/anular`, aprobacion),
   importarXml: (xml: string) => api.post<ImportarXmlCompraResult>('/compras/importar-xml', { xml }),
-  crearNotaCredito: (id: string, dto: CreateNotaCreditoCompraDto) => api.post<Compra>(`/compras/${id}/nota-credito`, dto),
+  crearNotaCredito: (id: string, dto: CreateNotaCreditoCompraDto) => api.post<Omit<Compra, 'letras'> & { letras: LetrasDeNotaCredito | null }>(`/compras/${id}/nota-credito`, dto),
 };

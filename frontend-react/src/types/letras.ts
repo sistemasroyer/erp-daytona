@@ -70,6 +70,8 @@ export interface PaqueteLetras extends ConHistorial {
   usuario?: UsuarioResumen | null;
   documentos?: DocumentoLetra[];
   letras?: Letra[];
+  /** Solo en el detalle: NC de Compras sobre sus facturas que no están en ningún paquete. */
+  nc_fuera_del_paquete?: { id: string; numero_interno: string; serie: string | null; numero: string | null }[];
 }
 
 export interface DocumentoLetra {
@@ -127,6 +129,8 @@ export interface CreatePaqueteDto {
   dias_credito: number;
   numero_cuotas: number;
   comentarios?: string;
+  /** Compras con las que nace el paquete (al crearlo desde Compras). */
+  ids_compras?: string[];
 }
 
 export interface DocumentoLetraDto {

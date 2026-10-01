@@ -39,14 +39,16 @@ export class ComprasController {
   @ApiQuery({ name: 'fecha_hasta', required: false })
   @ApiQuery({ name: 'id_proveedor', required: false })
   @ApiQuery({ name: 'tipo_documento', required: false })
+  @ApiQuery({ name: 'letras', required: false, enum: ['sin_paquete', 'en_paquete'], description: 'Facturas a crédito sin / con paquete de letras' })
   findAll(
     @Query() pagination: PaginationDto,
     @Query('fecha_desde') fecha_desde?: string,
     @Query('fecha_hasta') fecha_hasta?: string,
     @Query('id_proveedor') id_proveedor?: string,
     @Query('tipo_documento') tipo_documento?: string,
+    @Query('letras') letras?: string,
   ) {
-    return this.service.findAll({ ...pagination, skip: Number(pagination.skip) || 0, fecha_desde, fecha_hasta, id_proveedor, tipo_documento } as any);
+    return this.service.findAll({ ...pagination, skip: Number(pagination.skip) || 0, fecha_desde, fecha_hasta, id_proveedor, tipo_documento, letras } as any);
   }
 
   @Get(':id')

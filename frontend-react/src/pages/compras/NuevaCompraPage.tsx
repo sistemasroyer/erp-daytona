@@ -21,6 +21,9 @@ import type { Gasto } from '@/types/gasto';
 import type { CodigoProveedor } from '@/types/producto';
 import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
 import { OpcionProducto } from '@/components/OpcionProducto';
+import { useAuth } from '@/auth/AuthContext';
+import { AgregarALetrasModal, type CompraParaLetras } from '@/pages/letras/AgregarALetrasModal';
+import { VistaPreviaCompraModal } from './VistaPreviaCompraModal';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -111,6 +114,9 @@ function getCostoUnitarioSinIgv(item: ItemCompra, modo: ModoIngreso, factorIgvTa
 export function NuevaCompraPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { hasPermiso } = useAuth();
+  const [pasarALetras, setPasarALetras] = useState<CompraParaLetras | null>(null);
+  const [vistaPrevia, setVistaPrevia] = useState(false);
   const { porcentaje: porcentajeIgv, factor: factorIgv } = useTasaIgv();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -338,10 +344,16 @@ export function NuevaCompraPage() {
     const itemsSinCantidad = items.filter((i) => !(i.cantidad > 0));
     if (itemsSinCantidad.length > 0) { message.warning('Hay ítems con cantidad inválida'); return; }
 
+    // Todo en orden: antes de guardar se muestra la vista previa para confirmar.
+    setVistaPrevia(true);
+  };
+
+  const confirmarGuardado = async () => {
+    if (!proveedor || !idAlmacen) return;
     const tc = moneda === 'USD' ? tipoCambio : 1;
     setGuardando(true);
     try {
-      await comprasApi.crear({
+      const { data: creada } = await comprasApi.crear({
         tipo_documento: tipoDocumento,
         serie: serie.trim() || undefined,
         numero: numero.trim(),
@@ -366,8 +378,14 @@ export function NuevaCompraPage() {
         })),
       });
       message.success('Compra registrada');
+      setVistaPrevia(false);
       limpiarBorrador();
-      navigate('/compras');
+      // Factura a crédito: ofrecer pasarla a letras de una vez (o dejarla para después).
+      if (condicionPago === 'credito' && hasPermiso('letras:crear')) {
+        setPasarALetras({ id: creada.id, documento: `${creada.serie ? `${creada.serie}-` : ''}${creada.numero ?? creada.numero_interno}`, fecha_vencimiento: creada.fecha_vencimiento?.slice(0, 10) ?? null });
+      } else {
+        navigate('/compras');
+      }
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Error al registrar la compra');
     } finally {
@@ -706,6 +724,34 @@ export function NuevaCompraPage() {
           </Card>
         </div>
       </div>
+      {vistaPrevia && proveedor && (
+        <VistaPreviaCompraModal
+          open guardando={guardando} onCancelar={() => setVistaPrevia(false)} onConfirmar={confirmarGuardado}
+          tipoDocumento={tipoDocumento} serie={serie.trim()} numero={numero.trim()} fechaEmision={fechaEmision}
+          proveedor={proveedor} condicionPago={condicionPago} fechaVencimiento={fechaVencimiento}
+          almacen={(almacenesData?.data || []).find((a) => a.id === idAlmacen)?.nombre ?? '-'}
+          moneda={moneda} tipoCambio={moneda === 'USD' ? tipoCambio : 1} observaciones={observaciones}
+          flete={tieneFlete && fleteMonto > 0 ? {
+            monto: fleteMonto, moneda: fleteMoneda, prorrateo: fleteTipoProrrateo,
+            transportista: proveedorFlete?.razon_social, gasto: gastoFlete?.numero_interno,
+          } : null}
+          lineas={items.map((i, idx) => {
+            const total = getImporteLinea(i, modoIngreso, factorIgv);
+            const subtotal = i.afecta_igv ? total / factorIgv : total;
+            return {
+              key: `${i.producto.id}-${idx}`, codigo: i.producto.codigo, nombre: i.producto.nombre, cantidad: i.cantidad, afecta_igv: i.afecta_igv,
+              precio_unit_sin_igv: getCostoUnitarioSinIgv(i, modoIngreso, factorIgv), subtotal, igv: total - subtotal, total,
+            };
+          })}
+          totales={totales} porcentajeIgv={porcentajeIgv} totalVerificacion={totalFacturaVerificacion}
+        />
+      )}
+      {pasarALetras && proveedor && (
+        <AgregarALetrasModal
+          compras={[pasarALetras]} proveedor={proveedor} moneda={moneda} textoCancelar="Más tarde"
+          onClose={() => navigate('/compras')} onListo={() => navigate('/compras')}
+        />
+      )}
       <ProveedorNuevoModal
         open={nuevoProveedorPara !== null}
         onClose={() => setNuevoProveedorPara(null)}

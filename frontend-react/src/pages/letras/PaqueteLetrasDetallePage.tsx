@@ -180,6 +180,18 @@ export function PaqueteLetrasDetallePage() {
         </Col>
       </Row>
 
+      {!!paquete.nc_fuera_del_paquete?.length && (
+        <Alert
+          type="warning" showIcon style={{ marginBottom: 16 }}
+          title={`Hay ${paquete.nc_fuera_del_paquete.length} nota(s) de crédito de las facturas de este paquete que no están en ningún paquete: ${paquete.nc_fuera_del_paquete.map((n) => n.serie ? `${n.serie}-${n.numero}` : n.numero || n.numero_interno).join(', ')}.`}
+          description={{
+            borrador: 'Agréguelas con "Agregar desde Compras" para que su descuento se aplique.',
+            pendiente_aprobacion: 'Su descuento no se aplicó. Devuelva el paquete a Borrador y agréguelas, o agréguelas al próximo paquete del proveedor.',
+            aprobado: 'Su descuento no se aplicó. Reabra el paquete y agréguelas, o agréguelas al próximo paquete del proveedor.',
+          }[paquete.estado as string] ?? 'Su descuento no se aplicó a este paquete (ya tiene letras): agréguelas al próximo paquete del proveedor.'}
+        />
+      )}
+
       <Card
         size="small" title="Documentos del paquete" style={{ marginBottom: 16 }}
         extra={puedeEditarDocs && (

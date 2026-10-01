@@ -1,9 +1,10 @@
 import { useAprobarAnulacion } from '@/components/AprobarAnulacion';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Modal, Descriptions, Table, Button, Alert, Space, Typography } from 'antd';
+import { App, Modal, Descriptions, Table, Button, Alert, Space, Tag, Tooltip, Typography } from 'antd';
 import { FileExcelOutlined, CloseCircleOutlined, CarOutlined, FileAddOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
@@ -12,6 +13,9 @@ import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format'
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
 import { HistorialDocumento } from '@/components/HistorialDocumento';
+import { useAuth } from '@/auth/AuthContext';
+import { AgregarALetrasModal } from '@/pages/letras/AgregarALetrasModal';
+import { estadoLetraVisible } from '@/pages/letras/PaqueteLetrasDetallePage';
 
 interface Props {
   id: string | null;
@@ -25,6 +29,8 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [modalGastoFlete, setModalGastoFlete] = useState(false);
+  const [pasarALetras, setPasarALetras] = useState(false);
+  const { hasPermiso } = useAuth();
 
   const { data, isFetching } = useQuery({
     queryKey: ['compra', id],
@@ -98,7 +104,13 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           <Space wrap>
             {tieneFlete && !gastoFleteVinculado && <Button icon={<FileAddOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a', color: '#fff' }} onClick={() => setModalGastoFlete(true)}>Registrar factura de flete</Button>}
             {puedeNotaCredito && <Button style={{ background: '#faad14', borderColor: '#faad14', color: '#fff' }} icon={<FileExcelOutlined />} onClick={() => navigate(`/compras/nueva-nota-credito?compra=${compra.id}`)}>Nota de Crédito</Button>}
-            {puedeAnular && <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>}
+            {puedeAnular && (compra.letras
+              ? (
+                <Tooltip title={`Está en el paquete de letras ${compra.letras.codigo}: para anularla primero hay que sacarla del paquete o cancelar el paquete (Letras → Paquetes).`}>
+                  <Button danger disabled icon={<CloseCircleOutlined />}>Anular</Button>
+                </Tooltip>
+              )
+              : <Button danger icon={<CloseCircleOutlined />} onClick={anular}>Anular</Button>)}
           </Space>
         }
       >
@@ -161,6 +173,37 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           </div>
         )}
 
+        {compra.letras ? (
+          <div style={{ background: '#fafafa', borderRadius: 8, padding: 12, marginTop: 12 }}>
+            <Space wrap style={{ marginBottom: compra.letras.letras?.length ? 8 : 0 }}>
+              <Typography.Text strong>Letras:</Typography.Text>
+              <span>paquete <Link to={`/letras/paquetes/${compra.letras.id}`} onClick={onClose}>{compra.letras.codigo}</Link></span>
+              <EstadoTag estado={compra.letras.estado} />
+              <Typography.Text type="secondary">
+                Total del paquete {formatMoneda(compra.letras.monto_total, compra.letras.moneda)}
+                {compra.letras.letras_total > 0 && ` · ${compra.letras.letras_pagadas}/${compra.letras.letras_total} letras pagadas`}
+              </Typography.Text>
+            </Space>
+            {!!compra.letras.letras?.length && (
+              <Space wrap size={[6, 6]}>
+                {compra.letras.letras.map((l) => {
+                  const e = estadoLetraVisible(l);
+                  return (
+                    <Tag key={l.id} color={e === 'pagada' ? 'green' : e === 'vencida' ? 'red' : e === 'cancelada' ? 'default' : 'blue'}>
+                      {l.numero_cuota}. {dayjs(l.fecha_pago).format('DD/MM/YYYY')} · {formatMoneda(l.monto, l.moneda)} · {e}
+                    </Tag>
+                  );
+                })}
+              </Space>
+            )}
+          </div>
+        ) : compra.condicion_pago === 'credito' && compra.estado === 'registrada' && compra.tipo_documento !== 'nota_credito' && (
+          <Alert
+            type="warning" showIcon style={{ marginTop: 12 }} title="Factura a crédito todavía sin paquete de letras."
+            action={hasPermiso('letras:crear') && <Button size="small" onClick={() => setPasarALetras(true)}>Pasar a letras</Button>}
+          />
+        )}
+
         <Typography.Title level={5} style={{ marginTop: 16 }}>Costeo de inventario</Typography.Title>
         <Alert
           type="info" showIcon style={{ marginBottom: 8 }}
@@ -169,6 +212,15 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
         <Table size="small" rowKey="id" pagination={false} dataSource={compra.detalle} columns={columnsCosteo} bordered scroll={{ x: 'max-content' }} />
       </Modal>
 
+      {pasarALetras && (
+        <AgregarALetrasModal
+          compras={[{ id: compra.id, documento: numero || compra.numero_interno, fecha_vencimiento: compra.fecha_vencimiento?.slice(0, 10) ?? null }]}
+          proveedor={{ id: compra.id_proveedor, razon_social: compra.proveedor?.razon_social ?? '', dias_credito: compra.proveedor?.dias_credito ?? 0, letras_pago_unico: !!compra.proveedor?.letras_pago_unico }}
+          moneda={compra.moneda}
+          onClose={() => setPasarALetras(false)}
+          onListo={() => { setPasarALetras(false); recargar(); }}
+        />
+      )}
       <GastoFormModal
         open={modalGastoFlete}
         inicial={{
