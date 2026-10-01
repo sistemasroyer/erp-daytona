@@ -74,7 +74,7 @@ export function LoginPage() {
             <Controller
               name="password"
               control={control}
-              render={({ field }) => <Input.Password {...field} prefix={<LockOutlined />} placeholder="••••••••" />}
+              render={({ field }) => <Input.Password {...field} className="no-mayus" prefix={<LockOutlined />} placeholder="••••••••" />}
             />
           </Form.Item>
 

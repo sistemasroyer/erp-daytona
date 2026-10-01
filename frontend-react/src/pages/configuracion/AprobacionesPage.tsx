@@ -31,7 +31,7 @@ export function AprobacionesPage() {
     <Card title="Mi PIN de aprobación" style={{ maxWidth: 500, marginBottom: 16 }}>
       {estado.isError ? <Typography.Text type="danger">No se pudo consultar el PIN. Verifique su permiso Seguridad → Aprobar.</Typography.Text> : <Tag color={estado.data?.data.activo ? 'green' : 'default'}>{estado.data?.data.activo ? 'Activo' : 'Sin PIN activo'}</Tag>}
       <Form form={form} layout="vertical" autoComplete="off" disabled={saving} style={{ marginTop: 12 }}>
-        <Form.Item name="password" label="Contraseña de mi cuenta" rules={[{ required: true, message: 'Ingrese su contraseña' }]}><Input.Password autoComplete="current-password" /></Form.Item>
+        <Form.Item name="password" label="Contraseña de mi cuenta" rules={[{ required: true, message: 'Ingrese su contraseña' }]}><Input.Password className="no-mayus" autoComplete="current-password" /></Form.Item>
         <Form.Item name="pin" label="Nuevo PIN (6 a 8 dígitos)" rules={[{ required: true, pattern: /^\d{6,8}$/, message: 'Ingrese de 6 a 8 dígitos' }]}><Input.Password maxLength={8} inputMode="numeric" autoComplete="new-password" /></Form.Item>
         <Form.Item name="confirmar" label="Confirmar PIN" dependencies={['pin']} rules={[{ required: true, message: 'Confirme el PIN' }, ({ getFieldValue }) => ({ validator: (_, v) => v === getFieldValue('pin') ? Promise.resolve() : Promise.reject(new Error('Los PIN no coinciden')) })]}><Input.Password maxLength={8} inputMode="numeric" autoComplete="new-password" /></Form.Item>
         <Space><Button type="primary" loading={saving} onClick={() => guardar()}>Guardar PIN</Button><Button danger disabled={!estado.data?.data.activo || saving} onClick={() => guardar(true)}>Desactivar</Button></Space>

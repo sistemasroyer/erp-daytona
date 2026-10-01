@@ -188,7 +188,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
           {!usuario && (
             <Form.Item label="Contraseña">
               <Controller name="password" control={control} render={({ field }) => (
-                <Input.Password {...field} placeholder="Mínimo 8 caracteres" />
+                <Input.Password {...field} className="no-mayus" placeholder="Mínimo 8 caracteres" />
               )} />
             </Form.Item>
           )}
@@ -226,10 +226,10 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
       children: (
         <Form layout="vertical">
           <Form.Item label="Nueva contraseña" validateStatus={passwordForm.formState.errors.password_nuevo ? 'error' : ''} help={passwordForm.formState.errors.password_nuevo?.message}>
-            <Controller name="password_nuevo" control={passwordForm.control} render={({ field }) => <Input.Password {...field} />} />
+            <Controller name="password_nuevo" control={passwordForm.control} render={({ field }) => <Input.Password {...field} className="no-mayus" />} />
           </Form.Item>
           <Form.Item label="Confirmar contraseña" validateStatus={passwordForm.formState.errors.password_confirmar ? 'error' : ''} help={passwordForm.formState.errors.password_confirmar?.message}>
-            <Controller name="password_confirmar" control={passwordForm.control} render={({ field }) => <Input.Password {...field} />} />
+            <Controller name="password_confirmar" control={passwordForm.control} render={({ field }) => <Input.Password {...field} className="no-mayus" />} />
           </Form.Item>
         </Form>
       ),
