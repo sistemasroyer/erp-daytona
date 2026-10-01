@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { App, Card, Select, Input, Button, Typography, InputNumber, Switch, DatePicker, Space, Alert, Empty } from 'antd';
-import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined, TagOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, CheckCircleOutlined, LinkOutlined, CloseCircleOutlined, TagOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { comprasApi } from '@/api/compras';
 import { proveedoresApi } from '@/api/proveedores';
@@ -11,6 +11,7 @@ import { almacenesApi } from '@/api/almacenes';
 import { gastosApi } from '@/api/gastos';
 import { ApiError } from '@/api/types';
 import { Autocomplete } from '@/components/Autocomplete';
+import { ProveedorNuevoModal } from '@/pages/proveedores/ProveedorNuevoModal';
 import { formatMoneda } from '@/utils/format';
 import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
@@ -118,6 +119,8 @@ export function NuevaCompraPage() {
   const [fechaEmision, setFechaEmision] = useState<Dayjs>(dayjs());
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [proveedorTexto, setProveedorTexto] = useState('');
+  // Alta rápida de proveedor sin salir de la compra: para el proveedor de la factura o el transportista.
+  const [nuevoProveedorPara, setNuevoProveedorPara] = useState<'factura' | 'flete' | null>(null);
   const [condicionPago, setCondicionPago] = useState<'contado' | 'credito'>('contado');
   const [fechaVencimiento, setFechaVencimiento] = useState<Dayjs | null>(null);
   const [idAlmacen, setIdAlmacen] = useState<string | undefined>(undefined);
@@ -422,14 +425,19 @@ export function NuevaCompraPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Proveedor *</Typography.Text>
-                <Autocomplete<Proveedor>
-                  placeholder="Buscar por RUC o razón social..."
-                  value={proveedorTexto}
-                  buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
-                  getLabel={(p) => p.razon_social}
-                  renderOpcion={(p) => <><strong>{p.ruc}</strong> — {p.razon_social}</>}
-                  onSelect={(p) => { setProveedor(p); setProveedorTexto(p.razon_social); }}
-                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <Autocomplete<Proveedor>
+                      placeholder="Buscar por RUC o razón social..."
+                      value={proveedorTexto}
+                      buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
+                      getLabel={(p) => p.razon_social}
+                      renderOpcion={(p) => <><strong>{p.ruc}</strong> — {p.razon_social}</>}
+                      onSelect={(p) => { setProveedor(p); setProveedorTexto(p.razon_social); }}
+                    />
+                  </div>
+                  <Button icon={<UserAddOutlined />} onClick={() => setNuevoProveedorPara('factura')}>Nuevo</Button>
+                </div>
                 {proveedor && <Typography.Text type="success" style={{ fontSize: 12 }}><CheckCircleOutlined /> {proveedor.razon_social}</Typography.Text>}
               </div>
               <div>
@@ -515,13 +523,19 @@ export function NuevaCompraPage() {
                     {gastoFlete ? (
                       <Input size="small" disabled value={proveedorFlete?.razon_social || gastoFlete.razon_social_emisor} />
                     ) : (
-                      <Autocomplete<Proveedor>
-                        placeholder="Sin especificar"
-                        buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
-                        getLabel={(p) => p.razon_social}
-                        renderOpcion={(p) => <>{p.razon_social}</>}
-                        onSelect={setProveedorFlete}
-                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <Autocomplete<Proveedor>
+                            placeholder="Sin especificar"
+                            value={proveedorFlete?.razon_social}
+                            buscar={async (q) => (await proveedoresApi.listar({ search: q, limit: 8 })).data}
+                            getLabel={(p) => p.razon_social}
+                            renderOpcion={(p) => <>{p.razon_social}</>}
+                            onSelect={setProveedorFlete}
+                          />
+                        </div>
+                        <Button size="small" icon={<UserAddOutlined />} onClick={() => setNuevoProveedorPara('flete')} title="Nuevo transportista" />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -690,6 +704,15 @@ export function NuevaCompraPage() {
           </Card>
         </div>
       </div>
+      <ProveedorNuevoModal
+        open={nuevoProveedorPara !== null}
+        onClose={() => setNuevoProveedorPara(null)}
+        onCreado={(p) => {
+          if (nuevoProveedorPara === 'flete') setProveedorFlete(p);
+          else { setProveedor(p); setProveedorTexto(p.razon_social); }
+          setNuevoProveedorPara(null);
+        }}
+      />
     </div>
   );
 }
