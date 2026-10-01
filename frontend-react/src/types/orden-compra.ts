@@ -1,3 +1,4 @@
+import type { ConHistorial } from '@/types/historial';
 export type EstadoOrdenCompra = 'borrador' | 'aprobado' | 'convertido' | 'anulado';
 
 export interface DetalleOrdenCompra {
@@ -9,7 +10,7 @@ export interface DetalleOrdenCompra {
   producto?: { codigo: string; nombre: string; unidad_medida: { simbolo: string } };
 }
 
-export interface OrdenCompra {
+export interface OrdenCompra extends ConHistorial {
   id: string;
   numero: string;
   id_proveedor: string;

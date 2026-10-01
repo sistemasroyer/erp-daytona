@@ -12,6 +12,7 @@ import { generarNumeroInterno, redondear2, redondear4 } from '../../common/utils
 import { finDeDia } from '../../common/utils/fecha.util';
 import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
 
 @Injectable()
 export class ComprasService {
@@ -291,6 +292,14 @@ export class ComprasService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const compra = await this.findOne(id);
+    return { ...compra, ...(await historialDocumento(this.prisma, 'compras', {
+      ...compra, anulado: compra.estado === 'anulada', motivo: compra.observaciones,
+    })) };
   }
 
   async findOne(id: string) {

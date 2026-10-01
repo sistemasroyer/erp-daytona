@@ -1,3 +1,4 @@
+import type { ConHistorial } from '@/types/historial';
 export type TipoDocumentoCompra = 'factura' | 'boleta' | 'nota' | 'otros' | 'nota_credito';
 export type EstadoCompra = 'borrador' | 'registrada' | 'anulada';
 export type CondicionPago = 'contado' | 'credito';
@@ -24,7 +25,7 @@ export interface DetalleCompra {
   producto?: { codigo: string; nombre: string; unidad_medida?: { simbolo: string } };
 }
 
-export interface Compra {
+export interface Compra extends ConHistorial {
   id: string;
   numero_interno: string;
   tipo_documento: TipoDocumentoCompra;

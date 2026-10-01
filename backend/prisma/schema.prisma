@@ -447,6 +447,8 @@ model tbl_auditoria {
   tabla            String                 @db.VarChar(100)
   id_registro      String                 @db.VarChar(36)
   operacion        TipoOperacionAuditoria
+  /// Acción concreta sobre el registro, tomada de la ruta (ej. "anular", "canjear", "pagar"). Null = alta/edición simple.
+  accion           String?                @db.VarChar(60)
   datos_anteriores Json?
   datos_nuevos     Json?
   ip               String?                @db.VarChar(45)

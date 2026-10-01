@@ -11,6 +11,7 @@ import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda, penAMonedaOriginal, nombreUsuario } from '@/utils/format';
 import { GastoFormModal } from '@/pages/gastos/GastoFormModal';
 import type { DetalleCompra } from '@/types/compra';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 interface Props {
   id: string | null;
@@ -116,6 +117,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="Registrado por">{nombreUsuario(compra.usuario)}</Descriptions.Item>
           {compra.observaciones && <Descriptions.Item label="Observaciones" span={2}>{compra.observaciones}</Descriptions.Item>}
         </Descriptions>
+        <HistorialDocumento anulacion={compra.anulacion} historial={compra.historial} />
 
         <Typography.Title level={5}>Detalle de la factura (tal como la emitió el proveedor)</Typography.Title>
         <Table

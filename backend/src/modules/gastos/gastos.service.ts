@@ -9,6 +9,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno, redondear2 } from '../../common/utils/numero-documento.util';
 import { obtenerTasaIgv } from '../../common/utils/igv.util';
 import { finDeDia } from '../../common/utils/fecha.util';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
 
 
 const INCLUDE_DETALLE = {
@@ -169,6 +170,14 @@ export class GastosService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const gasto = await this.findOne(id, idPuntoVenta, esSuperadmin);
+    return { ...gasto, ...(await historialDocumento(this.prisma, 'gastos', {
+      ...gasto, anulado: gasto.estado === 'anulado', motivo: gasto.observaciones,
+    })) };
   }
 
   async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {

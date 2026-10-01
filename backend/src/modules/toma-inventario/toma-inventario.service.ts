@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
 import { AgregarItemTomaDto } from './dto/agregar-item-toma.dto';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
 
 const INCLUDE_CABECERA = {
   almacen: { select: { nombre: true } },
@@ -53,6 +54,14 @@ export class TomaInventarioService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const toma = await this.findOne(id);
+    return { ...toma, ...(await historialDocumento(this.prisma, 'toma_inventario', {
+      ...toma, anulado: toma.estado === 'anulada', motivo: null,
+    })) };
   }
 
   async findOne(id: string) {

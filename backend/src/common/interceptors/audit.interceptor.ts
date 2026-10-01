@@ -17,6 +17,8 @@ const CAMPOS_SENSIBLES = new Set([
   'token_hash',
 ]);
 
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
@@ -25,7 +27,7 @@ export class AuditInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    const { method, url, ip, user } = request;
+    const { method, url, ip, user, params } = request;
 
     const metodosAuditar = ['POST', 'PUT', 'PATCH', 'DELETE'];
     if (!metodosAuditar.includes(method) || !user) return next.handle();
@@ -33,9 +35,11 @@ export class AuditInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(async (response) => {
         try {
-          const tabla = this.extraerTabla(url);
+          const { tabla, accion } = this.extraerRuta(url);
           const operacion = this.metodToOperacion(method);
-          const id_registro = response?.data?.id || response?.id || 'N/A';
+          // En acciones sobre un documento existente (PATCH /ventas/:id/anular, POST /ventas/:id/nota-credito)
+          // el registro afectado es el de la URL, no el que devuelve la respuesta (ej. la NC nueva).
+          const id_registro = params?.id || response?.data?.id || response?.id || 'N/A';
 
           await this.prisma.tbl_auditoria.create({
             data: {
@@ -43,6 +47,7 @@ export class AuditInterceptor implements NestInterceptor {
               tabla,
               id_registro: String(id_registro),
               operacion,
+              accion,
               datos_nuevos: this.redactar(response?.data ?? response),
               ip: ip || 'unknown',
             },
@@ -81,9 +86,13 @@ export class AuditInterceptor implements NestInterceptor {
     return valor;
   }
 
-  private extraerTabla(url: string): string {
-    const partes = url.split('/').filter(Boolean);
-    return partes[1] || partes[0] || 'desconocido';
+  /** "/api/v1/ventas/<uuid>/anular?x=1" → { tabla: 'ventas', accion: 'anular' }. Los segmentos
+   * que son ids (uuid) se descartan; lo que queda después del módulo es la acción. */
+  private extraerRuta(url: string): { tabla: string; accion: string | null } {
+    const partes = url.split('?')[0].split('/').filter(Boolean);
+    const inicio = partes.findIndex((p) => /^v\d+$/.test(p));
+    const resto = partes.slice(inicio + 1).filter((p) => !ES_UUID.test(p));
+    return { tabla: resto[0] || 'desconocido', accion: resto.slice(1).join('/') || null };
   }
 
   private metodToOperacion(method: string): 'INSERT' | 'UPDATE' | 'DELETE' {

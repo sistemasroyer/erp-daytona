@@ -11,6 +11,7 @@ import { formatMoneda } from '@/utils/format';
 import type { DetalleVenta } from '@/types/venta';
 import { CanjeModal } from './CanjeModal';
 import { formatPorcentajeIgv } from '@/hooks/useTasaIgv';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 interface Props {
   id: string | null;
@@ -124,6 +125,7 @@ export function VentaDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="Estado"><EstadoTag estado={venta.estado_venta} /></Descriptions.Item>
           {venta.observaciones && <Descriptions.Item label="Observaciones" span={2}>{venta.observaciones}</Descriptions.Item>}
         </Descriptions>
+        <HistorialDocumento anulacion={venta.anulacion} historial={venta.historial} />
 
         <Typography.Title level={5}>Detalle de productos</Typography.Title>
         {mostrarPreview && (

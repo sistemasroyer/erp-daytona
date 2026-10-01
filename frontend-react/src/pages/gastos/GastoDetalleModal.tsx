@@ -11,6 +11,7 @@ import { EstadoTag } from '@/components/EstadoTag';
 import { formatMoneda, nombreUsuario } from '@/utils/format';
 import { CATEGORIAS_GASTO_LABEL } from '@/types/gasto';
 import type { Gasto, DetalleGasto } from '@/types/gasto';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 interface Props {
   id: string | null;
@@ -92,6 +93,7 @@ export function GastoDetalleModal({ id, onClose, onCambiado }: Props) {
           <Descriptions.Item label="Registrado por">{nombreUsuario(gasto.usuario)}</Descriptions.Item>
           {gasto.observaciones && <Descriptions.Item label="Observaciones" span={2}>{gasto.observaciones}</Descriptions.Item>}
         </Descriptions>
+        <HistorialDocumento anulacion={gasto.anulacion} historial={gasto.historial} />
 
         <Typography.Title level={5}>Detalle</Typography.Title>
         <Table

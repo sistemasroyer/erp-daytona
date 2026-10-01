@@ -20,6 +20,7 @@ import {
 } from '../../common/utils/numero-documento.util';
 import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
 
 @Injectable()
 export class VentasService {
@@ -352,6 +353,14 @@ export class VentasService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    const venta = await this.findOne(id, idPuntoVenta, esSuperadmin);
+    return { ...venta, ...(await historialDocumento(this.prisma, 'ventas', {
+      ...venta, anulado: venta.estado_venta === 'anulada', motivo: venta.motivo_anulacion,
+    })) };
   }
 
   async findOne(id: string, idPuntoVenta?: string, esSuperadmin?: boolean) {

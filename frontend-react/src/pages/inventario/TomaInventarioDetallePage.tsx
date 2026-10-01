@@ -13,6 +13,7 @@ import { useConfirmar } from '@/components/ConfirmModal';
 import { ApiError } from '@/api/types';
 import type { DetalleTomaInventario, TomaInventario } from '@/types/toma-inventario';
 import type { Producto } from '@/types/producto';
+import { HistorialDocumento } from '@/components/HistorialDocumento';
 
 function fmtCantidad(v: string | number) {
   return Number(v).toFixed(0);
@@ -132,6 +133,7 @@ export function TomaInventarioDetallePage() {
             <Typography.Text strong>{toma.almacen?.nombre || '-'}</Typography.Text>
           </div>
         </div>
+        <HistorialDocumento anulacion={toma.anulacion} historial={toma.historial} />
       </Card>
 
       {enProceso && (

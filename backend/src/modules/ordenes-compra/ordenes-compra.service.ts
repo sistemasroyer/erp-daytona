@@ -10,6 +10,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
+import { historialDocumento } from '../../common/utils/historial-documento.util';
 
 export class DetalleOrdenDto {
   @ApiProperty() @IsUUID() id_producto: string;
@@ -100,6 +101,14 @@ export class OrdenesCompraService {
     ]);
 
     return { data, total, page: pagination.page, limit: pagination.limit };
+  }
+
+  /** Detalle para pantalla: el documento + quién lo anuló/autorizó + historial de cambios. */
+  async findOneConHistorial(id: string) {
+    const orden = await this.findOne(id);
+    return { ...orden, ...(await historialDocumento(this.prisma, 'ordenes_compra', {
+      ...orden, anulado: orden.estado === 'anulado', motivo: null,
+    })) };
   }
 
   async findOne(id: string) {

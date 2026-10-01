@@ -90,7 +90,7 @@ export function ReportesPage() {
   const columnsAuditoria: ColumnsType<RegistroAuditoria> = [
     { title: 'Fecha/Hora', dataIndex: 'fecha', render: (v) => dayjs(v).format('DD/MM/YYYY HH:mm') },
     { title: 'Usuario', render: (_, a) => a.usuario ? `${a.usuario.nombre} ${a.usuario.apellido}` : '-' },
-    { title: 'Tabla', render: (_, a) => <code>{a.tabla}</code> },
+    { title: 'Módulo / acción', render: (_, a) => <code>{a.tabla}{a.accion ? ` / ${a.accion}` : ''}</code> },
     { title: 'Operación', render: (_, a) => <EstadoTag estado={a.operacion} colores={{ INSERT: 'success', DELETE: 'error', UPDATE: 'warning' }} /> },
     { title: 'Detalles', render: (_, a) => <Typography.Text type="secondary">{a.id_registro || '-'}</Typography.Text> },
   ];

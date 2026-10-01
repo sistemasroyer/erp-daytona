@@ -29,7 +29,7 @@ export class TomaInventarioController {
   @Get(':id')
   @Permisos('inventario:ver')
   obtener(@Param('id') id: string) {
-    return this.service.findOne(id);
+    return this.service.findOneConHistorial(id);
   }
 
   @Post(':id/items')

@@ -52,7 +52,7 @@ export class ComprasController {
   @Get(':id')
   @Permisos('compras:ver')
   findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+    return this.service.findOneConHistorial(id);
   }
 
   @Patch(':id/anular')
