@@ -152,6 +152,32 @@ npx ts-node -r tsconfig-paths/register prisma/seed.ts
 npx prisma studio  # abrir en navegador para inspeccionar (usar con SSH tunnel)
 ```
 
+### 6.1 Migrar los datos de letras-daytona (una sola vez)
+
+Pasa bancos, días de no pago, límites por día, proveedores (por RUC), paquetes, documentos y letras
+(con sus pagos) de la base MySQL de letras-daytona a MARTSOFT. Requiere las dependencias de desarrollo
+(`npm ci` sin `--omit=dev`) y un usuario de MySQL con permiso de lectura.
+
+```bash
+cd /var/www/martsoft/backend
+export LETRAS_DB_URL="mysql://usuario:clave@host:3306/base_de_letras"
+
+# 1) Simulación: muestra qué se migraría y los avisos, sin guardar nada
+npm run migrar:letras
+
+# 2) Si el resultado está bien, guardar
+npm run migrar:letras -- --aplicar
+```
+
+- Hacerlo **justo antes** de empezar a usar Letras en MARTSOFT, con letras-daytona ya sin uso.
+  Se puede re-ejecutar sin duplicar (cada fila guarda su id antiguo en `id_legacy`), pero una
+  re-ejecución pisa los cambios hechos en MARTSOFT a lo migrado.
+- Los usuarios de letras-daytona se enlazan por email con los de MARTSOFT (para "registrado por",
+  "aprobado por" y "pagado por"); si no hay coincidencia, ese dato queda vacío.
+- Los documentos se enlazan solos a la compra de MARTSOFT del mismo proveedor, serie y número,
+  si existe, para que no vuelvan a ofrecerse en otro paquete.
+- Antes, re-ejecutar el seed (es idempotente) para que existan los permisos `letras:*`.
+
 ---
 
 ## 7. Iniciar con PM2
