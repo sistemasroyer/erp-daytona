@@ -49,6 +49,9 @@ import { ImprimirPage } from '@/pages/ventas/ImprimirPage';
 import { NotaCreditoPage } from '@/pages/ventas/NotaCreditoPage';
 import { CotizacionesPage } from '@/pages/cotizaciones/CotizacionesPage';
 import { NuevaCotizacionPage } from '@/pages/cotizaciones/NuevaCotizacionPage';
+import { PaquetesLetrasPage } from '@/pages/letras/PaquetesLetrasPage';
+import { PaqueteLetrasDetallePage } from '@/pages/letras/PaqueteLetrasDetallePage';
+import { ConfiguracionLetrasPage } from '@/pages/letras/ConfiguracionLetrasPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -131,6 +134,12 @@ export default function App() {
 
                     <Route element={<RequirePermiso perm="inventario:editar" />}>
                       <Route path="/inventario/ajustes/nuevo" element={<AjusteNuevoPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermiso perm="letras:ver" />}>
+                      <Route path="/letras/paquetes" element={<PaquetesLetrasPage />} />
+                      <Route path="/letras/paquetes/:id" element={<PaqueteLetrasDetallePage />} />
+                      <Route path="/letras/configuracion" element={<ConfiguracionLetrasPage />} />
                     </Route>
 
                     <Route element={<RequirePermiso perm="ordenes_compra:ver" />}>

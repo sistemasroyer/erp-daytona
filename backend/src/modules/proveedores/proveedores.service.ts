@@ -3,7 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PeruApiService } from '../peru-api/peru-api.service';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, Min, Length } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, Min, Length, IsBoolean } from 'class-validator';
 import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateProveedorDto {
@@ -22,6 +22,8 @@ export class CreateProveedorDto {
   @IsOptional() @IsString() banco_detraccion?: string;
   @IsOptional() @IsNumber() @Min(0) porcentaje_detraccion?: number;
   @IsOptional() @IsNumber() @Min(0) dias_credito?: number;
+  /** Letras: el proveedor exige pago en una sola cuota. */
+  @IsOptional() @IsBoolean() letras_pago_unico?: boolean;
 }
 
 @Injectable()

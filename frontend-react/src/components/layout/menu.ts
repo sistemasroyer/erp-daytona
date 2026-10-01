@@ -56,6 +56,13 @@ export const MENU: MenuGroupDef[] = [
     ],
   },
   {
+    header: 'Letras',
+    items: [
+      { key: 'letras-paquetes', label: 'Paquetes de Letras', icon: 'ContainerOutlined', href: '/letras/paquetes', perm: 'letras:ver' },
+      { key: 'letras-configuracion', label: 'Configuración de Letras', icon: 'SettingOutlined', href: '/letras/configuracion', perm: 'letras:ver' },
+    ],
+  },
+  {
     header: 'Gastos',
     items: [
       { key: 'gastos', label: 'Gastos', icon: 'DollarOutlined', href: '/gastos', perm: 'gastos:ver' },

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 type Db = Pick<Prisma.TransactionClient, 'tbl_autorizaciones' | 'tbl_auditoria' | 'tbl_usuarios'>;
 
-export type RecursoHistorial = 'ventas' | 'compras' | 'gastos' | 'ordenes_compra' | 'toma_inventario';
+export type RecursoHistorial = 'ventas' | 'compras' | 'gastos' | 'ordenes_compra' | 'toma_inventario' | 'letras_paquetes';
 
 interface UsuarioResumen { nombre: string; apellido: string }
 

@@ -11,11 +11,21 @@ const ACCIONES: Record<string, string> = {
   pagar: 'Registró el pago',
   aprobar: 'Aprobó',
   finalizar: 'Finalizó',
+  // Letras
+  enviar: 'Envió a aprobación',
+  devolver: 'Devolvió a borrador',
+  reabrir: 'Reabrió el paquete',
+  cancelar: 'Canceló',
+  'importar-compras': 'Agregó documentos desde Compras',
+  generar: 'Generó las letras',
 };
 
 function describir(e: EventoHistorial) {
-  if (e.accion === 'items') return e.operacion === 'DELETE' ? 'Quitó un producto del conteo' : 'Registró un conteo';
-  if (e.accion && ACCIONES[e.accion]) return ACCIONES[e.accion];
+  // Las rutas anidadas llegan como "paquetes/aprobar": cuenta el último tramo.
+  const accion = e.accion?.split('/').pop() ?? null;
+  if (accion === 'items') return e.operacion === 'DELETE' ? 'Quitó un producto del conteo' : 'Registró un conteo';
+  if (accion === 'documentos') return e.operacion === 'DELETE' ? 'Quitó un documento' : e.operacion === 'UPDATE' ? 'Modificó un documento' : 'Agregó un documento';
+  if (accion && ACCIONES[accion]) return ACCIONES[accion];
   if (e.operacion === 'INSERT') return 'Registró el documento';
   if (e.operacion === 'DELETE') return 'Eliminó';
   return 'Modificó';

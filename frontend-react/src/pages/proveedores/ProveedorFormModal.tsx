@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { App, Modal, Form, Input, InputNumber, Button } from 'antd';
+import { App, Modal, Form, Input, InputNumber, Button, Switch } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { proveedoresApi } from '@/api/proveedores';
 import { ApiError } from '@/api/types';
@@ -20,12 +20,13 @@ const schema = z.object({
   cuenta_detraccion: z.string().optional(),
   direccion: z.string().optional(),
   dias_credito: z.number().min(0).optional(),
+  letras_pago_unico: z.boolean().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 
 const VACIO: FormValues = {
   ruc: '', razon_social: '', nombre_comercial: '', contacto: '',
-  email: '', telefono: '', cuenta_detraccion: '', direccion: '', dias_credito: 0,
+  email: '', telefono: '', cuenta_detraccion: '', direccion: '', dias_credito: 0, letras_pago_unico: false,
 };
 
 interface Props {
@@ -56,6 +57,7 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
       cuenta_detraccion: proveedor.cuenta_detraccion || '',
       direccion: proveedor.direccion || '',
       dias_credito: proveedor.dias_credito || 0,
+      letras_pago_unico: proveedor.letras_pago_unico ?? false,
     } : VACIO);
   }, [open, proveedor, reset]);
 
@@ -158,6 +160,11 @@ export function ProveedorFormModal({ open, proveedor, onClose, onSaved }: Props)
           <Form.Item label="Días de crédito">
             <Controller name="dias_credito" control={control} render={({ field }) => (
               <InputNumber {...field} min={0} style={{ width: '100%' }} />
+            )} />
+          </Form.Item>
+          <Form.Item label="Letras: pago único" help="Exige pagar sus paquetes en una sola cuota">
+            <Controller name="letras_pago_unico" control={control} render={({ field }) => (
+              <Switch checked={!!field.value} onChange={field.onChange} />
             )} />
           </Form.Item>
         </div>

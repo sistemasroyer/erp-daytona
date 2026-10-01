@@ -184,7 +184,7 @@ export function GastoFormModal({ open, inicial, onClose, onSaved }: Props) {
       if (data.moneda === 'PEN' || data.moneda === 'USD') setMoneda(data.moneda);
 
       if (data.proveedor.encontrado) {
-        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true });
+        setProveedor({ id: data.proveedor.id, ruc: data.proveedor.ruc, razon_social: data.proveedor.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true });
         setProveedorTexto(data.proveedor.razon_social);
       } else {
         setProveedor(null);

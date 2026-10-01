@@ -175,7 +175,7 @@ export function CompraDetalleModal({ id, onClose, onCambiado }: Props) {
           categoria: 'flete',
           compra: { id: compra.id, label: numero || compra.numero_interno },
           proveedor: compra.proveedor_flete
-            ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, estado: true }
+            ? { id: compra.proveedor_flete.id, ruc: compra.proveedor_flete.ruc, razon_social: compra.proveedor_flete.razon_social, nombre_comercial: null, direccion: null, email: null, telefono: null, contacto: null, cuenta_detraccion: null, dias_credito: 0, letras_pago_unico: false, estado: true }
             : undefined,
           descripcionLinea: 'Flete',
           montoLinea: Number(compra.flete_monto),
