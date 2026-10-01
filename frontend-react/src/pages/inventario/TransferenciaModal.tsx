@@ -8,6 +8,7 @@ import type { Almacen } from '@/types/almacen';
 import type { Producto } from '@/types/producto';
 import { useBorradorConLista } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 interface BorradorTransferencia {
   producto: Producto | null;
@@ -90,7 +91,8 @@ export function TransferenciaModal({ open, almacenes, onClose, onSaved }: Props)
             placeholder="Buscar por código o nombre..."
             buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
             getLabel={(p) => p.nombre}
-            renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+            renderOpcion={(p) => <OpcionProducto producto={p} />}
+            anchoMinimo={420}
             onSelect={setProducto}
           />
           {producto && <Typography.Text type="success" style={{ fontSize: 12 }}>✓ {producto.codigo} — {producto.nombre}</Typography.Text>}

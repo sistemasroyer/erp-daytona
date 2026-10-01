@@ -13,6 +13,7 @@ import { useBorrador, listarBorradores, descartarBorrador, type BorradorGuardado
 import { BorradorBanner } from '@/components/BorradorBanner';
 import type { Proveedor } from '@/types/proveedor';
 import type { Producto } from '@/types/producto';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 interface ItemOrden {
   producto: Producto;
@@ -171,7 +172,8 @@ export function OrdenNuevaModal({ open, onClose, onSaved }: Props) {
             placeholder="Buscar por código o nombre..."
             buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
             getLabel={() => ''}
-            renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+            renderOpcion={(p) => <OpcionProducto producto={p} agregar mostrarCosto />}
+            anchoMinimo={480}
             onSelect={agregarItem}
           />
         </div>

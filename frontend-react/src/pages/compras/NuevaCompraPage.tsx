@@ -20,6 +20,7 @@ import type { DetalleImportadoXml } from '@/types/compra';
 import type { Gasto } from '@/types/gasto';
 import type { CodigoProveedor } from '@/types/producto';
 import { useTasaIgv, formatPorcentajeIgv } from '@/hooks/useTasaIgv';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 function labelGastoFlete(g: Gasto) {
   return `${g.numero_interno} — ${g.razon_social_emisor} (${formatMoneda(g.total, g.moneda)})`;
@@ -558,18 +559,19 @@ export function NuevaCompraPage() {
                   size="small" value={modoIngreso} onChange={setModoIngreso} style={{ width: 160 }}
                   options={(Object.keys(MODO_INFO) as ModoIngreso[]).map((m) => ({ value: m, label: MODO_INFO[m].label(simb) }))}
                 />
-                <div style={{ minWidth: 260 }}>
-                  <Autocomplete<import('@/types/producto').Producto>
-                    placeholder="Agregar producto..."
-                    buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
-                    getLabel={() => ''}
-                    renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
-                    onSelect={agregarProducto}
-                  />
-                </div>
               </Space>
             }
           >
+            <div style={{ marginBottom: 12 }}>
+              <Autocomplete<import('@/types/producto').Producto>
+                placeholder="Buscar producto por código o nombre para agregarlo..."
+                buscar={async (q) => (await productosApi.listar({ search: q, limit: 10 })).data}
+                getLabel={() => ''}
+                renderOpcion={(p) => <OpcionProducto producto={p} agregar mostrarCosto />}
+                onSelect={agregarProducto}
+                anchoMinimo={520}
+              />
+            </div>
 
             {items.length === 0 ? <Empty description="Agregue los productos de la factura" /> : items.map((item, idx) => {
               const costoUnit = getCostoUnitarioSinIgv(item, modoIngreso, factorIgv);

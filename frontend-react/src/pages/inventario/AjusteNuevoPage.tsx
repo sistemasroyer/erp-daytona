@@ -13,6 +13,7 @@ import { useBorradorConLista } from '@/hooks/useBorrador';
 import { BorradorBanner } from '@/components/BorradorBanner';
 import { MOTIVO_AJUSTE_LABEL, type MotivoAjusteInventario } from '@/types/ajuste-inventario';
 import type { Producto } from '@/types/producto';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 interface ItemAjuste {
   producto: Producto;
@@ -128,7 +129,8 @@ export function AjusteNuevoPage() {
                 placeholder="Buscar por código o nombre..."
                 buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
                 getLabel={() => ''}
-                renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+                renderOpcion={(p) => <OpcionProducto producto={p} agregar />}
+                anchoMinimo={480}
                 onSelect={agregarItem}
               />
             </div>

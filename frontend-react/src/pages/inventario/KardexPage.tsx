@@ -15,6 +15,7 @@ import type { Producto } from '@/types/producto';
 import { VentaDetalleModal } from '@/pages/ventas/VentaDetalleModal';
 import { CompraDetalleModal } from '@/pages/compras/CompraDetalleModal';
 import { AjusteDetalleModal } from './AjusteDetalleModal';
+import { OpcionProducto } from '@/components/OpcionProducto';
 
 export function KardexPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -137,7 +138,8 @@ export function KardexPage() {
               placeholder="Buscar por código o nombre..."
               buscar={async (q) => (await productosApi.listar({ search: q, limit: 8 })).data}
               getLabel={() => ''}
-              renderOpcion={(p) => <><strong>{p.codigo}</strong> — {p.nombre}</>}
+              renderOpcion={(p) => <OpcionProducto producto={p} />}
+              anchoMinimo={480}
               onSelect={seleccionarProducto}
             />
           </Col>
