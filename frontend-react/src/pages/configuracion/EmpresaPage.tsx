@@ -181,12 +181,12 @@ export function EmpresaPage() {
                 </Col>
                 <Col span={12}>
                   <Form.Item label="Email" name="email" rules={[{ type: 'email', message: 'Email inválido' }]}>
-                    <Input />
+                    <Input className="no-mayus" />
                   </Form.Item>
                 </Col>
                 <Col span={24}>
                   <Form.Item label="Sitio web" name="web">
-                    <Input />
+                    <Input className="no-mayus" />
                   </Form.Item>
                 </Col>
               </Row>

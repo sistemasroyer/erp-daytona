@@ -6,6 +6,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { redondear2 } from '../../common/utils/numero-documento.util';
 import { finDeDia } from '../../common/utils/fecha.util';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class AbrirCajaDto {
   @IsString() @IsNotEmpty() id_caja: string;
@@ -106,6 +107,7 @@ export class CajaService {
   }
 
   async cerrarCaja(idApertura: string, dto: CerrarCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = aMayusculas(dto, ['observaciones']);
     const detalle = this.prepararConteo(dto.detalle);
     const montoContado = redondear2(detalle.reduce((acc, d) => acc + d.subtotal, 0));
     return this.prisma.$transaction(async (tx) => {
@@ -165,6 +167,7 @@ export class CajaService {
   private static readonly DENOMINACIONES_VALIDAS = new Set([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200]);
 
   async registrarArqueo(idApertura: string, dto: ArqueoCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = aMayusculas(dto, ['observaciones']);
     const apertura = await this.prisma.tbl_cajas_aperturas.findFirst({
       where: { id: idApertura, estado: 'abierta', eliminado: false },
       include: { caja: { select: { id_punto_venta: true } } },
@@ -216,6 +219,7 @@ export class CajaService {
   }
 
   async registrarMovimiento(idApertura: string, dto: MovimientoCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = aMayusculas(dto, ['concepto']);
     const apertura = await this.prisma.tbl_cajas_aperturas.findFirst({
       where: { id: idApertura, estado: 'abierta', eliminado: false },
       include: { caja: { select: { id_punto_venta: true } } },
@@ -339,6 +343,7 @@ export class CajaService {
   }
 
   async createCaja(dto: CreateCajaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     if (!esSuperadmin && idPuntoVenta && dto.id_punto_venta !== idPuntoVenta) {
       throw new ForbiddenException('No puede crear una caja para otro punto de venta');
     }

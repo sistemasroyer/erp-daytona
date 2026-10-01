@@ -166,7 +166,7 @@ export function UsuarioFormModal({ open, usuario, onClose, onSaved }: Props) {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Email" validateStatus={errors.email ? 'error' : ''} help={errors.email?.message}>
-                <Controller name="email" control={control} render={({ field }) => <Input {...field} />} />
+                <Controller name="email" control={control} render={({ field }) => <Input {...field} className="no-mayus" />} />
               </Form.Item>
             </Col>
             <Col span={12}>

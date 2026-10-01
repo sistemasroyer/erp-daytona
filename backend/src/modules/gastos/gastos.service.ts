@@ -10,6 +10,7 @@ import { generarNumeroInterno, redondear2 } from '../../common/utils/numero-docu
 import { obtenerTasaIgv } from '../../common/utils/igv.util';
 import { finDeDia } from '../../common/utils/fecha.util';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
 
 const INCLUDE_DETALLE = {
@@ -40,6 +41,7 @@ export class GastosService {
   }
 
   async create(dto: CreateGastoDto, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['serie', 'observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
       where: { id: dto.id_proveedor, eliminado: false },
     });
@@ -221,7 +223,7 @@ export class GastosService {
           pagado: true,
           fecha_pago: new Date(),
           id_metodo_pago: dto.id_metodo_pago,
-          referencia_pago: dto.referencia,
+          referencia_pago: mayus(dto.referencia),
           usuario_modificacion: usuarioId,
         },
       });

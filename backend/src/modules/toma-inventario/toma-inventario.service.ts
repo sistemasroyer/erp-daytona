@@ -6,6 +6,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
 import { AgregarItemTomaDto } from './dto/agregar-item-toma.dto';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { mayus } from '../../common/utils/texto.util';
 
 const INCLUDE_CABECERA = {
   almacen: { select: { nombre: true } },
@@ -91,7 +92,7 @@ export class TomaInventarioService {
 
     const stockSistema = Number(producto.stock_actual);
     const diferencia = dto.cantidad_contada - stockSistema;
-    const observaciones = dto.observaciones?.trim() || null;
+    const observaciones = mayus(dto.observaciones?.trim()) || null;
 
     await this.prisma.tbl_detalle_tomas_inventario.upsert({
       where: { id_toma_id_producto: { id_toma: toma.id, id_producto: dto.id_producto } },

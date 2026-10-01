@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 const USUARIO_SELECT_SEGURO = {
   id: true,
@@ -28,6 +29,7 @@ export class UsuariosService {
   ) {}
 
   async create(dto: CreateUsuarioDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'apellido']);
     const existente = await this.prisma.tbl_usuarios.findFirst({
       where: { email: dto.email, eliminado: false },
     });
@@ -138,6 +140,7 @@ export class UsuariosService {
   }
 
   async update(id: string, dto: Partial<CreateUsuarioDto>, modificadorId: string, modificadorEsSuperadmin?: boolean) {
+    dto = aMayusculas(dto, ['nombre', 'apellido']);
     await this.findOne(id);
 
     const data: any = {

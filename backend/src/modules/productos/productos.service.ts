@@ -6,14 +6,16 @@ import { AgregarCodigoProveedorDto } from './dto/agregar-codigo-proveedor.dto';
 import { redondear4 } from '../../common/utils/numero-documento.util';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
 import { obtenerTasaIgv } from '../../common/utils/igv.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
 @Injectable()
 export class ProductosService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateProductoDto, creadorId: string) {
+    dto = aMayusculas(dto, ['codigo', 'codigo_barras', 'nombre', 'descripcion', 'ubicacion']);
     const existente = await this.prisma.tbl_productos.findFirst({
-      where: { codigo: dto.codigo, eliminado: false },
+      where: { codigo: { equals: dto.codigo, mode: 'insensitive' }, eliminado: false },
     });
     if (existente) throw new ConflictException('Ya existe un producto con ese código');
 
@@ -66,7 +68,7 @@ export class ProductosService {
             ? {
                 create: dto.codigos_proveedor.map((c) => ({
                   id_proveedor: c.id_proveedor,
-                  codigo_alterno: c.codigo_alterno,
+                  codigo_alterno: mayus(c.codigo_alterno),
                 })),
               }
             : undefined,
@@ -155,6 +157,7 @@ export class ProductosService {
   }
 
   async update(id: string, dto: Partial<CreateProductoDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['codigo', 'codigo_barras', 'nombre', 'descripcion', 'ubicacion']);
     const producto = await this.findOne(id);
 
     if (dto.codigos_proveedor?.length) {
@@ -183,7 +186,7 @@ export class ProductosService {
         deleteMany: {},
         create: dto.codigos_proveedor.map((c) => ({
           id_proveedor: c.id_proveedor,
-          codigo_alterno: c.codigo_alterno,
+          codigo_alterno: mayus(c.codigo_alterno),
         })),
       };
     }
@@ -231,8 +234,8 @@ export class ProductosService {
 
     return this.prisma.tbl_producto_codigos_proveedor.upsert({
       where: { id_producto_id_proveedor: { id_producto: idProducto, id_proveedor: dto.id_proveedor } },
-      update: { codigo_alterno: dto.codigo_alterno },
-      create: { id_producto: idProducto, id_proveedor: dto.id_proveedor, codigo_alterno: dto.codigo_alterno },
+      update: { codigo_alterno: mayus(dto.codigo_alterno) },
+      create: { id_producto: idProducto, id_proveedor: dto.id_proveedor, codigo_alterno: mayus(dto.codigo_alterno) },
       include: { proveedor: { select: { id: true, razon_social: true } } },
     });
   }

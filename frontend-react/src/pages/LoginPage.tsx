@@ -66,7 +66,7 @@ export function LoginPage() {
             <Controller
               name="email"
               control={control}
-              render={({ field }) => <Input {...field} prefix={<UserOutlined />} placeholder="usuario@empresa.pe" autoFocus />}
+              render={({ field }) => <Input {...field} className="no-mayus" prefix={<UserOutlined />} placeholder="usuario@empresa.pe" autoFocus />}
             />
           </Form.Item>
 

@@ -11,7 +11,8 @@ export class DocumentoAprobacionDto {
 export class SolicitarAprobacionDto extends DocumentoAprobacionDto {
   @IsUUID() id_aprobador: string;
   @IsString() @Matches(/^\d{6,8}$/) pin: string;
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  // Motivo en MAYÚSCULAS como todo texto libre; se aplica igual al solicitar y al consumir la aprobación.
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLocaleUpperCase('es-PE') : value)
   @IsString() @MinLength(3) @MaxLength(500) motivo: string;
 }
 export class ConfigurarPinDto {
@@ -23,6 +24,7 @@ export class DesactivarPinDto {
 }
 export class AnulacionAprobadaDto {
   @IsString() @Matches(/^[a-f0-9]{64}$/) autorizacion: string;
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  // Motivo en MAYÚSCULAS como todo texto libre; se aplica igual al solicitar y al consumir la aprobación.
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLocaleUpperCase('es-PE') : value)
   @IsString() @MinLength(3) @MaxLength(500) motivo: string;
 }

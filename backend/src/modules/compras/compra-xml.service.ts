@@ -114,14 +114,15 @@ export class CompraXmlService {
 
     if (idProveedor) {
       const codigoAlterno = await this.prisma.tbl_producto_codigos_proveedor.findFirst({
-        where: { id_proveedor: idProveedor, codigo_alterno: codigoProveedor },
+        // Sin distinguir mayúsculas: los códigos nuevos se guardan en MAYÚSCULAS y los del XML pueden venir en minúsculas.
+        where: { id_proveedor: idProveedor, codigo_alterno: { equals: codigoProveedor, mode: 'insensitive' } },
         include: { producto: { include: { unidad_medida: true } } },
       });
       if (codigoAlterno) return codigoAlterno.producto;
     }
 
     return this.prisma.tbl_productos.findFirst({
-      where: { codigo: codigoProveedor, eliminado: false },
+      where: { codigo: { equals: codigoProveedor, mode: 'insensitive' }, eliminado: false },
       include: { unidad_medida: true },
     });
   }

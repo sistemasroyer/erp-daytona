@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { InventarioRepository } from '../inventario/inventario.repository';
 import { redondear4 } from '../../common/utils/numero-documento.util';
 import { obtenerTasaIgv } from '../../common/utils/igv.util';
+import { mayus } from '../../common/utils/texto.util';
 
 const TIPOS_EXISTENCIA = [
   { value: '01', label: '01 – Mercadería' },
@@ -290,7 +291,7 @@ export class ProductoImportacionService {
         if (categoriaTxt) {
           idCategoria = mapCategorias.get(categoriaTxt.toLowerCase());
           if (!idCategoria) {
-            const nueva = await this.prisma.tbl_categorias.create({ data: { nombre: categoriaTxt, usuario_creacion: usuarioId } });
+            const nueva = await this.prisma.tbl_categorias.create({ data: { nombre: mayus(categoriaTxt), usuario_creacion: usuarioId } });
             idCategoria = nueva.id;
             mapCategorias.set(categoriaTxt.toLowerCase(), idCategoria);
           }
@@ -301,7 +302,7 @@ export class ProductoImportacionService {
         if (marcaTxt) {
           idMarca = mapMarcas.get(marcaTxt.toLowerCase());
           if (!idMarca) {
-            const nueva = await this.prisma.tbl_marcas.create({ data: { nombre: marcaTxt, usuario_creacion: usuarioId } });
+            const nueva = await this.prisma.tbl_marcas.create({ data: { nombre: mayus(marcaTxt), usuario_creacion: usuarioId } });
             idMarca = nueva.id;
             mapMarcas.set(marcaTxt.toLowerCase(), idMarca);
           }
@@ -344,15 +345,15 @@ export class ProductoImportacionService {
           async (tx) => {
             const producto = await tx.tbl_productos.create({
               data: {
-                codigo,
-                nombre,
-                codigo_barras: codigoBarras || undefined,
+                codigo: mayus(codigo),
+                nombre: mayus(nombre),
+                codigo_barras: mayus(codigoBarras) || undefined,
                 codigo_sunat: codigoSunat || undefined,
-                descripcion: descripcion || undefined,
+                descripcion: mayus(descripcion) || undefined,
                 id_categoria: idCategoria,
                 id_marca: idMarca,
                 id_unidad_medida: idUnidad,
-                ubicacion: ubicacion || undefined,
+                ubicacion: mayus(ubicacion) || undefined,
                 tipo_existencia: tipoExistencia,
                 afecta_igv: afectaIgv,
                 stock_minimo: stockMinimo,

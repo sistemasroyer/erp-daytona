@@ -59,7 +59,7 @@ export function RolFormModal({ open, rol, onClose, onSaved }: Props) {
       cancelText="Cancelar"
       destroyOnHidden
     >
-      <Form layout="vertical">
+      <Form layout="vertical" className="no-mayus">
         <Form.Item label="Nombre" validateStatus={errors.nombre ? 'error' : ''} help={errors.nombre?.message}>
           <Controller name="nombre" control={control} render={({ field }) => <Input {...field} autoFocus />} />
         </Form.Item>

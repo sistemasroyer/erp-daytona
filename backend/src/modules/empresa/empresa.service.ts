@@ -3,6 +3,7 @@ import {
   IsString, IsOptional, IsEmail, IsNumber, Min, Max,
 } from 'class-validator';
 import { PrismaService } from '../../database/prisma.service';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class UpdateEmpresaDto {
   @IsOptional() @IsString() razon_social?: string;
@@ -32,6 +33,7 @@ export class EmpresaService {
   }
 
   async actualizar(dto: UpdateEmpresaDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['razon_social', 'nombre_comercial', 'direccion', 'departamento', 'provincia', 'distrito', 'regimen_tributario']);
     const empresa = await this.obtener();
     return this.prisma.tbl_empresas.update({
       where: { id: empresa.id },

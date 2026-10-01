@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { IsString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateCategoriaDto {
   @IsString() @IsNotEmpty() nombre: string;
@@ -19,6 +20,7 @@ export class CategoriasService {
   constructor(private prisma: PrismaService) {}
 
   async createCategoria(dto: CreateCategoriaDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const existente = await this.prisma.tbl_categorias.findFirst({
       where: { nombre: dto.nombre, eliminado: false },
     });
@@ -53,6 +55,7 @@ export class CategoriasService {
   }
 
   async updateCategoria(id: string, dto: Partial<CreateCategoriaDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const cat = await this.prisma.tbl_categorias.findFirst({ where: { id, eliminado: false } });
     if (!cat) throw new NotFoundException('Categoría no encontrada');
 
@@ -73,6 +76,7 @@ export class CategoriasService {
   }
 
   async createSubcategoria(dto: CreateSubcategoriaDto, creadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const categoria = await this.prisma.tbl_categorias.findFirst({
       where: { id: dto.id_categoria, eliminado: false },
     });
@@ -91,6 +95,7 @@ export class CategoriasService {
   }
 
   async updateSubcategoria(id: string, dto: Partial<CreateSubcategoriaDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['nombre', 'descripcion']);
     const sub = await this.prisma.tbl_subcategorias.findFirst({ where: { id, eliminado: false } });
     if (!sub) throw new NotFoundException('Subcategoría no encontrada');
 

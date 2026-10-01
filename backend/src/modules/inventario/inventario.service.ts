@@ -7,6 +7,7 @@ import { finDeDia } from '../../common/utils/fecha.util';
 import { generarNumeroInterno } from '../../common/utils/numero-documento.util';
 import { CreateAjusteInventarioDto, MOTIVO_AJUSTE_LABEL } from './dto/ajuste-inventario.dto';
 import { Prisma } from '@prisma/client';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class InicializarStockDto {
   @IsString() @IsNotEmpty() id_producto: string;
@@ -88,6 +89,7 @@ export class InventarioService {
   }
 
   async crearAjuste(dto: CreateAjusteInventarioDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['observaciones']);
     const almacen = await this.prisma.tbl_almacenes.findFirst({
       where: { id: dto.id_almacen, eliminado: false },
     });
@@ -211,6 +213,7 @@ export class InventarioService {
   }
 
   async transferir(dto: TransferenciaInventarioDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['motivo']);
     if (dto.id_almacen_origen === dto.id_almacen_destino) {
       throw new BadRequestException('El almacén de origen y destino no pueden ser el mismo');
     }

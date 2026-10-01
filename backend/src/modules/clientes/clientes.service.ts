@@ -4,6 +4,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PeruApiService } from '../peru-api/peru-api.service';
 import { relanzarSiEsDuplicado } from '../../common/utils/prisma-errors.util';
 import { IsString, IsNotEmpty, IsOptional, IsEmail, IsNumber, IsEnum, Min } from 'class-validator';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 export class CreateClienteDto {
   @IsEnum(['DNI', 'RUC', 'CE', 'PASAPORTE']) tipo_documento: 'DNI' | 'RUC' | 'CE' | 'PASAPORTE';
@@ -29,6 +30,7 @@ export class ClientesService {
   ) {}
 
   async create(dto: CreateClienteDto, creadorId: string) {
+    dto = aMayusculas(dto, ['numero_documento', 'razon_social', 'nombre_comercial', 'direccion', 'departamento', 'provincia', 'distrito']);
     const existente = await this.prisma.tbl_clientes.findFirst({
       where: {
         tipo_documento: dto.tipo_documento as any,
@@ -102,6 +104,7 @@ export class ClientesService {
   }
 
   async update(id: string, dto: Partial<CreateClienteDto>, modificadorId: string) {
+    dto = aMayusculas(dto, ['numero_documento', 'razon_social', 'nombre_comercial', 'direccion', 'departamento', 'provincia', 'distrito']);
     await this.findOne(id);
 
     return this.prisma.tbl_clientes.update({

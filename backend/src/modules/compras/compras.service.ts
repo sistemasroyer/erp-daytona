@@ -13,6 +13,7 @@ import { finDeDia } from '../../common/utils/fecha.util';
 import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas } from '../../common/utils/texto.util';
 
 @Injectable()
 export class ComprasService {
@@ -25,6 +26,7 @@ export class ComprasService {
   ) {}
 
   async create(dto: CreateCompraDto, usuarioId: string) {
+    dto = { ...aMayusculas(dto, ['serie', 'observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     const proveedor = await this.prisma.tbl_proveedores.findFirst({
       where: { id: dto.id_proveedor, eliminado: false },
     });
@@ -362,6 +364,7 @@ export class ComprasService {
   }
 
   async crearNotaCreditoCompra(idCompraOriginal: string, dto: CreateNotaCreditoCompraDto, usuarioId: string) {
+    dto = aMayusculas(dto, ['serie', 'motivo']);
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_compras.findFirst({
         where: { id: idCompraOriginal, eliminado: false },

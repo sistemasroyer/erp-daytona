@@ -21,6 +21,7 @@ import {
 import { obtenerPorcentajeIgv } from '../../common/utils/igv.util';
 import { Prisma } from '@prisma/client';
 import { historialDocumento } from '../../common/utils/historial-documento.util';
+import { aMayusculas, mayus } from '../../common/utils/texto.util';
 
 @Injectable()
 export class VentasService {
@@ -66,6 +67,7 @@ export class VentasService {
   }
 
   async create(dto: CreateVentaDto, usuarioId: string, idPuntoVenta?: string, esSuperadmin?: boolean) {
+    dto = { ...aMayusculas(dto, ['observaciones']), detalle: dto.detalle?.map((d) => aMayusculas(d, ['descripcion'])) };
     return this.prisma.$transaction(async (tx) => {
       // 1. Validar y obtener serie → bloquear para correlativo único
       const series = await tx.$queryRaw<any[]>`
@@ -246,7 +248,7 @@ export class VentasService {
             id_venta: venta.id,
             id_metodo_pago: p.id_metodo_pago,
             monto: p.monto,
-            referencia: p.referencia,
+            referencia: mayus(p.referencia),
             fecha: new Date(),
           })),
         });
@@ -628,7 +630,7 @@ export class VentasService {
             id_venta: nueva.id,
             id_metodo_pago: p.id_metodo_pago,
             monto: p.monto,
-            referencia: p.referencia,
+            referencia: mayus(p.referencia),
             fecha: new Date(),
           })),
         });
@@ -702,6 +704,7 @@ export class VentasService {
     idPuntoVenta?: string,
     esSuperadmin?: boolean,
   ) {
+    dto = aMayusculas(dto, ['motivo']);
     return this.prisma.$transaction(async (tx) => {
       const original = await tx.tbl_ventas.findFirst({
         where: { id: idVentaOriginal, eliminado: false },
